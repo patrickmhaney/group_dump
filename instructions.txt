@@ -1,0 +1,48 @@
+Backend (Python/FastAPI)
+
+- Authentication system with JWT tokens for user registration/login
+- Database models for users, groups, companies, rentals, and group membership
+- REST API endpoints for all core functionality
+- SQLite database with automatic table creation
+- CORS middleware for frontend integration
+
+Frontend (React/TypeScript)
+
+- Authentication flow with login/register pages
+- Dashboard showing user stats and recent activity
+- Groups page for creating/joining neighbor groups
+- Companies page for browsing/registering dumpster rental companies
+- Responsive design with basic CSS styling
+- Protected routes requiring authentication
+
+Key Features Implemented
+
+✅ User registration and JWT authentication
+✅ Create and join neighbor groups by location
+✅ Company directory with registration
+✅ Group membership management
+✅ Basic rental booking system
+✅ User dashboard with statistics
+✅ Responsive web interface
+
+File Structure
+
+├── main.py (FastAPI backend)
+├── requirements.txt (Python dependencies)
+├── package.json (Node.js dependencies)
+├── .env (environment variables)
+├── README.md (setup instructions)
+├── public/index.html
+└── src/
+    ├── App.tsx (main React app)
+    ├── index.tsx & index.css
+    └── components/
+        ├── Login.tsx
+        ├── Register.tsx
+        ├── Dashboard.tsx
+        ├── Groups.tsx
+        └── Companies.tsx
+
+To run the application:
+1. Backend: pip install -r requirements.txt then uvicorn main:app --reload
+2. Frontend: npm install then npm start

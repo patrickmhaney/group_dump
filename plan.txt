@@ -1,0 +1,103 @@
+# Dumpster Rental Sharing Webapp Plan
+
+## Core User Personas & User Flows
+
+**Primary Users:**
+- **Homeowners/Renters**: Need dumpsters for cleanouts, renovations, moving
+- **Neighbors**: Want to split costs and coordinate timing
+- **Dumpster Companies**: Local businesses seeking customers
+
+**User Flows:**
+1. **Group Formation**: Create/join groups → Set location/timing → Invite neighbors
+2. **Rental Process**: Browse companies → Get quotes → Book & pay → Schedule delivery
+3. **Company Onboarding**: Register business → Set service areas → Manage bookings
+
+## Technical Architecture & Tech Stack
+
+**Frontend:**
+- React/Next.js for responsive web app
+- TypeScript for type safety
+- Tailwind CSS for styling
+- Maps integration (Google Maps API)
+
+**Backend:**
+- Node.js/Express or Python/FastAPI
+- PostgreSQL database
+- Redis for caching/sessions
+- AWS/Vercel for hosting
+
+**Key Integrations:**
+- Payment processing (Stripe)
+- SMS/Email notifications (Twilio/SendGrid)
+- Address validation APIs
+
+## Database Schema
+
+**Core Tables:**
+- `users` (id, email, name, phone, address, created_at)
+- `groups` (id, name, address, max_participants, status, created_by, target_date)
+- `group_members` (group_id, user_id, joined_at, contribution_amount)
+- `companies` (id, name, contact_info, service_areas, pricing_tiers, commission_rate)
+- `rentals` (id, group_id, company_id, size, duration, total_cost, delivery_date, status)
+- `referrals` (id, company_id, referrer_id, commission_amount, status)
+
+## Core Features & MVP Scope
+
+**MVP Features:**
+- User registration/authentication
+- Create/join neighbor groups by location
+- Invite system (email/SMS)
+- Company directory with ratings
+- Basic booking and payment splitting
+- Simple messaging within groups
+
+**Phase 2 Features:**
+- Advanced scheduling coordination
+- Company dashboard for managing bookings
+- Referral tracking system
+- Mobile app
+- Integration with company booking systems
+
+## Business Model & Monetization
+
+**Revenue Streams:**
+1. **Commission from companies**: 5-10% of rental value
+2. **Referral fees**: Fixed fee per successful booking ($10-25)
+3. **Premium features**: Advanced scheduling, priority support ($5/month)
+4. **Service fees**: Small transaction fee on split payments (2-3%)
+
+**Company Partnership Model:**
+- Free onboarding for companies
+- Commission-based pricing (no upfront costs)
+- Performance analytics dashboard
+- Lead generation tools
+
+## Marketing & Growth Strategy
+
+**Launch Strategy:**
+- Target suburban neighborhoods with active social media groups
+- Partner with local hardware stores and home improvement contractors
+- Facebook/Instagram ads targeting homeowners planning renovations
+- Nextdoor community partnerships
+
+**Growth Tactics:**
+- Referral program for users who form successful groups
+- Local SEO optimization for "dumpster rental [city]"
+- Content marketing (home renovation guides, cost-saving tips)
+- Partnership with real estate agents and property managers
+
+## Legal & Compliance Requirements
+
+**Key Considerations:**
+- Payment processing compliance (PCI DSS)
+- Data privacy regulations (GDPR, CCPA)
+- Terms of service for liability limitation
+- Insurance requirements for groups
+- Local permit/licensing requirements for waste disposal
+- Consumer protection laws for shared payments
+
+**Risk Mitigation:**
+- Clear liability agreements between neighbors
+- Insurance partnerships or requirements
+- Dispute resolution process
+- Verification of company licenses/permits
