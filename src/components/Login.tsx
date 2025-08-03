@@ -1,7 +1,7 @@
 import React, { useState, useContext } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-import { AuthContext } from '../App';
+import { AuthContext } from '../App.tsx';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
