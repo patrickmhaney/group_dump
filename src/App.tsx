@@ -65,16 +65,6 @@ function App() {
     <AuthContext.Provider value={{ user, token, login, logout }}>
       <Router>
         <div className="App">
-          {/* Commented out user check for navigation - remove comments to re-enable authentication */}
-          <nav className="nav">
-            <Link to="/dashboard">Dashboard</Link>
-            <Link to="/groups">Groups</Link>
-            <Link to="/companies">Companies</Link>
-            {/* <button className="button button-secondary" onClick={logout} style={{float: 'right'}}>
-              Logout ({user.name})
-            </button> */}
-          </nav>
-          {/* Original authenticated navigation:
           {user && (
             <nav className="nav">
               <Link to="/dashboard">Dashboard</Link>
@@ -85,25 +75,15 @@ function App() {
               </button>
             </nav>
           )}
-          */}
           
           <div className="container">
             <Routes>
-              {/* Commented out login requirements - remove comments to re-enable authentication */}
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/groups" element={<Groups />} />
-              <Route path="/companies" element={<Companies />} />
-              <Route path="/" element={<Navigate to="/dashboard" />} />
-              {/* Original authenticated routes:
               <Route path="/login" element={!user ? <Login /> : <Navigate to="/dashboard" />} />
               <Route path="/register" element={!user ? <Register /> : <Navigate to="/dashboard" />} />
               <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" />} />
               <Route path="/groups" element={user ? <Groups /> : <Navigate to="/login" />} />
               <Route path="/companies" element={user ? <Companies /> : <Navigate to="/login" />} />
-              <Route path="/" element={<Navigate to={user ? "/dashboard" : "/login" />} />
-              */}
+              <Route path="/" element={<Navigate to={user ? "/dashboard" : "/login"} />} />
             </Routes>
           </div>
         </div>
