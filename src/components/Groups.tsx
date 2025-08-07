@@ -11,6 +11,19 @@ interface Group {
   created_by: number;
   created_at: string;
   time_slots?: TimeSlot[];
+  vendor_id?: number;
+  vendor_name?: string;
+}
+
+interface Company {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  service_areas: string;
+  pricing_tiers: string;
+  rating: number;
 }
 
 interface TimeSlot {
@@ -20,19 +33,22 @@ interface TimeSlot {
 
 const Groups: React.FC = () => {
   const [groups, setGroups] = useState<Group[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [message, setMessage] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     address: '',
-    max_participants: 5
+    max_participants: 5,
+    vendor_id: ''
   });
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const { user } = useContext(AuthContext);
 
   useEffect(() => {
     fetchGroups();
+    fetchCompanies();
   }, []);
 
   const fetchGroups = async () => {
@@ -46,16 +62,31 @@ const Groups: React.FC = () => {
     }
   };
 
+  const fetchCompanies = async () => {
+    try {
+      const response = await axios.get('/companies');
+      setCompanies(response.data);
+    } catch (error) {
+      console.error('Error fetching companies:', error);
+    }
+  };
+
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await axios.post('/groups', {
+      const groupData = {
         ...formData,
         time_slots: timeSlots
-      });
+      };
+      
+      if (formData.vendor_id) {
+        groupData.vendor_id = parseInt(formData.vendor_id);
+      }
+      
+      const response = await axios.post('/groups', groupData);
       setGroups([response.data, ...groups]);
       setShowCreateForm(false);
-      setFormData({ name: '', address: '', max_participants: 5 });
+      setFormData({ name: '', address: '', max_participants: 5, vendor_id: '' });
       setTimeSlots([]);
       setMessage('Group created successfully!');
       setTimeout(() => setMessage(''), 3000);
@@ -87,7 +118,7 @@ const Groups: React.FC = () => {
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData({
       ...formData,
@@ -182,6 +213,19 @@ const Groups: React.FC = () => {
               max="10"
               required
             />
+            <select
+              name="vendor_id"
+              value={formData.vendor_id}
+              onChange={handleChange}
+              style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '4px' }}
+            >
+              <option value="">Select a Vendor (Optional)</option>
+              {companies.map((company) => (
+                <option key={company.id} value={company.id}>
+                  {company.name} - {company.address}
+                </option>
+              ))}
+            </select>
             
             <div className="time-slots-section">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
@@ -264,6 +308,9 @@ const Groups: React.FC = () => {
                 <p><strong>Address:</strong> {group.address}</p>
                 <p><strong>Max Participants:</strong> {group.max_participants}</p>
                 <p><strong>Status:</strong> {group.status}</p>
+                {group.vendor_name && (
+                  <p><strong>Vendor:</strong> {group.vendor_name}</p>
+                )}
                 <p><strong>Created:</strong> {new Date(group.created_at).toLocaleDateString()}</p>
                 {group.time_slots && group.time_slots.length > 0 && (
                   <div style={{ marginTop: '10px' }}>
