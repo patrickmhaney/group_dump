@@ -9,7 +9,6 @@ interface Group {
   max_participants: number;
   status: string;
   created_by: number;
-  target_date: string;
 }
 
 interface Rental {
@@ -81,7 +80,6 @@ const Dashboard: React.FC = () => {
                 <p><strong>Address:</strong> {group.address}</p>
                 <p><strong>Max Participants:</strong> {group.max_participants}</p>
                 <p><strong>Status:</strong> {group.status}</p>
-                <p><strong>Target Date:</strong> {new Date(group.target_date).toLocaleDateString()}</p>
               </div>
             ))}
           </div>

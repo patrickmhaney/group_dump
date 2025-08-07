@@ -5,6 +5,7 @@ from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session, relationship
 from pydantic import BaseModel, EmailStr
+from typing import List, Optional
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
@@ -80,11 +81,11 @@ class Group(Base):
     max_participants = Column(Integer, default=5)
     status = Column(String, default="forming")
     created_by = Column(Integer, ForeignKey("users.id"))
-    target_date = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     members = relationship("GroupMember", back_populates="group")
     rentals = relationship("Rental", back_populates="group")
+    time_slots = relationship("TimeSlot", back_populates="group")
 
 class GroupMember(Base):
     __tablename__ = "group_members"
@@ -113,6 +114,16 @@ class Company(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     
     rentals = relationship("Rental", back_populates="company")
+
+class TimeSlot(Base):
+    __tablename__ = "time_slots"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    group_id = Column(Integer, ForeignKey("groups.id"))
+    start_date = Column(String)
+    end_date = Column(String)
+    
+    group = relationship("Group", back_populates="time_slots")
 
 class Rental(Base):
     __tablename__ = "rentals"
@@ -150,11 +161,22 @@ class UserResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class TimeSlotCreate(BaseModel):
+    start_date: str
+    end_date: str
+
+class TimeSlotResponse(BaseModel):
+    start_date: str
+    end_date: str
+    
+    class Config:
+        from_attributes = True
+
 class GroupCreate(BaseModel):
     name: str
     address: str
     max_participants: int = 5
-    target_date: datetime
+    time_slots: Optional[List[TimeSlotCreate]] = []
 
 class GroupResponse(BaseModel):
     id: int
@@ -163,8 +185,8 @@ class GroupResponse(BaseModel):
     max_participants: int
     status: str
     created_by: int
-    target_date: datetime
     created_at: datetime
+    time_slots: Optional[List[TimeSlotResponse]] = []
     
     class Config:
         from_attributes = True
@@ -256,12 +278,22 @@ async def create_group(group: GroupCreate, current_user: User = Depends(get_curr
         name=group.name,
         address=group.address,
         max_participants=group.max_participants,
-        created_by=current_user.id,
-        target_date=group.target_date
+        created_by=current_user.id
     )
     db.add(db_group)
     db.commit()
     db.refresh(db_group)
+    
+    # Create time slots if provided
+    if group.time_slots:
+        for time_slot_data in group.time_slots:
+            time_slot = TimeSlot(
+                group_id=db_group.id,
+                start_date=time_slot_data.start_date,
+                end_date=time_slot_data.end_date
+            )
+            db.add(time_slot)
+        db.commit()
     
     group_member = GroupMember(
         group_id=db_group.id,
@@ -270,6 +302,8 @@ async def create_group(group: GroupCreate, current_user: User = Depends(get_curr
     db.add(group_member)
     db.commit()
     
+    # Refresh to get time_slots
+    db.refresh(db_group)
     return db_group
 
 @app.get("/groups", response_model=list[GroupResponse])

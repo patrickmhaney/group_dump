@@ -9,8 +9,13 @@ interface Group {
   max_participants: number;
   status: string;
   created_by: number;
-  target_date: string;
   created_at: string;
+  time_slots?: TimeSlot[];
+}
+
+interface TimeSlot {
+  start_date: string;
+  end_date: string;
 }
 
 const Groups: React.FC = () => {
@@ -21,9 +26,9 @@ const Groups: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     address: '',
-    max_participants: 5,
-    target_date: ''
+    max_participants: 5
   });
+  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const { user } = useContext(AuthContext);
 
   useEffect(() => {
@@ -46,15 +51,21 @@ const Groups: React.FC = () => {
     try {
       const response = await axios.post('/groups', {
         ...formData,
-        target_date: new Date(formData.target_date).toISOString()
+        time_slots: timeSlots
       });
       setGroups([response.data, ...groups]);
       setShowCreateForm(false);
-      setFormData({ name: '', address: '', max_participants: 5, target_date: '' });
+      setFormData({ name: '', address: '', max_participants: 5 });
+      setTimeSlots([]);
       setMessage('Group created successfully!');
       setTimeout(() => setMessage(''), 3000);
     } catch (error: any) {
-      setMessage(error.response?.data?.detail || 'Error creating group');
+      const errorMessage = typeof error.response?.data?.detail === 'string' 
+        ? error.response.data.detail
+        : Array.isArray(error.response?.data?.detail)
+        ? error.response.data.detail.map((err: any) => err.msg || err).join(', ')
+        : 'Error creating group';
+      setMessage(errorMessage);
       setTimeout(() => setMessage(''), 3000);
     }
   };
@@ -66,7 +77,12 @@ const Groups: React.FC = () => {
       setTimeout(() => setMessage(''), 3000);
       fetchGroups(); // Refresh the list
     } catch (error: any) {
-      setMessage(error.response?.data?.detail || 'Error joining group');
+      const errorMessage = typeof error.response?.data?.detail === 'string' 
+        ? error.response.data.detail
+        : Array.isArray(error.response?.data?.detail)
+        ? error.response.data.detail.map((err: any) => err.msg || err).join(', ')
+        : 'Error joining group';
+      setMessage(errorMessage);
       setTimeout(() => setMessage(''), 3000);
     }
   };
@@ -77,6 +93,43 @@ const Groups: React.FC = () => {
       ...formData,
       [name]: name === 'max_participants' ? parseInt(value) : value
     });
+  };
+
+  const addTimeSlot = () => {
+    if (timeSlots.length < 5) {
+      const today = new Date();
+      const startDate = new Date(today);
+      startDate.setDate(today.getDate() + 1);
+      const endDate = new Date(startDate);
+      endDate.setDate(startDate.getDate() + 6);
+
+      const newSlot: TimeSlot = {
+        start_date: startDate.toISOString().split('T')[0],
+        end_date: endDate.toISOString().split('T')[0]
+      };
+      setTimeSlots([...timeSlots, newSlot]);
+    }
+  };
+
+  const removeTimeSlot = (index: number) => {
+    setTimeSlots(timeSlots.filter((_, i) => i !== index));
+  };
+
+  const updateTimeSlot = (index: number, field: keyof TimeSlot, value: string) => {
+    const updatedSlots = timeSlots.map((slot, i) => {
+      if (i === index) {
+        const updatedSlot = { ...slot, [field]: value };
+        if (field === 'start_date') {
+          const startDate = new Date(value);
+          const endDate = new Date(startDate);
+          endDate.setDate(startDate.getDate() + 6);
+          updatedSlot.end_date = endDate.toISOString().split('T')[0];
+        }
+        return updatedSlot;
+      }
+      return slot;
+    });
+    setTimeSlots(updatedSlots);
   };
 
   if (loading) return <div>Loading...</div>;
@@ -129,13 +182,66 @@ const Groups: React.FC = () => {
               max="10"
               required
             />
-            <input
-              type="datetime-local"
-              name="target_date"
-              value={formData.target_date}
-              onChange={handleChange}
-              required
-            />
+            
+            <div className="time-slots-section">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <h3>Available Time Slots (Choose up to 5)</h3>
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  onClick={addTimeSlot}
+                  disabled={timeSlots.length >= 5}
+                >
+                  Add Time Slot
+                </button>
+              </div>
+              
+              {timeSlots.length === 0 ? (
+                <p style={{ color: '#666', fontStyle: 'italic' }}>
+                  Add time slots to help coordinate schedules with group members
+                </p>
+              ) : (
+                <div className="time-slots-list">
+                  {timeSlots.map((slot, index) => (
+                    <div key={index} className="time-slot-item">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ flex: 1 }}>
+                          <label style={{ display: 'block', fontSize: '14px', marginBottom: '5px' }}>
+                            7-day period starting:
+                          </label>
+                          <input
+                            type="date"
+                            value={slot.start_date}
+                            onChange={(e) => updateTimeSlot(index, 'start_date', e.target.value)}
+                            style={{ width: '100%' }}
+                          />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <label style={{ display: 'block', fontSize: '14px', marginBottom: '5px' }}>
+                            Ending:
+                          </label>
+                          <input
+                            type="date"
+                            value={slot.end_date}
+                            readOnly
+                            style={{ width: '100%', backgroundColor: '#f5f5f5' }}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          className="button button-danger"
+                          onClick={() => removeTimeSlot(index)}
+                          style={{ marginTop: '20px' }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
             <div style={{ display: 'flex', gap: '10px' }}>
               <button type="submit" className="button">Create Group</button>
               <button type="button" className="button button-secondary" onClick={() => setShowCreateForm(false)}>
@@ -158,8 +264,19 @@ const Groups: React.FC = () => {
                 <p><strong>Address:</strong> {group.address}</p>
                 <p><strong>Max Participants:</strong> {group.max_participants}</p>
                 <p><strong>Status:</strong> {group.status}</p>
-                <p><strong>Target Date:</strong> {new Date(group.target_date).toLocaleDateString()}</p>
                 <p><strong>Created:</strong> {new Date(group.created_at).toLocaleDateString()}</p>
+                {group.time_slots && group.time_slots.length > 0 && (
+                  <div style={{ marginTop: '10px' }}>
+                    <p><strong>Available Time Slots:</strong></p>
+                    <div style={{ marginLeft: '15px' }}>
+                      {group.time_slots.map((slot, index) => (
+                        <div key={index} style={{ fontSize: '14px', color: '#666', marginBottom: '5px' }}>
+                          {new Date(slot.start_date).toLocaleDateString()} - {new Date(slot.end_date).toLocaleDateString()}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {group.created_by !== user?.id && (
                   <button
                     className="button"
