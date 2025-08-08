@@ -11,6 +11,9 @@ from jose import JWTError, jwt
 from datetime import datetime, timedelta
 import os
 from dotenv import load_dotenv
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 load_dotenv()
 
@@ -18,6 +21,13 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./dumpster_sharing.db")
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-here")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+# Email configuration
+SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USERNAME = os.getenv("SMTP_USERNAME", "")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+FROM_EMAIL = os.getenv("FROM_EMAIL", SMTP_USERNAME)
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -59,6 +69,77 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
+async def send_email(to_email: str, subject: str, body: str):
+    """Send email using SMTP"""
+    if not SMTP_USERNAME or not SMTP_PASSWORD:
+        print(f"Email configuration not set. Would send to {to_email}: {subject}")
+        return False
+    
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = FROM_EMAIL
+        msg['To'] = to_email
+        msg['Subject'] = subject
+        
+        msg.attach(MIMEText(body, 'html'))
+        
+        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
+        server.starttls()
+        server.login(SMTP_USERNAME, SMTP_PASSWORD)
+        text = msg.as_string()
+        server.sendmail(FROM_EMAIL, to_email, text)
+        server.quit()
+        
+        print(f"Email sent successfully to {to_email}")
+        return True
+    except Exception as e:
+        print(f"Error sending email to {to_email}: {str(e)}")
+        return False
+
+async def send_invitations(group: Group, creator: User, db: Session):
+    """Send invitation emails to all invitees of a group"""
+    invitees = db.query(Invitee).filter(Invitee.group_id == group.id).all()
+    
+    for invitee in invitees:
+        if not invitee.invitation_sent:
+            subject = f"You're invited to join '{group.name}' dumpster sharing group!"
+            
+            # Create email body with group details
+            body = f"""
+            <html>
+                <body>
+                    <h2>You've been invited to join a dumpster sharing group!</h2>
+                    
+                    <p>Hi {invitee.name},</p>
+                    
+                    <p>{creator.name} has invited you to join the dumpster sharing group "<strong>{group.name}</strong>".</p>
+                    
+                    <h3>Group Details:</h3>
+                    <ul>
+                        <li><strong>Group Name:</strong> {group.name}</li>
+                        <li><strong>Location:</strong> {group.address}</li>
+                        <li><strong>Max Participants:</strong> {group.max_participants}</li>
+                        <li><strong>Created by:</strong> {creator.name} ({creator.email})</li>
+                    </ul>
+                    
+                    <p>Join this group to share dumpster rental costs and coordinate pickup schedules with your neighbors!</p>
+                    
+                    <p>To join this group, please visit our platform and look for the group "{group.name}" or contact {creator.name} at {creator.email}.</p>
+                    
+                    <p>Best regards,<br>The Dumpster Sharing Team</p>
+                </body>
+            </html>
+            """
+            
+            # Send the email
+            success = await send_email(invitee.email, subject, body)
+            
+            if success:
+                invitee.invitation_sent = True
+                db.add(invitee)
+    
+    db.commit()
+
 class User(Base):
     __tablename__ = "users"
     
@@ -81,11 +162,14 @@ class Group(Base):
     max_participants = Column(Integer, default=5)
     status = Column(String, default="forming")
     created_by = Column(Integer, ForeignKey("users.id"))
+    vendor_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     members = relationship("GroupMember", back_populates="group")
     rentals = relationship("Rental", back_populates="group")
     time_slots = relationship("TimeSlot", back_populates="group")
+    invitees = relationship("Invitee", back_populates="group")
+    vendor = relationship("Company", foreign_keys=[vendor_id])
 
 class GroupMember(Base):
     __tablename__ = "group_members"
@@ -124,6 +208,19 @@ class TimeSlot(Base):
     end_date = Column(String)
     
     group = relationship("Group", back_populates="time_slots")
+
+class Invitee(Base):
+    __tablename__ = "invitees"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    group_id = Column(Integer, ForeignKey("groups.id"))
+    name = Column(String)
+    email = Column(String)
+    phone = Column(String, nullable=True)
+    invitation_sent = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    group = relationship("Group", back_populates="invitees")
 
 class Rental(Base):
     __tablename__ = "rentals"
@@ -172,11 +269,29 @@ class TimeSlotResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class InviteeCreate(BaseModel):
+    name: str
+    email: EmailStr
+    phone: Optional[str] = None
+
+class InviteeResponse(BaseModel):
+    id: int
+    name: str
+    email: str
+    phone: Optional[str] = None
+    invitation_sent: bool
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
 class GroupCreate(BaseModel):
     name: str
     address: str
     max_participants: int = 5
+    vendor_id: Optional[int] = None
     time_slots: Optional[List[TimeSlotCreate]] = []
+    invitees: Optional[List[InviteeCreate]] = []
 
 class GroupResponse(BaseModel):
     id: int
@@ -185,6 +300,8 @@ class GroupResponse(BaseModel):
     max_participants: int
     status: str
     created_by: int
+    vendor_id: Optional[int] = None
+    vendor_name: Optional[str] = None
     created_at: datetime
     time_slots: Optional[List[TimeSlotResponse]] = []
     
@@ -278,6 +395,7 @@ async def create_group(group: GroupCreate, current_user: User = Depends(get_curr
         name=group.name,
         address=group.address,
         max_participants=group.max_participants,
+        vendor_id=group.vendor_id,
         created_by=current_user.id
     )
     db.add(db_group)
@@ -295,6 +413,22 @@ async def create_group(group: GroupCreate, current_user: User = Depends(get_curr
             db.add(time_slot)
         db.commit()
     
+    # Create invitees if provided
+    if group.invitees:
+        for invitee_data in group.invitees:
+            if invitee_data.name and invitee_data.email:  # Only add if name and email are provided
+                invitee = Invitee(
+                    group_id=db_group.id,
+                    name=invitee_data.name,
+                    email=invitee_data.email,
+                    phone=invitee_data.phone
+                )
+                db.add(invitee)
+        db.commit()
+        
+        # Send email invitations
+        await send_invitations(db_group, current_user, db)
+    
     group_member = GroupMember(
         group_id=db_group.id,
         user_id=current_user.id
@@ -302,14 +436,32 @@ async def create_group(group: GroupCreate, current_user: User = Depends(get_curr
     db.add(group_member)
     db.commit()
     
-    # Refresh to get time_slots
+    # Refresh to get time_slots and invitees
     db.refresh(db_group)
     return db_group
 
 @app.get("/groups", response_model=list[GroupResponse])
 async def get_groups(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     groups = db.query(Group).offset(skip).limit(limit).all()
-    return groups
+    
+    # Add vendor names to the response
+    response_groups = []
+    for group in groups:
+        group_dict = {
+            "id": group.id,
+            "name": group.name,
+            "address": group.address,
+            "max_participants": group.max_participants,
+            "status": group.status,
+            "created_by": group.created_by,
+            "vendor_id": group.vendor_id,
+            "vendor_name": group.vendor.name if group.vendor else None,
+            "created_at": group.created_at,
+            "time_slots": [{"start_date": ts.start_date, "end_date": ts.end_date} for ts in group.time_slots]
+        }
+        response_groups.append(group_dict)
+    
+    return response_groups
 
 @app.get("/groups/{group_id}", response_model=GroupResponse)
 async def get_group(group_id: int, db: Session = Depends(get_db)):

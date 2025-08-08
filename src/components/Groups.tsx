@@ -31,6 +31,12 @@ interface TimeSlot {
   end_date: string;
 }
 
+interface Invitee {
+  name: string;
+  email: string;
+  phone?: string;
+}
+
 const Groups: React.FC = () => {
   const [groups, setGroups] = useState<Group[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -44,6 +50,7 @@ const Groups: React.FC = () => {
     vendor_id: ''
   });
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
+  const [invitees, setInvitees] = useState<Invitee[]>([]);
   const { user } = useContext(AuthContext);
 
   useEffect(() => {
@@ -76,7 +83,8 @@ const Groups: React.FC = () => {
     try {
       const groupData = {
         ...formData,
-        time_slots: timeSlots
+        time_slots: timeSlots,
+        invitees: invitees
       };
       
       if (formData.vendor_id) {
@@ -88,6 +96,7 @@ const Groups: React.FC = () => {
       setShowCreateForm(false);
       setFormData({ name: '', address: '', max_participants: 5, vendor_id: '' });
       setTimeSlots([]);
+      setInvitees([]);
       setMessage('Group created successfully!');
       setTimeout(() => setMessage(''), 3000);
     } catch (error: any) {
@@ -163,6 +172,24 @@ const Groups: React.FC = () => {
     setTimeSlots(updatedSlots);
   };
 
+  const addInvitee = () => {
+    setInvitees([...invitees, { name: '', email: '', phone: '' }]);
+  };
+
+  const removeInvitee = (index: number) => {
+    setInvitees(invitees.filter((_, i) => i !== index));
+  };
+
+  const updateInvitee = (index: number, field: keyof Invitee, value: string) => {
+    const updatedInvitees = invitees.map((invitee, i) => {
+      if (i === index) {
+        return { ...invitee, [field]: value };
+      }
+      return invitee;
+    });
+    setInvitees(updatedInvitees);
+  };
+
   if (loading) return <div>Loading...</div>;
 
   return (
@@ -226,6 +253,80 @@ const Groups: React.FC = () => {
                 </option>
               ))}
             </select>
+            
+            <div className="invitees-section">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <h3>Invite People to Group</h3>
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  onClick={addInvitee}
+                >
+                  Add Invitee
+                </button>
+              </div>
+              
+              {invitees.length === 0 ? (
+                <p style={{ color: '#666', fontStyle: 'italic' }}>
+                  Add people to automatically send them email invitations when the group is created
+                </p>
+              ) : (
+                <div className="invitees-list">
+                  {invitees.map((invitee, index) => (
+                    <div key={index} className="invitee-item" style={{ marginBottom: '15px', padding: '15px', border: '1px solid #ddd', borderRadius: '4px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                        <div style={{ flex: '1 1 200px' }}>
+                          <label style={{ display: 'block', fontSize: '14px', marginBottom: '5px' }}>
+                            Name *
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Full Name"
+                            value={invitee.name}
+                            onChange={(e) => updateInvitee(index, 'name', e.target.value)}
+                            style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                            required
+                          />
+                        </div>
+                        <div style={{ flex: '1 1 200px' }}>
+                          <label style={{ display: 'block', fontSize: '14px', marginBottom: '5px' }}>
+                            Email *
+                          </label>
+                          <input
+                            type="email"
+                            placeholder="email@example.com"
+                            value={invitee.email}
+                            onChange={(e) => updateInvitee(index, 'email', e.target.value)}
+                            style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                            required
+                          />
+                        </div>
+                        <div style={{ flex: '1 1 150px' }}>
+                          <label style={{ display: 'block', fontSize: '14px', marginBottom: '5px' }}>
+                            Phone
+                          </label>
+                          <input
+                            type="tel"
+                            placeholder="(555) 123-4567"
+                            value={invitee.phone}
+                            onChange={(e) => updateInvitee(index, 'phone', e.target.value)}
+                            style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          className="button button-danger"
+                          onClick={() => removeInvitee(index)}
+                          style={{ marginTop: '20px', flexShrink: 0 }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             
             <div className="time-slots-section">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
