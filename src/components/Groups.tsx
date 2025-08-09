@@ -69,7 +69,7 @@ const Groups: React.FC = () => {
 
   const fetchGroups = async () => {
     try {
-      const response = await axios.get('/groups');
+      const response = await axios.get('/groups/invited');
       setGroups(response.data);
     } catch (error) {
       console.error('Error fetching groups:', error);
@@ -407,9 +407,9 @@ const Groups: React.FC = () => {
       )}
 
       <div className="card">
-        <h2>Available Groups</h2>
+        <h2>Your Groups</h2>
         {groups.length === 0 ? (
-          <p>No groups available. Create the first one!</p>
+          <p>No groups found. You'll see groups here that you've created or been invited to.</p>
         ) : (
           <div className="group-list">
             {groups.map((group) => (

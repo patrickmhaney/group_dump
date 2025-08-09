@@ -450,11 +450,91 @@ async def create_group(group: GroupCreate, current_user: User = Depends(get_curr
     
     # Refresh to get time_slots and invitees
     db.refresh(db_group)
-    return db_group
+    
+    # Get group members with user details for response
+    members = db.query(GroupMember).filter(GroupMember.group_id == db_group.id).all()
+    participants = []
+    for member in members:
+        user = db.query(User).filter(User.id == member.user_id).first()
+        if user:
+            participants.append({
+                "id": user.id,
+                "name": user.name,
+                "email": user.email,
+                "joined_at": member.joined_at
+            })
+    
+    # Return properly formatted response
+    return {
+        "id": db_group.id,
+        "name": db_group.name,
+        "address": db_group.address,
+        "max_participants": db_group.max_participants,
+        "current_participants": len(participants),
+        "status": db_group.status,
+        "created_by": db_group.created_by,
+        "vendor_id": db_group.vendor_id,
+        "vendor_name": db_group.vendor.name if db_group.vendor else None,
+        "created_at": db_group.created_at,
+        "time_slots": [{"start_date": ts.start_date, "end_date": ts.end_date} for ts in db_group.time_slots],
+        "participants": participants
+    }
 
 @app.get("/groups", response_model=list[GroupResponse])
 async def get_groups(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     groups = db.query(Group).offset(skip).limit(limit).all()
+    
+    # Add vendor names, participant count, and participant details to the response
+    response_groups = []
+    for group in groups:
+        # Get group members with user details
+        members = db.query(GroupMember).filter(GroupMember.group_id == group.id).all()
+        participants = []
+        for member in members:
+            user = db.query(User).filter(User.id == member.user_id).first()
+            if user:
+                participants.append({
+                    "id": user.id,
+                    "name": user.name,
+                    "email": user.email,
+                    "joined_at": member.joined_at
+                })
+        
+        group_dict = {
+            "id": group.id,
+            "name": group.name,
+            "address": group.address,
+            "max_participants": group.max_participants,
+            "current_participants": len(participants),
+            "status": group.status,
+            "created_by": group.created_by,
+            "vendor_id": group.vendor_id,
+            "vendor_name": group.vendor.name if group.vendor else None,
+            "created_at": group.created_at,
+            "time_slots": [{"start_date": ts.start_date, "end_date": ts.end_date} for ts in group.time_slots],
+            "participants": participants
+        }
+        response_groups.append(group_dict)
+    
+    return response_groups
+
+@app.get("/groups/invited", response_model=list[GroupResponse])
+async def get_invited_groups(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # Get groups where the current user's email matches an invitee email
+    invitees = db.query(Invitee).filter(Invitee.email == current_user.email).all()
+    invited_group_ids = [invitee.group_id for invitee in invitees]
+    
+    # Also get groups created by the current user
+    created_groups = db.query(Group).filter(Group.created_by == current_user.id).all()
+    created_group_ids = [group.id for group in created_groups]
+    
+    # Combine both lists and remove duplicates
+    all_group_ids = list(set(invited_group_ids + created_group_ids))
+    
+    if not all_group_ids:
+        return []
+    
+    groups = db.query(Group).filter(Group.id.in_(all_group_ids)).all()
     
     # Add vendor names, participant count, and participant details to the response
     response_groups = []
@@ -495,7 +575,34 @@ async def get_group(group_id: int, db: Session = Depends(get_db)):
     group = db.query(Group).filter(Group.id == group_id).first()
     if group is None:
         raise HTTPException(status_code=404, detail="Group not found")
-    return group
+    
+    # Get group members with user details for response
+    members = db.query(GroupMember).filter(GroupMember.group_id == group.id).all()
+    participants = []
+    for member in members:
+        user = db.query(User).filter(User.id == member.user_id).first()
+        if user:
+            participants.append({
+                "id": user.id,
+                "name": user.name,
+                "email": user.email,
+                "joined_at": member.joined_at
+            })
+    
+    return {
+        "id": group.id,
+        "name": group.name,
+        "address": group.address,
+        "max_participants": group.max_participants,
+        "current_participants": len(participants),
+        "status": group.status,
+        "created_by": group.created_by,
+        "vendor_id": group.vendor_id,
+        "vendor_name": group.vendor.name if group.vendor else None,
+        "created_at": group.created_at,
+        "time_slots": [{"start_date": ts.start_date, "end_date": ts.end_date} for ts in group.time_slots],
+        "participants": participants
+    }
 
 @app.post("/groups/{group_id}/join")
 async def join_group(group_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
