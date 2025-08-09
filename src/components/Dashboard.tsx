@@ -7,6 +7,7 @@ interface Group {
   name: string;
   address: string;
   max_participants: number;
+  current_participants?: number;
   status: string;
   created_by: number;
 }

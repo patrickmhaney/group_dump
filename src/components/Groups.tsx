@@ -7,12 +7,21 @@ interface Group {
   name: string;
   address: string;
   max_participants: number;
+  current_participants?: number;
+  participants?: Participant[];
   status: string;
   created_by: number;
   created_at: string;
   time_slots?: TimeSlot[];
   vendor_id?: number;
   vendor_name?: string;
+}
+
+interface Participant {
+  id: number;
+  name: string;
+  email: string;
+  joined_at: string;
 }
 
 interface Company {
@@ -407,12 +416,24 @@ const Groups: React.FC = () => {
               <div key={group.id} className="group-item">
                 <h3>{group.name}</h3>
                 <p><strong>Address:</strong> {group.address}</p>
-                <p><strong>Max Participants:</strong> {group.max_participants}</p>
+                <p><strong>Participants:</strong> {group.current_participants || 0} / {group.max_participants}</p>
                 <p><strong>Status:</strong> {group.status}</p>
                 {group.vendor_name && (
                   <p><strong>Vendor:</strong> {group.vendor_name}</p>
                 )}
                 <p><strong>Created:</strong> {new Date(group.created_at).toLocaleDateString()}</p>
+                {group.participants && group.participants.length > 0 && (
+                  <div style={{ marginTop: '10px' }}>
+                    <p><strong>Current Members:</strong></p>
+                    <div style={{ marginLeft: '15px' }}>
+                      {group.participants.map((participant) => (
+                        <div key={participant.id} style={{ fontSize: '14px', color: '#666', marginBottom: '3px' }}>
+                          {participant.name} ({participant.email})
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {group.time_slots && group.time_slots.length > 0 && (
                   <div style={{ marginTop: '10px' }}>
                     <p><strong>Available Time Slots:</strong></p>
@@ -426,12 +447,18 @@ const Groups: React.FC = () => {
                   </div>
                 )}
                 {group.created_by !== user?.id && (
-                  <button
-                    className="button"
-                    onClick={() => handleJoinGroup(group.id)}
-                  >
-                    Join Group
-                  </button>
+                  <div style={{ marginTop: '10px' }}>
+                    {(group.current_participants || 0) >= group.max_participants ? (
+                      <span style={{ color: '#dc3545', fontWeight: 'bold' }}>Group Full</span>
+                    ) : (
+                      <button
+                        className="button"
+                        onClick={() => handleJoinGroup(group.id)}
+                      >
+                        Join Group ({(group.current_participants || 0)}/{group.max_participants})
+                      </button>
+                    )}
+                  </div>
                 )}
                 {group.created_by === user?.id && (
                   <span style={{ color: '#28a745', fontWeight: 'bold' }}>You created this group</span>

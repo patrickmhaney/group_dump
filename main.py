@@ -96,49 +96,6 @@ async def send_email(to_email: str, subject: str, body: str):
         print(f"Error sending email to {to_email}: {str(e)}")
         return False
 
-async def send_invitations(group: Group, creator: User, db: Session):
-    """Send invitation emails to all invitees of a group"""
-    invitees = db.query(Invitee).filter(Invitee.group_id == group.id).all()
-    
-    for invitee in invitees:
-        if not invitee.invitation_sent:
-            subject = f"You're invited to join '{group.name}' dumpster sharing group!"
-            
-            # Create email body with group details
-            body = f"""
-            <html>
-                <body>
-                    <h2>You've been invited to join a dumpster sharing group!</h2>
-                    
-                    <p>Hi {invitee.name},</p>
-                    
-                    <p>{creator.name} has invited you to join the dumpster sharing group "<strong>{group.name}</strong>".</p>
-                    
-                    <h3>Group Details:</h3>
-                    <ul>
-                        <li><strong>Group Name:</strong> {group.name}</li>
-                        <li><strong>Location:</strong> {group.address}</li>
-                        <li><strong>Max Participants:</strong> {group.max_participants}</li>
-                        <li><strong>Created by:</strong> {creator.name} ({creator.email})</li>
-                    </ul>
-                    
-                    <p>Join this group to share dumpster rental costs and coordinate pickup schedules with your neighbors!</p>
-                    
-                    <p>To join this group, please visit our platform and look for the group "{group.name}" or contact {creator.name} at {creator.email}.</p>
-                    
-                    <p>Best regards,<br>The Dumpster Sharing Team</p>
-                </body>
-            </html>
-            """
-            
-            # Send the email
-            success = await send_email(invitee.email, subject, body)
-            
-            if success:
-                invitee.invitation_sent = True
-                db.add(invitee)
-    
-    db.commit()
 
 class User(Base):
     __tablename__ = "users"
@@ -240,6 +197,50 @@ class Rental(Base):
 
 Base.metadata.create_all(bind=engine)
 
+async def send_invitations(group: Group, creator: User, db: Session):
+    """Send invitation emails to all invitees of a group"""
+    invitees = db.query(Invitee).filter(Invitee.group_id == group.id).all()
+    
+    for invitee in invitees:
+        if not invitee.invitation_sent:
+            subject = f"You're invited to join '{group.name}' dumpster sharing group!"
+            
+            # Create email body with group details
+            body = f"""
+            <html>
+                <body>
+                    <h2>You've been invited to join a dumpster sharing group!</h2>
+                    
+                    <p>Hi {invitee.name},</p>
+                    
+                    <p>{creator.name} has invited you to join the dumpster sharing group "<strong>{group.name}</strong>".</p>
+                    
+                    <h3>Group Details:</h3>
+                    <ul>
+                        <li><strong>Group Name:</strong> {group.name}</li>
+                        <li><strong>Location:</strong> {group.address}</li>
+                        <li><strong>Max Participants:</strong> {group.max_participants}</li>
+                        <li><strong>Created by:</strong> {creator.name} ({creator.email})</li>
+                    </ul>
+                    
+                    <p>Join this group to share dumpster rental costs and coordinate pickup schedules with your neighbors!</p>
+                    
+                    <p>To join this group, please visit our platform and look for the group "{group.name}" or contact {creator.name} at {creator.email}.</p>
+                    
+                    <p>Best regards,<br>The Dumpster Sharing Team</p>
+                </body>
+            </html>
+            """
+            
+            # Send the email
+            success = await send_email(invitee.email, subject, body)
+            
+            if success:
+                invitee.invitation_sent = True
+                db.add(invitee)
+    
+    db.commit()
+
 class UserCreate(BaseModel):
     email: EmailStr
     name: str
@@ -293,17 +294,28 @@ class GroupCreate(BaseModel):
     time_slots: Optional[List[TimeSlotCreate]] = []
     invitees: Optional[List[InviteeCreate]] = []
 
+class ParticipantResponse(BaseModel):
+    id: int
+    name: str
+    email: str
+    joined_at: datetime
+    
+    class Config:
+        from_attributes = True
+
 class GroupResponse(BaseModel):
     id: int
     name: str
     address: str
     max_participants: int
+    current_participants: int
     status: str
     created_by: int
     vendor_id: Optional[int] = None
     vendor_name: Optional[str] = None
     created_at: datetime
     time_slots: Optional[List[TimeSlotResponse]] = []
+    participants: Optional[List[ParticipantResponse]] = []
     
     class Config:
         from_attributes = True
@@ -444,20 +456,35 @@ async def create_group(group: GroupCreate, current_user: User = Depends(get_curr
 async def get_groups(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     groups = db.query(Group).offset(skip).limit(limit).all()
     
-    # Add vendor names to the response
+    # Add vendor names, participant count, and participant details to the response
     response_groups = []
     for group in groups:
+        # Get group members with user details
+        members = db.query(GroupMember).filter(GroupMember.group_id == group.id).all()
+        participants = []
+        for member in members:
+            user = db.query(User).filter(User.id == member.user_id).first()
+            if user:
+                participants.append({
+                    "id": user.id,
+                    "name": user.name,
+                    "email": user.email,
+                    "joined_at": member.joined_at
+                })
+        
         group_dict = {
             "id": group.id,
             "name": group.name,
             "address": group.address,
             "max_participants": group.max_participants,
+            "current_participants": len(participants),
             "status": group.status,
             "created_by": group.created_by,
             "vendor_id": group.vendor_id,
             "vendor_name": group.vendor.name if group.vendor else None,
             "created_at": group.created_at,
-            "time_slots": [{"start_date": ts.start_date, "end_date": ts.end_date} for ts in group.time_slots]
+            "time_slots": [{"start_date": ts.start_date, "end_date": ts.end_date} for ts in group.time_slots],
+            "participants": participants
         }
         response_groups.append(group_dict)
     
