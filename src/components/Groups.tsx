@@ -90,14 +90,16 @@ const Groups: React.FC = () => {
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const groupData = {
+      const groupData: any = {
         ...formData,
         time_slots: timeSlots,
         invitees: invitees
       };
       
-      if (formData.vendor_id) {
+      if (formData.vendor_id && formData.vendor_id !== '') {
         groupData.vendor_id = parseInt(formData.vendor_id);
+      } else {
+        delete groupData.vendor_id;
       }
       
       const response = await axios.post('/groups', groupData);
@@ -417,7 +419,26 @@ const Groups: React.FC = () => {
                 <h3>{group.name}</h3>
                 <p><strong>Address:</strong> {group.address}</p>
                 <p><strong>Participants:</strong> {group.current_participants || 0} / {group.max_participants}</p>
-                <p><strong>Status:</strong> {group.status}</p>
+                <p><strong>Status:</strong> 
+                  <span style={{ 
+                    color: (group.current_participants || 0) >= group.max_participants ? '#28a745' : 'inherit',
+                    fontWeight: (group.current_participants || 0) >= group.max_participants ? 'bold' : 'normal'
+                  }}>
+                    {(group.current_participants || 0) >= group.max_participants ? 'Ready!' : group.status}
+                  </span>
+                </p>
+                {(group.current_participants || 0) >= group.max_participants && (
+                  <div style={{ 
+                    padding: '10px', 
+                    backgroundColor: '#d4edda', 
+                    border: '1px solid #c3e6cb', 
+                    borderRadius: '4px', 
+                    marginTop: '10px',
+                    color: '#155724'
+                  }}>
+                    <strong>🎉 Group is ready!</strong> You have reached the maximum number of participants.
+                  </div>
+                )}
                 {group.vendor_name && (
                   <p><strong>Vendor:</strong> {group.vendor_name}</p>
                 )}
@@ -461,7 +482,23 @@ const Groups: React.FC = () => {
                   </div>
                 )}
                 {group.created_by === user?.id && (
-                  <span style={{ color: '#28a745', fontWeight: 'bold' }}>You created this group</span>
+                  <div style={{ marginTop: '10px' }}>
+                    <span style={{ color: '#28a745', fontWeight: 'bold' }}>You created this group</span>
+                    {(group.current_participants || 0) >= group.max_participants && (
+                      <div style={{ marginTop: '10px' }}>
+                        <button
+                          className="button"
+                          style={{ backgroundColor: '#007bff', color: 'white' }}
+                          onClick={() => {
+                            setMessage('Schedule service functionality coming soon!');
+                            setTimeout(() => setMessage(''), 3000);
+                          }}
+                        >
+                          Schedule Service
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             ))}

@@ -29,8 +29,13 @@ A web application that allows neighbors to coordinate and share dumpster rental 
 
 ### Backend Setup
 
+
+
 1. Install Python dependencies:
 ```bash
+python -m venv venv
+source venv/bin/activate 
+python -m pip install pip-tools
 pip install -r requirements.txt
 ```
 
