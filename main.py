@@ -107,6 +107,7 @@ class User(Base):
     phone = Column(String)
     address = Column(String)
     hashed_password = Column(String)
+    user_type = Column(String, default="renter")  # "renter" or "company"
     created_at = Column(DateTime, default=datetime.utcnow)
     
     groups = relationship("GroupMember", back_populates="user")
@@ -266,6 +267,7 @@ class UserCreate(BaseModel):
     phone: str
     address: str
     password: str
+    user_type: str = "renter"
 
 class UserResponse(BaseModel):
     id: int
@@ -273,6 +275,7 @@ class UserResponse(BaseModel):
     name: str
     phone: str
     address: str
+    user_type: str
     created_at: datetime
     
     class Config:
@@ -394,7 +397,8 @@ async def register(user: UserCreate, db: Session = Depends(get_db)):
         name=user.name,
         phone=user.phone,
         address=user.address,
-        hashed_password=hashed_password
+        hashed_password=hashed_password,
+        user_type=user.user_type
     )
     db.add(db_user)
     db.commit()

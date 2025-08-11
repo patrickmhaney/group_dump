@@ -46,9 +46,21 @@ interface Invitee {
   phone?: string;
 }
 
+interface Rental {
+  id: number;
+  group_id: number;
+  company_id: number;
+  size: string;
+  duration: number;
+  total_cost: number;
+  delivery_date: string;
+  status: string;
+}
+
 const Groups: React.FC = () => {
   const [groups, setGroups] = useState<Group[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [rentals, setRentals] = useState<Rental[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [message, setMessage] = useState('');
@@ -60,11 +72,12 @@ const Groups: React.FC = () => {
   });
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [invitees, setInvitees] = useState<Invitee[]>([]);
-  const { user } = useContext(AuthContext);
+  const { user, logout } = useContext(AuthContext);
 
   useEffect(() => {
     fetchGroups();
     fetchCompanies();
+    fetchRentals();
   }, []);
 
   const fetchGroups = async () => {
@@ -84,6 +97,15 @@ const Groups: React.FC = () => {
       setCompanies(response.data);
     } catch (error) {
       console.error('Error fetching companies:', error);
+    }
+  };
+
+  const fetchRentals = async () => {
+    try {
+      const response = await axios.get('/rentals');
+      setRentals(response.data);
+    } catch (error) {
+      console.error('Error fetching rentals:', error);
     }
   };
 
@@ -227,13 +249,39 @@ const Groups: React.FC = () => {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1>Groups</h1>
-        <button
-          className="button"
-          onClick={() => setShowCreateForm(!showCreateForm)}
-        >
-          {showCreateForm ? 'Cancel' : 'Create Group'}
-        </button>
+        <h1>Welcome, {user?.name}!</h1>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            className="button"
+            onClick={() => setShowCreateForm(!showCreateForm)}
+          >
+            {showCreateForm ? 'Cancel' : 'Create Group'}
+          </button>
+          <button
+            className="button button-secondary"
+            onClick={logout}
+          >
+            Logout
+          </button>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: '20px' }}>
+        <h2>Quick Stats</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+          <div style={{ textAlign: 'center' }}>
+            <h3>{groups.length}</h3>
+            <p>Your Groups</p>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <h3>{rentals.length}</h3>
+            <p>Your Rentals</p>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <h3>{groups.filter(g => (g.current_participants || 0) >= g.max_participants).length}</h3>
+            <p>Ready Groups</p>
+          </div>
+        </div>
       </div>
 
       {message && (
@@ -430,7 +478,7 @@ const Groups: React.FC = () => {
       )}
 
       <div className="card">
-        <h2>Your Groups</h2>
+        <h2>Groups</h2>
         {groups.length === 0 ? (
           <p>No groups found. You'll see groups here that you've created or been invited to.</p>
         ) : (

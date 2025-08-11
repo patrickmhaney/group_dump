@@ -10,13 +10,14 @@ const Register: React.FC = () => {
     phone: '',
     address: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    user_type: 'renter'
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useContext(AuthContext);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
@@ -40,7 +41,8 @@ const Register: React.FC = () => {
         name: formData.name,
         phone: formData.phone,
         address: formData.address,
-        password: formData.password
+        password: formData.password,
+        user_type: formData.user_type
       };
 
       await axios.post('/register', registerData);
@@ -98,6 +100,27 @@ const Register: React.FC = () => {
           onChange={handleChange}
           required
         />
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+            I am a:
+          </label>
+          <select
+            name="user_type"
+            value={formData.user_type}
+            onChange={handleChange}
+            style={{ 
+              width: '100%', 
+              padding: '10px', 
+              border: '1px solid #ddd', 
+              borderRadius: '4px',
+              fontSize: '16px'
+            }}
+            required
+          >
+            <option value="renter">Dumpster Renter</option>
+            <option value="company">Dumpster Company</option>
+          </select>
+        </div>
         <input
           type="password"
           name="password"

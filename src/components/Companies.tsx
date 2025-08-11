@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
+import { AuthContext } from '../App.tsx';
 
 interface Company {
   id: number;
@@ -25,6 +26,7 @@ const Companies: React.FC = () => {
     service_areas: '',
     pricing_tiers: ''
   });
+  const { user, logout } = useContext(AuthContext);
 
   useEffect(() => {
     fetchCompanies();
@@ -76,13 +78,21 @@ const Companies: React.FC = () => {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1>Dumpster Companies</h1>
-        <button
-          className="button"
-          onClick={() => setShowCreateForm(!showCreateForm)}
-        >
-          {showCreateForm ? 'Cancel' : 'Register Company'}
-        </button>
+        <h1>Welcome, {user?.name}!</h1>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            className="button"
+            onClick={() => setShowCreateForm(!showCreateForm)}
+          >
+            {showCreateForm ? 'Cancel' : 'Register Company'}
+          </button>
+          <button
+            className="button button-secondary"
+            onClick={logout}
+          >
+            Logout
+          </button>
+        </div>
       </div>
 
       {message && (

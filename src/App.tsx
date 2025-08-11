@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import Login from './components/Login.tsx';
 import Register from './components/Register.tsx';
-import Dashboard from './components/Dashboard.tsx';
 import Groups from './components/Groups.tsx';
 import Companies from './components/Companies.tsx';
 import Join from './components/Join.tsx';
@@ -14,6 +13,7 @@ interface User {
   name: string;
   phone: string;
   address: string;
+  user_type: string;
 }
 
 export const AuthContext = React.createContext<{
@@ -66,26 +66,15 @@ function App() {
     <AuthContext.Provider value={{ user, token, login, logout }}>
       <Router>
         <div className="App">
-          {user && (
-            <nav className="nav">
-              <Link to="/dashboard">Dashboard</Link>
-              <Link to="/groups">Groups</Link>
-              <Link to="/companies">Companies</Link>
-              <button className="button button-secondary" onClick={logout} style={{float: 'right'}}>
-                Logout ({user.name})
-              </button>
-            </nav>
-          )}
           
           <div className="container">
             <Routes>
-              <Route path="/login" element={!user ? <Login /> : <Navigate to="/dashboard" />} />
-              <Route path="/register" element={!user ? <Register /> : <Navigate to="/dashboard" />} />
-              <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" />} />
-              <Route path="/groups" element={user ? <Groups /> : <Navigate to="/login" />} />
-              <Route path="/companies" element={user ? <Companies /> : <Navigate to="/login" />} />
+              <Route path="/login" element={!user ? <Login /> : <Navigate to={user.user_type === 'renter' ? "/groups" : "/companies"} />} />
+              <Route path="/register" element={!user ? <Register /> : <Navigate to={user.user_type === 'renter' ? "/groups" : "/companies"} />} />
+              <Route path="/groups" element={user ? (user.user_type === 'renter' ? <Groups /> : <Navigate to="/companies" />) : <Navigate to="/login" />} />
+              <Route path="/companies" element={user ? (user.user_type === 'company' ? <Companies /> : <Navigate to="/groups" />) : <Navigate to="/login" />} />
               <Route path="/join/:token" element={<Join />} />
-              <Route path="/" element={<Navigate to={user ? "/dashboard" : "/login"} />} />
+              <Route path="/" element={<Navigate to={user ? (user.user_type === 'renter' ? "/groups" : "/companies") : "/login"} />} />
             </Routes>
           </div>
         </div>
