@@ -138,6 +138,27 @@ const Groups: React.FC = () => {
     }
   };
 
+  const handleDeleteGroup = async (groupId: number, groupName: string) => {
+    if (!window.confirm(`Are you sure you want to delete the group "${groupName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await axios.delete(`/groups/${groupId}`);
+      setMessage('Group deleted successfully!');
+      setTimeout(() => setMessage(''), 3000);
+      fetchGroups(); // Refresh the list
+    } catch (error: any) {
+      const errorMessage = typeof error.response?.data?.detail === 'string' 
+        ? error.response.data.detail
+        : Array.isArray(error.response?.data?.detail)
+        ? error.response.data.detail.map((err: any) => err.msg || err).join(', ')
+        : 'Error deleting group';
+      setMessage(errorMessage);
+      setTimeout(() => setMessage(''), 3000);
+    }
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData({
@@ -484,8 +505,8 @@ const Groups: React.FC = () => {
                 {group.created_by === user?.id && (
                   <div style={{ marginTop: '10px' }}>
                     <span style={{ color: '#28a745', fontWeight: 'bold' }}>You created this group</span>
-                    {(group.current_participants || 0) >= group.max_participants && (
-                      <div style={{ marginTop: '10px' }}>
+                    <div style={{ marginTop: '10px', display: 'flex', gap: '10px' }}>
+                      {(group.current_participants || 0) >= group.max_participants && (
                         <button
                           className="button"
                           style={{ backgroundColor: '#007bff', color: 'white' }}
@@ -496,8 +517,15 @@ const Groups: React.FC = () => {
                         >
                           Schedule Service
                         </button>
-                      </div>
-                    )}
+                      )}
+                      <button
+                        className="button"
+                        style={{ backgroundColor: '#dc3545', color: 'white' }}
+                        onClick={() => handleDeleteGroup(group.id, group.name)}
+                      >
+                        Delete Group
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

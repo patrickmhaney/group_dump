@@ -741,6 +741,35 @@ async def get_group_by_token(token: str, db: Session = Depends(get_db)):
         }
     }
 
+@app.delete("/groups/{group_id}")
+async def delete_group(group_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    group = db.query(Group).filter(Group.id == group_id).first()
+    if group is None:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    # Check if the current user is the creator of the group
+    if group.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the group creator can delete this group")
+    
+    # Delete related data first (due to foreign key constraints)
+    # Delete group members
+    db.query(GroupMember).filter(GroupMember.group_id == group_id).delete()
+    
+    # Delete time slots
+    db.query(TimeSlot).filter(TimeSlot.group_id == group_id).delete()
+    
+    # Delete invitees
+    db.query(Invitee).filter(Invitee.group_id == group_id).delete()
+    
+    # Delete rentals
+    db.query(Rental).filter(Rental.group_id == group_id).delete()
+    
+    # Finally delete the group
+    db.delete(group)
+    db.commit()
+    
+    return {"message": "Group deleted successfully"}
+
 @app.get("/groups/{group_id}/members")
 async def get_group_members(group_id: int, db: Session = Depends(get_db)):
     members = db.query(GroupMember).filter(GroupMember.group_id == group_id).all()

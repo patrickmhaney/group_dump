@@ -29,6 +29,10 @@ nohup*.err
 # Dependencies
 package-lock.json
 
+# Build directories
+build/
+dist/
+
 # IDE/Editor
 .vscode/
 .idea/
