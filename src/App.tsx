@@ -6,6 +6,7 @@ import Register from './components/Register.tsx';
 import Dashboard from './components/Dashboard.tsx';
 import Groups from './components/Groups.tsx';
 import Companies from './components/Companies.tsx';
+import Join from './components/Join.tsx';
 
 interface User {
   id: number;
@@ -83,6 +84,7 @@ function App() {
               <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" />} />
               <Route path="/groups" element={user ? <Groups /> : <Navigate to="/login" />} />
               <Route path="/companies" element={user ? <Companies /> : <Navigate to="/login" />} />
+              <Route path="/join/:token" element={<Join />} />
               <Route path="/" element={<Navigate to={user ? "/dashboard" : "/login"} />} />
             </Routes>
           </div>

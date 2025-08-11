@@ -10,6 +10,7 @@ from passlib.context import CryptContext
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
 import os
+import secrets
 from dotenv import load_dotenv
 import smtplib
 from email.mime.text import MIMEText
@@ -174,6 +175,7 @@ class Invitee(Base):
     name = Column(String)
     email = Column(String)
     phone = Column(String, nullable=True)
+    join_token = Column(String, unique=True)
     invitation_sent = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     
@@ -197,6 +199,10 @@ class Rental(Base):
 
 Base.metadata.create_all(bind=engine)
 
+def generate_join_token():
+    """Generate a secure random token for joining groups"""
+    return secrets.token_urlsafe(32)
+
 async def send_invitations(group: Group, creator: User, db: Session):
     """Send invitation emails to all invitees of a group"""
     invitees = db.query(Invitee).filter(Invitee.group_id == group.id).all()
@@ -205,7 +211,11 @@ async def send_invitations(group: Group, creator: User, db: Session):
         if not invitee.invitation_sent:
             subject = f"You're invited to join '{group.name}' dumpster sharing group!"
             
-            # Create email body with group details
+            # Get the base URL from environment or use default
+            base_url = os.getenv("BASE_URL", "http://localhost:8080")
+            join_url = f"{base_url}/join/{invitee.join_token}"
+            
+            # Create email body with group details and join link
             body = f"""
             <html>
                 <body>
@@ -225,7 +235,16 @@ async def send_invitations(group: Group, creator: User, db: Session):
                     
                     <p>Join this group to share dumpster rental costs and coordinate pickup schedules with your neighbors!</p>
                     
-                    <p>To join this group, please visit our platform and look for the group "{group.name}" or contact {creator.name} at {creator.email}.</p>
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="{join_url}" style="background-color: #4CAF50; color: white; padding: 15px 32px; text-align: center; text-decoration: none; display: inline-block; font-size: 16px; margin: 4px 2px; cursor: pointer; border-radius: 4px;">
+                            Join Group Now
+                        </a>
+                    </div>
+                    
+                    <p><strong>Or copy and paste this link:</strong><br>
+                    <a href="{join_url}">{join_url}</a></p>
+                    
+                    <p>If you have any questions, feel free to contact {creator.name} at {creator.email}.</p>
                     
                     <p>Best regards,<br>The Dumpster Sharing Team</p>
                 </body>
@@ -433,7 +452,8 @@ async def create_group(group: GroupCreate, current_user: User = Depends(get_curr
                     group_id=db_group.id,
                     name=invitee_data.name,
                     email=invitee_data.email,
-                    phone=invitee_data.phone
+                    phone=invitee_data.phone,
+                    join_token=generate_join_token()
                 )
                 db.add(invitee)
         db.commit()
@@ -524,12 +544,16 @@ async def get_invited_groups(current_user: User = Depends(get_current_user), db:
     invitees = db.query(Invitee).filter(Invitee.email == current_user.email).all()
     invited_group_ids = [invitee.group_id for invitee in invitees]
     
+    # Get groups where the current user is a member
+    memberships = db.query(GroupMember).filter(GroupMember.user_id == current_user.id).all()
+    member_group_ids = [membership.group_id for membership in memberships]
+    
     # Also get groups created by the current user
     created_groups = db.query(Group).filter(Group.created_by == current_user.id).all()
     created_group_ids = [group.id for group in created_groups]
     
-    # Combine both lists and remove duplicates
-    all_group_ids = list(set(invited_group_ids + created_group_ids))
+    # Combine all lists and remove duplicates
+    all_group_ids = list(set(invited_group_ids + member_group_ids + created_group_ids))
     
     if not all_group_ids:
         return []
@@ -630,6 +654,92 @@ async def join_group(group_id: int, current_user: User = Depends(get_current_use
     db.commit()
     
     return {"message": "Successfully joined group"}
+
+@app.post("/join/{token}")
+async def join_group_by_token(token: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Join a group using an invitation token"""
+    invitee = db.query(Invitee).filter(Invitee.join_token == token).first()
+    if invitee is None:
+        raise HTTPException(status_code=404, detail="Invalid or expired invitation token")
+    
+    group = db.query(Group).filter(Group.id == invitee.group_id).first()
+    if group is None:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    # Check if user's email matches the invitee's email
+    if current_user.email != invitee.email:
+        raise HTTPException(status_code=403, detail="This invitation is not for your email address")
+    
+    # Check if already a member
+    existing_member = db.query(GroupMember).filter(
+        GroupMember.group_id == group.id,
+        GroupMember.user_id == current_user.id
+    ).first()
+    
+    if existing_member:
+        raise HTTPException(status_code=400, detail="Already a member of this group")
+    
+    # Check if group is full
+    member_count = db.query(GroupMember).filter(GroupMember.group_id == group.id).count()
+    if member_count >= group.max_participants:
+        raise HTTPException(status_code=400, detail="Group is full")
+    
+    # Add user to group
+    group_member = GroupMember(
+        group_id=group.id,
+        user_id=current_user.id
+    )
+    db.add(group_member)
+    
+    # Remove the invitation token as it's been used
+    db.delete(invitee)
+    db.commit()
+    
+    return {
+        "message": "Successfully joined group",
+        "group": {
+            "id": group.id,
+            "name": group.name,
+            "address": group.address
+        }
+    }
+
+@app.get("/join/{token}/info")
+async def get_group_by_token(token: str, db: Session = Depends(get_db)):
+    """Get group information using an invitation token"""
+    invitee = db.query(Invitee).filter(Invitee.join_token == token).first()
+    if invitee is None:
+        raise HTTPException(status_code=404, detail="Invalid or expired invitation token")
+    
+    group = db.query(Group).filter(Group.id == invitee.group_id).first()
+    if group is None:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    # Get group creator information
+    creator = db.query(User).filter(User.id == group.created_by).first()
+    
+    # Get member count
+    member_count = db.query(GroupMember).filter(GroupMember.group_id == group.id).count()
+    
+    return {
+        "group": {
+            "id": group.id,
+            "name": group.name,
+            "address": group.address,
+            "max_participants": group.max_participants,
+            "current_participants": member_count,
+            "status": group.status,
+            "created_at": group.created_at,
+            "creator": {
+                "name": creator.name,
+                "email": creator.email
+            } if creator else None
+        },
+        "invitee": {
+            "name": invitee.name,
+            "email": invitee.email
+        }
+    }
 
 @app.get("/groups/{group_id}/members")
 async def get_group_members(group_id: int, db: Session = Depends(get_db)):
