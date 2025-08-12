@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../App.tsx';
 
@@ -16,6 +16,8 @@ const Register: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useContext(AuthContext);
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({
@@ -57,6 +59,12 @@ const Register: React.FC = () => {
       });
 
       login(tokenResponse.data.access_token, userResponse.data);
+      
+      // Check for redirect parameter
+      const redirectPath = searchParams.get('redirect');
+      if (redirectPath) {
+        navigate(redirectPath);
+      }
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Registration failed');
     } finally {
@@ -143,7 +151,7 @@ const Register: React.FC = () => {
         </button>
       </form>
       <p>
-        Already have an account? <Link to="/login">Login here</Link>
+        Already have an account? <Link to={`/login${searchParams.get('redirect') ? `?redirect=${searchParams.get('redirect')}` : ''}`}>Login here</Link>
       </p>
     </div>
   );

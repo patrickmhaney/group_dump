@@ -3,6 +3,12 @@ import { useParams, Navigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../App.tsx';
 
+interface TimeSlot {
+  id: number;
+  start_date: string;
+  end_date: string;
+}
+
 interface Group {
   id: number;
   name: string;
@@ -11,6 +17,7 @@ interface Group {
   current_participants: number;
   status: string;
   created_at: string;
+  time_slots?: TimeSlot[];
   creator: {
     name: string;
     email: string;
@@ -35,6 +42,7 @@ const Join: React.FC = () => {
   const [error, setError] = useState('');
   const [joining, setJoining] = useState(false);
   const [joined, setJoined] = useState(false);
+  const [selectedTimeSlots, setSelectedTimeSlots] = useState<number[]>([]);
 
   useEffect(() => {
     const fetchJoinInfo = async () => {
@@ -53,12 +61,35 @@ const Join: React.FC = () => {
     }
   }, [token]);
 
+  const handleTimeSlotToggle = (timeSlotId: number) => {
+    setSelectedTimeSlots(prev => {
+      if (prev.includes(timeSlotId)) {
+        return prev.filter(id => id !== timeSlotId);
+      } else {
+        return [...prev, timeSlotId];
+      }
+    });
+    // Clear any previous error when user selects time slots
+    if (error) {
+      setError('');
+    }
+  };
+
   const handleJoin = async () => {
     if (!user || !token) return;
+    
+    // Only require time slot selection if the group has time slots
+    const hasTimeSlots = joinInfo?.group.time_slots && joinInfo.group.time_slots.length > 0;
+    if (hasTimeSlots && selectedTimeSlots.length === 0) {
+      setError('You must select at least one available time slot');
+      return;
+    }
 
     setJoining(true);
     try {
-      await axios.post(`/join/${token}`);
+      await axios.post(`/join/${token}`, {
+        time_slot_ids: selectedTimeSlots
+      });
       setJoined(true);
     } catch (error: any) {
       setError(error.response?.data?.detail || 'Failed to join group');
@@ -117,8 +148,8 @@ const Join: React.FC = () => {
           )}
           <div className="form-group">
             <p>You need to log in or register to join this group.</p>
-            <Link to="/login" className="button" style={{ marginRight: '10px' }}>Login</Link>
-            <Link to="/register" className="button button-secondary">Register</Link>
+            <Link to={`/login?redirect=/join/${token}`} className="button" style={{ marginRight: '10px' }}>Login</Link>
+            <Link to={`/register?redirect=/join/${token}`} className="button button-secondary">Register</Link>
           </div>
         </div>
       </div>
@@ -133,7 +164,7 @@ const Join: React.FC = () => {
           <h2>Invitation Mismatch</h2>
           <p>This invitation is for {joinInfo?.invitee.email}, but you are logged in as {user.email}.</p>
           <p>Please log in with the correct account or contact the group creator.</p>
-          <Link to="/login" className="button">Switch Account</Link>
+          <Link to={`/login?redirect=/join/${token}`} className="button">Switch Account</Link>
         </div>
       </div>
     );
@@ -151,12 +182,41 @@ const Join: React.FC = () => {
             <p><strong>Participants:</strong> {joinInfo.group.current_participants}/{joinInfo.group.max_participants}</p>
             <p><strong>Status:</strong> {joinInfo.group.status}</p>
             
+            {joinInfo.group.time_slots && joinInfo.group.time_slots.length > 0 && (
+              <div className="form-group" style={{ marginTop: '20px' }}>
+                <h4>Available Time Slots</h4>
+                <p>Please select at least one time slot that works for you:</p>
+                <div style={{ marginBottom: '15px' }}>
+                  {joinInfo.group.time_slots.map((slot) => (
+                    <div key={slot.id} style={{ marginBottom: '10px' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={selectedTimeSlots.includes(slot.id)}
+                          onChange={() => handleTimeSlotToggle(slot.id)}
+                          style={{ marginRight: '10px' }}
+                        />
+                        <span>
+                          {new Date(slot.start_date).toLocaleDateString()} - {new Date(slot.end_date).toLocaleDateString()}
+                        </span>
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
             <div className="form-group">
               <p>You've been invited to join this dumpster sharing group!</p>
+              {joinInfo.group.time_slots && joinInfo.group.time_slots.length > 0 && selectedTimeSlots.length === 0 && (
+                <p style={{ color: '#dc3545', fontSize: '14px', marginBottom: '10px' }}>
+                  Please select at least one time slot before joining.
+                </p>
+              )}
               <button 
                 className="button" 
                 onClick={handleJoin}
-                disabled={joining}
+                disabled={joining || (joinInfo.group.time_slots && joinInfo.group.time_slots.length > 0 && selectedTimeSlots.length === 0)}
               >
                 {joining ? 'Joining...' : 'Join Group'}
               </button>

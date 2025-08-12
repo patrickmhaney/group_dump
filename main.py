@@ -182,6 +182,17 @@ class Invitee(Base):
     
     group = relationship("Group", back_populates="invitees")
 
+class UserTimeSlotSelection(Base):
+    __tablename__ = "user_time_slot_selections"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    group_member_id = Column(Integer, ForeignKey("group_members.id"))
+    time_slot_id = Column(Integer, ForeignKey("time_slots.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    member = relationship("GroupMember", foreign_keys=[group_member_id])
+    time_slot = relationship("TimeSlot", foreign_keys=[time_slot_id])
+
 class Rental(Base):
     __tablename__ = "rentals"
     
@@ -286,6 +297,7 @@ class TimeSlotCreate(BaseModel):
     end_date: str
 
 class TimeSlotResponse(BaseModel):
+    id: int
     start_date: str
     end_date: str
     
@@ -315,6 +327,9 @@ class GroupCreate(BaseModel):
     vendor_id: Optional[int] = None
     time_slots: Optional[List[TimeSlotCreate]] = []
     invitees: Optional[List[InviteeCreate]] = []
+
+class JoinGroupRequest(BaseModel):
+    time_slot_ids: List[int]
 
 class ParticipantResponse(BaseModel):
     id: int
@@ -471,6 +486,22 @@ async def create_group(group: GroupCreate, current_user: User = Depends(get_curr
     )
     db.add(group_member)
     db.commit()
+    db.refresh(group_member)
+    
+    # Auto-select all time slots for the group creator
+    if group.time_slots:
+        # Get the created time slots
+        created_time_slots = db.query(TimeSlot).filter(TimeSlot.group_id == db_group.id).all()
+        
+        # Create time slot selections for the creator for all time slots
+        for time_slot in created_time_slots:
+            time_slot_selection = UserTimeSlotSelection(
+                group_member_id=group_member.id,
+                time_slot_id=time_slot.id
+            )
+            db.add(time_slot_selection)
+        
+        db.commit()
     
     # Refresh to get time_slots and invitees
     db.refresh(db_group)
@@ -500,7 +531,7 @@ async def create_group(group: GroupCreate, current_user: User = Depends(get_curr
         "vendor_id": db_group.vendor_id,
         "vendor_name": db_group.vendor.name if db_group.vendor else None,
         "created_at": db_group.created_at,
-        "time_slots": [{"start_date": ts.start_date, "end_date": ts.end_date} for ts in db_group.time_slots],
+        "time_slots": [{"id": ts.id, "start_date": ts.start_date, "end_date": ts.end_date} for ts in db_group.time_slots],
         "participants": participants
     }
 
@@ -535,7 +566,7 @@ async def get_groups(skip: int = 0, limit: int = 100, db: Session = Depends(get_
             "vendor_id": group.vendor_id,
             "vendor_name": group.vendor.name if group.vendor else None,
             "created_at": group.created_at,
-            "time_slots": [{"start_date": ts.start_date, "end_date": ts.end_date} for ts in group.time_slots],
+            "time_slots": [{"id": ts.id, "start_date": ts.start_date, "end_date": ts.end_date} for ts in group.time_slots],
             "participants": participants
         }
         response_groups.append(group_dict)
@@ -591,7 +622,7 @@ async def get_invited_groups(current_user: User = Depends(get_current_user), db:
             "vendor_id": group.vendor_id,
             "vendor_name": group.vendor.name if group.vendor else None,
             "created_at": group.created_at,
-            "time_slots": [{"start_date": ts.start_date, "end_date": ts.end_date} for ts in group.time_slots],
+            "time_slots": [{"id": ts.id, "start_date": ts.start_date, "end_date": ts.end_date} for ts in group.time_slots],
             "participants": participants
         }
         response_groups.append(group_dict)
@@ -628,12 +659,12 @@ async def get_group(group_id: int, db: Session = Depends(get_db)):
         "vendor_id": group.vendor_id,
         "vendor_name": group.vendor.name if group.vendor else None,
         "created_at": group.created_at,
-        "time_slots": [{"start_date": ts.start_date, "end_date": ts.end_date} for ts in group.time_slots],
+        "time_slots": [{"id": ts.id, "start_date": ts.start_date, "end_date": ts.end_date} for ts in group.time_slots],
         "participants": participants
     }
 
 @app.post("/groups/{group_id}/join")
-async def join_group(group_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+async def join_group(group_id: int, join_request: JoinGroupRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     group = db.query(Group).filter(Group.id == group_id).first()
     if group is None:
         raise HTTPException(status_code=404, detail="Group not found")
@@ -650,17 +681,42 @@ async def join_group(group_id: int, current_user: User = Depends(get_current_use
     if member_count >= group.max_participants:
         raise HTTPException(status_code=400, detail="Group is full")
     
+    # Get group time slots
+    group_time_slots = db.query(TimeSlot).filter(TimeSlot.group_id == group_id).all()
+    
+    # Validate time slot selection - only required if group has time slots
+    if group_time_slots and not join_request.time_slot_ids:
+        raise HTTPException(status_code=400, detail="You must select at least one available time slot")
+    
+    # Verify that all selected time slots belong to this group
+    if join_request.time_slot_ids:
+        group_time_slot_ids = [ts.id for ts in group_time_slots]
+        for time_slot_id in join_request.time_slot_ids:
+            if time_slot_id not in group_time_slot_ids:
+                raise HTTPException(status_code=400, detail=f"Time slot {time_slot_id} does not belong to this group")
+    
     group_member = GroupMember(
         group_id=group_id,
         user_id=current_user.id
     )
     db.add(group_member)
     db.commit()
+    db.refresh(group_member)
+    
+    # Add user's time slot selections
+    for time_slot_id in join_request.time_slot_ids:
+        time_slot_selection = UserTimeSlotSelection(
+            group_member_id=group_member.id,
+            time_slot_id=time_slot_id
+        )
+        db.add(time_slot_selection)
+    
+    db.commit()
     
     return {"message": "Successfully joined group"}
 
 @app.post("/join/{token}")
-async def join_group_by_token(token: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+async def join_group_by_token(token: str, join_request: JoinGroupRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Join a group using an invitation token"""
     invitee = db.query(Invitee).filter(Invitee.join_token == token).first()
     if invitee is None:
@@ -688,12 +744,36 @@ async def join_group_by_token(token: str, current_user: User = Depends(get_curre
     if member_count >= group.max_participants:
         raise HTTPException(status_code=400, detail="Group is full")
     
+    # Get group time slots
+    group_time_slots = db.query(TimeSlot).filter(TimeSlot.group_id == group.id).all()
+    
+    # Validate time slot selection - only required if group has time slots
+    if group_time_slots and not join_request.time_slot_ids:
+        raise HTTPException(status_code=400, detail="You must select at least one available time slot")
+    
+    # Verify that all selected time slots belong to this group
+    if join_request.time_slot_ids:
+        group_time_slot_ids = [ts.id for ts in group_time_slots]
+        for time_slot_id in join_request.time_slot_ids:
+            if time_slot_id not in group_time_slot_ids:
+                raise HTTPException(status_code=400, detail=f"Time slot {time_slot_id} does not belong to this group")
+    
     # Add user to group
     group_member = GroupMember(
         group_id=group.id,
         user_id=current_user.id
     )
     db.add(group_member)
+    db.commit()
+    db.refresh(group_member)
+    
+    # Add user's time slot selections
+    for time_slot_id in join_request.time_slot_ids:
+        time_slot_selection = UserTimeSlotSelection(
+            group_member_id=group_member.id,
+            time_slot_id=time_slot_id
+        )
+        db.add(time_slot_selection)
     
     # Remove the invitation token as it's been used
     db.delete(invitee)
@@ -725,6 +805,9 @@ async def get_group_by_token(token: str, db: Session = Depends(get_db)):
     # Get member count
     member_count = db.query(GroupMember).filter(GroupMember.group_id == group.id).count()
     
+    # Get time slots with IDs
+    time_slots = db.query(TimeSlot).filter(TimeSlot.group_id == group.id).all()
+    
     return {
         "group": {
             "id": group.id,
@@ -737,7 +820,8 @@ async def get_group_by_token(token: str, db: Session = Depends(get_db)):
             "creator": {
                 "name": creator.name,
                 "email": creator.email
-            } if creator else None
+            } if creator else None,
+            "time_slots": [{"id": ts.id, "start_date": ts.start_date, "end_date": ts.end_date} for ts in time_slots]
         },
         "invitee": {
             "name": invitee.name,
@@ -865,6 +949,151 @@ async def get_rentals(current_user: User = Depends(get_current_user), db: Sessio
     group_ids = [member.group_id for member in user_groups]
     rentals = db.query(Rental).filter(Rental.group_id.in_(group_ids)).all()
     return rentals
+
+class UserTimeSlotSelectionResponse(BaseModel):
+    time_slot_id: int
+    start_date: str
+    end_date: str
+    
+    class Config:
+        from_attributes = True
+
+class UpdateTimeSlotSelectionsRequest(BaseModel):
+    time_slot_ids: List[int]
+
+class TimeSlotAnalysis(BaseModel):
+    time_slot_id: int
+    start_date: str
+    end_date: str
+    selected_by_count: int
+    selected_by_users: List[str]
+    is_universal: bool  # True if ALL group members selected this slot
+
+@app.get("/groups/{group_id}/user-time-slots", response_model=List[UserTimeSlotSelectionResponse])
+async def get_user_time_slot_selections(group_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Get current user's time slot selections for a specific group"""
+    # Check if user is a member of the group
+    member = db.query(GroupMember).filter(
+        GroupMember.group_id == group_id,
+        GroupMember.user_id == current_user.id
+    ).first()
+    
+    if not member:
+        raise HTTPException(status_code=403, detail="You are not a member of this group")
+    
+    # Get user's time slot selections
+    selections = db.query(UserTimeSlotSelection).filter(
+        UserTimeSlotSelection.group_member_id == member.id
+    ).all()
+    
+    result = []
+    for selection in selections:
+        time_slot = db.query(TimeSlot).filter(TimeSlot.id == selection.time_slot_id).first()
+        if time_slot:
+            result.append({
+                "time_slot_id": time_slot.id,
+                "start_date": time_slot.start_date,
+                "end_date": time_slot.end_date
+            })
+    
+    return result
+
+@app.put("/groups/{group_id}/user-time-slots")
+async def update_user_time_slot_selections(
+    group_id: int, 
+    request: UpdateTimeSlotSelectionsRequest,
+    current_user: User = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
+    """Update current user's time slot selections for a specific group"""
+    # Check if user is a member of the group
+    member = db.query(GroupMember).filter(
+        GroupMember.group_id == group_id,
+        GroupMember.user_id == current_user.id
+    ).first()
+    
+    if not member:
+        raise HTTPException(status_code=403, detail="You are not a member of this group")
+    
+    # Get group time slots
+    group_time_slots = db.query(TimeSlot).filter(TimeSlot.group_id == group_id).all()
+    
+    # Validate that time slots exist and belong to this group if any are provided
+    if request.time_slot_ids:
+        group_time_slot_ids = [ts.id for ts in group_time_slots]
+        for time_slot_id in request.time_slot_ids:
+            if time_slot_id not in group_time_slot_ids:
+                raise HTTPException(status_code=400, detail=f"Time slot {time_slot_id} does not belong to this group")
+    
+    # Validate that at least one time slot is selected if group has time slots
+    if group_time_slots and not request.time_slot_ids:
+        raise HTTPException(status_code=400, detail="You must select at least one available time slot")
+    
+    # Remove existing selections
+    db.query(UserTimeSlotSelection).filter(
+        UserTimeSlotSelection.group_member_id == member.id
+    ).delete()
+    
+    # Add new selections
+    for time_slot_id in request.time_slot_ids:
+        time_slot_selection = UserTimeSlotSelection(
+            group_member_id=member.id,
+            time_slot_id=time_slot_id
+        )
+        db.add(time_slot_selection)
+    
+    db.commit()
+    
+    return {"message": "Time slot selections updated successfully"}
+
+@app.get("/groups/{group_id}/time-slot-analysis", response_model=List[TimeSlotAnalysis])
+async def get_time_slot_analysis(group_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Get analysis of time slot selections for all group members"""
+    # Check if user is a member of the group
+    member = db.query(GroupMember).filter(
+        GroupMember.group_id == group_id,
+        GroupMember.user_id == current_user.id
+    ).first()
+    
+    if not member:
+        raise HTTPException(status_code=403, detail="You are not a member of this group")
+    
+    # Get all time slots for the group
+    time_slots = db.query(TimeSlot).filter(TimeSlot.group_id == group_id).all()
+    
+    # Get all group members
+    members = db.query(GroupMember).filter(GroupMember.group_id == group_id).all()
+    total_members = len(members)
+    
+    result = []
+    for time_slot in time_slots:
+        # Get all selections for this time slot
+        selections = db.query(UserTimeSlotSelection).filter(
+            UserTimeSlotSelection.time_slot_id == time_slot.id
+        ).all()
+        
+        # Get member IDs who selected this slot
+        member_ids = [selection.group_member_id for selection in selections]
+        
+        # Get user names for those who selected this slot
+        selected_users = []
+        for member_id in member_ids:
+            member = db.query(GroupMember).filter(GroupMember.id == member_id).first()
+            if member:
+                user = db.query(User).filter(User.id == member.user_id).first()
+                if user:
+                    selected_users.append(user.name)
+        
+        result.append({
+            "time_slot_id": time_slot.id,
+            "start_date": time_slot.start_date,
+            "end_date": time_slot.end_date,
+            "selected_by_count": len(selected_users),
+            "selected_by_users": selected_users,
+            "is_universal": len(selected_users) == total_members and total_members > 0
+        })
+    
+    return result
 
 @app.get("/")
 async def root():

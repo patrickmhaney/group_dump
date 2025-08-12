@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../App.tsx';
 
@@ -9,6 +9,8 @@ const Login: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useContext(AuthContext);
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,6 +28,12 @@ const Login: React.FC = () => {
       });
 
       login(tokenResponse.data.access_token, userResponse.data);
+      
+      // Check for redirect parameter
+      const redirectPath = searchParams.get('redirect');
+      if (redirectPath) {
+        navigate(redirectPath);
+      }
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Login failed');
     } finally {
@@ -57,7 +65,7 @@ const Login: React.FC = () => {
         </button>
       </form>
       <p>
-        Don't have an account? <Link to="/register">Register here</Link>
+        Don't have an account? <Link to={`/register${searchParams.get('redirect') ? `?redirect=${searchParams.get('redirect')}` : ''}`}>Register here</Link>
       </p>
     </div>
   );
