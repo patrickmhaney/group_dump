@@ -1075,13 +1075,14 @@ async def get_time_slot_analysis(group_id: int, current_user: User = Depends(get
         # Get member IDs who selected this slot
         member_ids = [selection.group_member_id for selection in selections]
         
-        # Get user names for those who selected this slot
+        # Get user names for those who selected this slot (deduplicated)
         selected_users = []
-        for member_id in member_ids:
+        unique_member_ids = list(set(member_ids))  # Remove duplicate member IDs
+        for member_id in unique_member_ids:
             member = db.query(GroupMember).filter(GroupMember.id == member_id).first()
             if member:
                 user = db.query(User).filter(User.id == member.user_id).first()
-                if user:
+                if user and user.name not in selected_users:  # Avoid duplicate names
                     selected_users.append(user.name)
         
         result.append({
