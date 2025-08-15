@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { AuthContext } from '../App.tsx';
 import { useStripe, useElements, CardElement } from '@stripe/react-stripe-js';
+import ServiceConfirmation from './ServiceConfirmation.tsx';
 
 interface Group {
   id: number;
@@ -102,6 +103,7 @@ const Groups: React.FC = () => {
   const [expandedGroups, setExpandedGroups] = useState<{[groupId: number]: boolean}>({});
   const [paymentStatuses, setPaymentStatuses] = useState<{[groupId: number]: GroupPaymentStatus[]}>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState<{groupId: number; groupName: string; groupAddress: string} | null>(null);
   const { user, logout } = useContext(AuthContext);
   const stripe = useStripe();
   const elements = useElements();
@@ -962,8 +964,11 @@ const Groups: React.FC = () => {
                             disabled={!allPaymentsConfirmed}
                             onClick={() => {
                               if (allPaymentsConfirmed) {
-                                setMessage('Schedule service functionality coming soon!');
-                                setTimeout(() => setMessage(''), 3000);
+                                setShowConfirmation({
+                                  groupId: group.id,
+                                  groupName: group.name,
+                                  groupAddress: group.address
+                                });
                               } else if (!hasPaymentData) {
                                 fetchPaymentStatus(group.id);
                                 setMessage('Loading payment status...');
@@ -998,6 +1003,21 @@ const Groups: React.FC = () => {
           </div>
         )}
       </div>
+
+      {showConfirmation && (
+        <ServiceConfirmation
+          groupId={showConfirmation.groupId}
+          groupName={showConfirmation.groupName}
+          groupAddress={showConfirmation.groupAddress}
+          onConfirm={() => {
+            setShowConfirmation(null);
+            setMessage('Service scheduled successfully! All members will receive confirmation emails.');
+            setTimeout(() => setMessage(''), 5000);
+            fetchGroups(); // Refresh to show updated status
+          }}
+          onCancel={() => setShowConfirmation(null)}
+        />
+      )}
     </div>
   );
 };

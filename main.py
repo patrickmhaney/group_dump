@@ -1504,6 +1504,237 @@ async def get_group_payment_status(
     
     return result
 
+class ServiceDetailsResponse(BaseModel):
+    vendor_name: str
+    total_cost: float
+    delivery_date: str
+    duration: int
+    size: str
+    
+    class Config:
+        from_attributes = True
+
+class MemberPaymentResponse(BaseModel):
+    member_id: int
+    user_name: str
+    user_email: str
+    amount: float
+    payment_status: str
+    
+    class Config:
+        from_attributes = True
+
+@app.get("/groups/{group_id}/service-details", response_model=ServiceDetailsResponse)
+async def get_service_details(
+    group_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get service details for group confirmation screen"""
+    # Verify group exists and user is the creator
+    group = db.query(Group).filter(Group.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    if group.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Only group creator can view service details")
+    
+    # Get rental information for this group
+    rental = db.query(Rental).filter(Rental.group_id == group_id).first()
+    if not rental:
+        raise HTTPException(status_code=404, detail="No rental found for this group")
+    
+    # Get vendor information
+    vendor = db.query(Company).filter(Company.id == rental.company_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+    
+    return {
+        "vendor_name": vendor.name,
+        "total_cost": rental.total_cost,
+        "delivery_date": rental.delivery_date.isoformat(),
+        "duration": rental.duration,
+        "size": rental.size
+    }
+
+@app.get("/groups/{group_id}/payment-breakdown", response_model=list[MemberPaymentResponse])
+async def get_payment_breakdown(
+    group_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get payment breakdown per member for confirmation screen"""
+    # Verify group exists and user is the creator
+    group = db.query(Group).filter(Group.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    if group.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Only group creator can view payment breakdown")
+    
+    # Get rental to calculate cost per member
+    rental = db.query(Rental).filter(Rental.group_id == group_id).first()
+    if not rental:
+        raise HTTPException(status_code=404, detail="No rental found for this group")
+    
+    # Get all group members
+    members = db.query(GroupMember).filter(GroupMember.group_id == group_id).all()
+    cost_per_member = rental.total_cost / len(members) if members else 0
+    
+    result = []
+    for member in members:
+        user = db.query(User).filter(User.id == member.user_id).first()
+        if user:
+            result.append({
+                "member_id": member.id,
+                "user_name": user.name,
+                "user_email": user.email,
+                "amount": cost_per_member,
+                "payment_status": member.payment_status or "pending"
+            })
+    
+    return result
+
+@app.post("/groups/{group_id}/schedule-service")
+async def schedule_service(
+    group_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Schedule service and capture all member payments simultaneously"""
+    # Verify group exists and user is the creator
+    group = db.query(Group).filter(Group.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    if group.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Only group creator can schedule service")
+    
+    # Get all group members
+    members = db.query(GroupMember).filter(GroupMember.group_id == group_id).all()
+    
+    # Verify all members have payment methods set up
+    for member in members:
+        if member.payment_status != "setup_complete" or not member.payment_method_id:
+            user = db.query(User).filter(User.id == member.user_id).first()
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Payment method not set up for member: {user.name if user else 'Unknown'}"
+            )
+    
+    # Get rental information
+    rental = db.query(Rental).filter(Rental.group_id == group_id).first()
+    if not rental:
+        raise HTTPException(status_code=404, detail="No rental found for this group")
+    
+    # Calculate amount per member
+    amount_per_member_cents = int((rental.total_cost * 100) / len(members))
+    
+    try:
+        payment_intents = []
+        
+        # Create payment intents for all members
+        for member in members:
+            user = db.query(User).filter(User.id == member.user_id).first()
+            
+            payment_intent = stripe.PaymentIntent.create(
+                amount=amount_per_member_cents,
+                currency='usd',
+                payment_method=member.payment_method_id,
+                confirmation_method='manual',
+                confirm=True,
+                off_session=True,
+                metadata={
+                    'group_id': str(group_id),
+                    'member_id': str(member.id),
+                    'user_id': str(member.user_id),
+                    'rental_id': str(rental.id)
+                }
+            )
+            
+            payment_intents.append({
+                'member_id': member.id,
+                'payment_intent': payment_intent
+            })
+            
+            # Create group payment record
+            group_payment = GroupPayment(
+                group_id=group_id,
+                member_id=member.id,
+                amount=rental.total_cost / len(members),
+                status="completed",
+                payment_intent_id=payment_intent.id,
+                created_at=datetime.utcnow()
+            )
+            db.add(group_payment)
+        
+        # Update group status to scheduled
+        group.status = "scheduled"
+        db.add(group)
+        
+        # Update rental status
+        rental.status = "scheduled"
+        db.add(rental)
+        
+        db.commit()
+        
+        # Send confirmation emails to all members
+        vendor = db.query(Company).filter(Company.id == rental.company_id).first()
+        
+        for member in members:
+            user = db.query(User).filter(User.id == member.user_id).first()
+            if user:
+                amount_charged = rental.total_cost / len(members)
+                subject = f"Service Scheduled - {group.name}"
+                body = f"""
+                <html>
+                <body>
+                    <h2>🎉 Your Group Service Has Been Scheduled!</h2>
+                    
+                    <p>Dear {user.name},</p>
+                    
+                    <p>Great news! The dumpster service for your group <strong>"{group.name}"</strong> has been scheduled.</p>
+                    
+                    <h3>📋 Service Details:</h3>
+                    <ul>
+                        <li><strong>Vendor:</strong> {vendor.name if vendor else 'N/A'}</li>
+                        <li><strong>Size:</strong> {rental.size}</li>
+                        <li><strong>Duration:</strong> {rental.duration} days</li>
+                        <li><strong>Delivery Date:</strong> {rental.delivery_date.strftime('%B %d, %Y')}</li>
+                        <li><strong>Location:</strong> {group.address}</li>
+                    </ul>
+                    
+                    <h3>💳 Payment Processed:</h3>
+                    <p>Your payment of <strong>${amount_charged:.2f}</strong> has been successfully processed.</p>
+                    
+                    <p>Thank you for using our dumpster sharing service!</p>
+                    
+                    <p>Best regards,<br>The Dumpster Sharing Team</p>
+                </body>
+                </html>
+                """
+                
+                await send_email(user.email, subject, body)
+        
+        return {
+            "message": "Service scheduled successfully and payments captured",
+            "payments_processed": len(payment_intents),
+            "total_amount": rental.total_cost
+        }
+        
+    except stripe.error.CardError as e:
+        # Payment failed
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Payment failed: {e.user_message}")
+    except stripe.error.StripeError as e:
+        # Other Stripe error
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Payment processing error: {str(e)}")
+    except Exception as e:
+        # General error
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error scheduling service: {str(e)}")
+
 @app.get("/")
 async def root():
     return {"message": "Dumpster Sharing API", "version": "1.0.0"}

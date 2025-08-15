@@ -46,3 +46,4 @@ File Structure
 To run the application:
 1. Backend: pip install -r requirements.txt then uvicorn main:app --reload
 2. Frontend: npm install then npm start
+
