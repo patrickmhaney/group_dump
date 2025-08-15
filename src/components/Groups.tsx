@@ -74,6 +74,14 @@ interface TimeSlotAnalysis {
   is_universal: boolean;
 }
 
+interface GroupPaymentStatus {
+  member_id: number;
+  user_name: string;
+  user_email: string;
+  payment_status: string;
+  joined_at: string;
+}
+
 const Groups: React.FC = () => {
   const [groups, setGroups] = useState<Group[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -92,6 +100,7 @@ const Groups: React.FC = () => {
   const [userTimeSlotSelections, setUserTimeSlotSelections] = useState<{[groupId: number]: number[]}>({});
   const [timeSlotAnalyses, setTimeSlotAnalyses] = useState<{[groupId: number]: TimeSlotAnalysis[]}>({});
   const [expandedGroups, setExpandedGroups] = useState<{[groupId: number]: boolean}>({});
+  const [paymentStatuses, setPaymentStatuses] = useState<{[groupId: number]: GroupPaymentStatus[]}>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user, logout } = useContext(AuthContext);
   const stripe = useStripe();
@@ -102,6 +111,17 @@ const Groups: React.FC = () => {
     fetchCompanies();
     fetchRentals();
   }, []);
+
+  useEffect(() => {
+    // Auto-load payment status for full groups where user is creator
+    groups.forEach(group => {
+      if ((group.current_participants || 0) >= group.max_participants && 
+          group.created_by === user?.id && 
+          !paymentStatuses[group.id]) {
+        fetchPaymentStatus(group.id);
+      }
+    });
+  }, [groups, user?.id, paymentStatuses]);
 
   const fetchGroups = async () => {
     try {
@@ -154,6 +174,18 @@ const Groups: React.FC = () => {
       }));
     } catch (error) {
       console.error('Error fetching time slot analysis:', error);
+    }
+  };
+
+  const fetchPaymentStatus = async (groupId: number) => {
+    try {
+      const response = await axios.get(`/groups/${groupId}/payment-status`);
+      setPaymentStatuses(prev => ({
+        ...prev,
+        [groupId]: response.data
+      }));
+    } catch (error) {
+      console.error('Error fetching payment status:', error);
     }
   };
 
@@ -705,6 +737,86 @@ const Groups: React.FC = () => {
                     color: '#155724'
                   }}>
                     <strong>🎉 Group is ready!</strong> You have reached the maximum number of participants.
+                    
+                    {group.created_by === user?.id && (
+                      <div style={{ marginTop: '15px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '6px', border: '1px solid #dee2e6' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                          <h4 style={{ margin: '0', color: '#495057' }}>💳 Payment Status Overview</h4>
+                          <button
+                            className="button button-secondary"
+                            style={{ padding: '5px 10px', fontSize: '12px' }}
+                            onClick={() => fetchPaymentStatus(group.id)}
+                          >
+                            Refresh Status
+                          </button>
+                        </div>
+                        
+                        {paymentStatuses[group.id] ? (
+                          <div>
+                            {paymentStatuses[group.id].map((memberStatus) => {
+                              const statusColor = memberStatus.payment_status === 'setup_complete' ? '#28a745' : 
+                                                 memberStatus.payment_status === 'setup_required' ? '#ffc107' : '#dc3545';
+                              const statusText = memberStatus.payment_status === 'setup_complete' ? 'Confirmed' :
+                                               memberStatus.payment_status === 'setup_required' ? 'Pending' : 'Not Set Up';
+                              const statusIcon = memberStatus.payment_status === 'setup_complete' ? '✅' :
+                                               memberStatus.payment_status === 'setup_required' ? '⏳' : '❌';
+                              
+                              return (
+                                <div 
+                                  key={memberStatus.member_id}
+                                  style={{ 
+                                    display: 'flex', 
+                                    justifyContent: 'space-between', 
+                                    alignItems: 'center',
+                                    padding: '8px 0',
+                                    borderBottom: '1px solid #e9ecef'
+                                  }}
+                                >
+                                  <span style={{ fontSize: '14px' }}>
+                                    {memberStatus.user_name} ({memberStatus.user_email})
+                                  </span>
+                                  <span style={{ 
+                                    fontSize: '13px', 
+                                    fontWeight: 'bold',
+                                    color: statusColor,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '5px'
+                                  }}>
+                                    <span>{statusIcon}</span>
+                                    {statusText}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                            
+                            {paymentStatuses[group.id].every(status => status.payment_status === 'setup_complete') && (
+                              <div style={{ 
+                                marginTop: '10px', 
+                                padding: '8px', 
+                                backgroundColor: '#d4edda', 
+                                borderRadius: '4px', 
+                                fontSize: '13px',
+                                color: '#155724',
+                                fontWeight: 'bold'
+                              }}>
+                                🎉 All members have confirmed payment methods!
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div style={{ textAlign: 'center', padding: '10px', color: '#6c757d', fontSize: '14px' }}>
+                            <button
+                              className="button button-secondary"
+                              onClick={() => fetchPaymentStatus(group.id)}
+                              style={{ fontSize: '12px' }}
+                            >
+                              Load Payment Status
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
                 {group.vendor_name && (
@@ -833,18 +945,44 @@ const Groups: React.FC = () => {
                   <div style={{ marginTop: '10px' }}>
                     <span style={{ color: '#28a745', fontWeight: 'bold' }}>You created this group</span>
                     <div style={{ marginTop: '10px', display: 'flex', gap: '10px' }}>
-                      {(group.current_participants || 0) >= group.max_participants && (
-                        <button
-                          className="button"
-                          style={{ backgroundColor: '#007bff', color: 'white' }}
-                          onClick={() => {
-                            setMessage('Schedule service functionality coming soon!');
-                            setTimeout(() => setMessage(''), 3000);
-                          }}
-                        >
-                          Schedule Service
-                        </button>
-                      )}
+                      {(group.current_participants || 0) >= group.max_participants && (() => {
+                        const allPaymentsConfirmed = paymentStatuses[group.id] && 
+                          paymentStatuses[group.id].every(status => status.payment_status === 'setup_complete');
+                        const hasPaymentData = paymentStatuses[group.id];
+                        
+                        return (
+                          <button
+                            className="button"
+                            style={{ 
+                              backgroundColor: allPaymentsConfirmed ? '#007bff' : '#6c757d', 
+                              color: 'white',
+                              opacity: allPaymentsConfirmed ? 1 : 0.6,
+                              cursor: allPaymentsConfirmed ? 'pointer' : 'not-allowed'
+                            }}
+                            disabled={!allPaymentsConfirmed}
+                            onClick={() => {
+                              if (allPaymentsConfirmed) {
+                                setMessage('Schedule service functionality coming soon!');
+                                setTimeout(() => setMessage(''), 3000);
+                              } else if (!hasPaymentData) {
+                                fetchPaymentStatus(group.id);
+                                setMessage('Loading payment status...');
+                                setTimeout(() => setMessage(''), 2000);
+                              } else {
+                                setMessage('All members must confirm their payment methods before scheduling service.');
+                                setTimeout(() => setMessage(''), 4000);
+                              }
+                            }}
+                            title={
+                              !hasPaymentData ? 'Load payment status first' :
+                              !allPaymentsConfirmed ? 'All members must confirm payment methods' :
+                              'Schedule your dumpster service'
+                            }
+                          >
+                            {allPaymentsConfirmed ? '📅 Schedule Service' : '⏳ Waiting for Payments'}
+                          </button>
+                        );
+                      })()}
                       <button
                         className="button"
                         style={{ backgroundColor: '#dc3545', color: 'white' }}

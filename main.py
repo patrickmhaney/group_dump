@@ -1462,6 +1462,48 @@ async def confirm_invitee_payment_setup(
     except stripe.error.StripeError as e:
         raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
 
+class GroupPaymentStatusResponse(BaseModel):
+    member_id: int
+    user_name: str
+    user_email: str
+    payment_status: str
+    joined_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+@app.get("/groups/{group_id}/payment-status", response_model=list[GroupPaymentStatusResponse])
+async def get_group_payment_status(
+    group_id: int, 
+    current_user: User = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
+    """Get payment status for all group members - only accessible by group creator"""
+    # Verify group exists and user is the creator
+    group = db.query(Group).filter(Group.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    if group.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Only group creator can view payment status")
+    
+    # Get all group members with their payment status
+    members = db.query(GroupMember).filter(GroupMember.group_id == group_id).all()
+    
+    result = []
+    for member in members:
+        user = db.query(User).filter(User.id == member.user_id).first()
+        if user:
+            result.append({
+                "member_id": member.id,
+                "user_name": user.name,
+                "user_email": user.email,
+                "payment_status": member.payment_status or "pending",
+                "joined_at": member.joined_at
+            })
+    
+    return result
+
 @app.get("/")
 async def root():
     return {"message": "Dumpster Sharing API", "version": "1.0.0"}
