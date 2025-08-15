@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { useParams, Navigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../App.tsx';
+import InviteePaymentSetup from './InviteePaymentSetup.tsx';
 
 interface TimeSlot {
   id: number;
@@ -43,6 +44,8 @@ const Join: React.FC = () => {
   const [joining, setJoining] = useState(false);
   const [joined, setJoined] = useState(false);
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<number[]>([]);
+  const [showPaymentSetup, setShowPaymentSetup] = useState(false);
+  const [paymentSetupComplete, setPaymentSetupComplete] = useState(false);
 
   useEffect(() => {
     const fetchJoinInfo = async () => {
@@ -75,7 +78,7 @@ const Join: React.FC = () => {
     }
   };
 
-  const handleJoin = async () => {
+  const handleProceedToPayment = () => {
     if (!user || !token) return;
     
     // Only require time slot selection if the group has time slots
@@ -84,6 +87,22 @@ const Join: React.FC = () => {
       setError('You must select at least one available time slot');
       return;
     }
+
+    setError('');
+    setShowPaymentSetup(true);
+  };
+
+  const handlePaymentSetupComplete = () => {
+    setPaymentSetupComplete(true);
+    setShowPaymentSetup(false);
+  };
+
+  const handlePaymentSetupCancel = () => {
+    setShowPaymentSetup(false);
+  };
+
+  const handleJoin = async () => {
+    if (!user || !token || !paymentSetupComplete) return;
 
     setJoining(true);
     try {
@@ -206,21 +225,50 @@ const Join: React.FC = () => {
               </div>
             )}
             
-            <div className="form-group">
-              <p>You've been invited to join this dumpster sharing group!</p>
-              {joinInfo.group.time_slots && joinInfo.group.time_slots.length > 0 && selectedTimeSlots.length === 0 && (
-                <p style={{ color: '#dc3545', fontSize: '14px', marginBottom: '10px' }}>
-                  Please select at least one time slot before joining.
-                </p>
-              )}
-              <button 
-                className="button" 
-                onClick={handleJoin}
-                disabled={joining || (joinInfo.group.time_slots && joinInfo.group.time_slots.length > 0 && selectedTimeSlots.length === 0)}
-              >
-                {joining ? 'Joining...' : 'Join Group'}
-              </button>
-            </div>
+            {showPaymentSetup && token ? (
+              <InviteePaymentSetup
+                joinToken={token}
+                onPaymentSetupComplete={handlePaymentSetupComplete}
+                onCancel={handlePaymentSetupCancel}
+              />
+            ) : !paymentSetupComplete ? (
+              <div className="form-group">
+                <p>You've been invited to join this dumpster sharing group!</p>
+                {joinInfo.group.time_slots && joinInfo.group.time_slots.length > 0 && selectedTimeSlots.length === 0 && (
+                  <p style={{ color: '#dc3545', fontSize: '14px', marginBottom: '10px' }}>
+                    Please select at least one time slot before proceeding.
+                  </p>
+                )}
+                <button 
+                  className="button" 
+                  onClick={handleProceedToPayment}
+                  disabled={joinInfo.group.time_slots && joinInfo.group.time_slots.length > 0 && selectedTimeSlots.length === 0}
+                >
+                  Continue to Payment Setup
+                </button>
+              </div>
+            ) : (
+              <div className="form-group">
+                <div style={{ 
+                  padding: '15px', 
+                  backgroundColor: '#d4edda', 
+                  border: '1px solid #c3e6cb',
+                  borderRadius: '4px',
+                  marginBottom: '15px'
+                }}>
+                  <p style={{ margin: 0, color: '#155724' }}>
+                    ✅ Payment method successfully added! You can now join the group.
+                  </p>
+                </div>
+                <button 
+                  className="button" 
+                  onClick={handleJoin}
+                  disabled={joining}
+                >
+                  {joining ? 'Joining...' : 'Join Group'}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

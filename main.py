@@ -188,6 +188,9 @@ class Invitee(Base):
     join_token = Column(String, unique=True)
     invitation_sent = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    payment_setup_intent_id = Column(String, nullable=True)
+    payment_method_id = Column(String, nullable=True) 
+    payment_status = Column(String, default="setup_required")
     
     group = relationship("Group", back_populates="invitees")
 
@@ -902,6 +905,10 @@ async def join_group_by_token(token: str, join_request: JoinGroupRequest, curren
     if current_user.email != invitee.email:
         raise HTTPException(status_code=403, detail="This invitation is not for your email address")
     
+    # Check if payment method is set up
+    if invitee.payment_status != "setup_complete" or not invitee.payment_method_id:
+        raise HTTPException(status_code=400, detail="Payment method setup required before joining group")
+    
     # Check if already a member
     existing_member = db.query(GroupMember).filter(
         GroupMember.group_id == group.id,
@@ -930,10 +937,12 @@ async def join_group_by_token(token: str, join_request: JoinGroupRequest, curren
             if time_slot_id not in group_time_slot_ids:
                 raise HTTPException(status_code=400, detail=f"Time slot {time_slot_id} does not belong to this group")
     
-    # Add user to group
+    # Add user to group with payment information
     group_member = GroupMember(
         group_id=group.id,
-        user_id=current_user.id
+        user_id=current_user.id,
+        payment_method_id=invitee.payment_method_id,
+        payment_status="setup_complete"
     )
     db.add(group_member)
     db.commit()
@@ -1351,6 +1360,99 @@ async def confirm_payment_setup(
             member.payment_method_id = request.payment_method_id
             member.payment_status = "setup_complete"
             db.add(member)
+            db.commit()
+            
+            return {"message": "Payment method setup completed successfully"}
+        else:
+            raise HTTPException(status_code=400, detail="Payment setup not completed")
+            
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
+
+@app.post("/join/{token}/setup-payment", response_model=PaymentSetupResponse)
+async def setup_invitee_payment(
+    token: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Setup payment method for invitee joining group"""
+    # Verify invitation token exists and user email matches
+    invitee = db.query(Invitee).filter(Invitee.join_token == token).first()
+    if not invitee:
+        raise HTTPException(status_code=404, detail="Invalid or expired invitation token")
+    
+    if current_user.email != invitee.email:
+        raise HTTPException(status_code=403, detail="This invitation is not for your email address")
+    
+    group = db.query(Group).filter(Group.id == invitee.group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    # Check if user is already a member
+    existing_member = db.query(GroupMember).filter(
+        GroupMember.group_id == group.id,
+        GroupMember.user_id == current_user.id
+    ).first()
+    
+    if existing_member:
+        raise HTTPException(status_code=400, detail="Already a member of this group")
+    
+    try:
+        # Create setup intent with Stripe
+        setup_intent = stripe.SetupIntent.create(
+            customer=None,
+            payment_method_types=['card'],
+            usage='off_session',
+            metadata={
+                'group_id': str(group.id),
+                'user_id': str(current_user.id),
+                'join_token': token,
+                'invitee_email': invitee.email
+            }
+        )
+        
+        # Store setup intent ID in invitee record temporarily
+        invitee.payment_setup_intent_id = setup_intent.id
+        db.add(invitee)
+        db.commit()
+        
+        return {
+            "setup_intent_id": setup_intent.id,
+            "client_secret": setup_intent.client_secret,
+            "status": setup_intent.status
+        }
+        
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
+
+@app.post("/join/{token}/confirm-payment-setup")
+async def confirm_invitee_payment_setup(
+    token: str,
+    request: PaymentSetupRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Confirm payment method setup for invitee joining group"""
+    # Verify invitation token exists and user email matches
+    invitee = db.query(Invitee).filter(Invitee.join_token == token).first()
+    if not invitee:
+        raise HTTPException(status_code=404, detail="Invalid or expired invitation token")
+    
+    if current_user.email != invitee.email:
+        raise HTTPException(status_code=403, detail="This invitation is not for your email address")
+    
+    if not invitee.payment_setup_intent_id:
+        raise HTTPException(status_code=400, detail="No payment setup intent found")
+    
+    try:
+        # Retrieve and confirm the setup intent
+        setup_intent = stripe.SetupIntent.retrieve(invitee.payment_setup_intent_id)
+        
+        if setup_intent.status == "succeeded":
+            # Store payment method ID in invitee record
+            invitee.payment_method_id = request.payment_method_id
+            invitee.payment_status = "setup_complete"
+            db.add(invitee)
             db.commit()
             
             return {"message": "Payment method setup completed successfully"}
