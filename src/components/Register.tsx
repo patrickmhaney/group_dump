@@ -66,7 +66,24 @@ const Register: React.FC = () => {
         navigate(redirectPath);
       }
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Registration failed');
+      console.error('Registration error:', err);
+      console.error('Error response:', err.response?.data);
+      
+      let errorMessage = 'Registration failed';
+      if (err.response?.data) {
+        if (typeof err.response.data.detail === 'string') {
+          errorMessage = err.response.data.detail;
+        } else if (Array.isArray(err.response.data.detail)) {
+          errorMessage = err.response.data.detail.map((error: any) => {
+            if (typeof error === 'string') return error;
+            if (error.msg) return error.msg;
+            return JSON.stringify(error);
+          }).join(', ');
+        } else if (err.response.data.detail) {
+          errorMessage = JSON.stringify(err.response.data.detail);
+        }
+      }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

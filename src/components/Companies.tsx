@@ -9,7 +9,6 @@ interface Company {
   phone: string;
   address: string;
   service_areas: string;
-  pricing_tiers: string;
   rating: number;
 }
 
@@ -24,7 +23,14 @@ const Companies: React.FC = () => {
     phone: '',
     address: '',
     service_areas: '',
-    pricing_tiers: ''
+    dumpster_sizes: [{
+      cubic_yards: '',
+      dimensions: '',
+      starting_price: '',
+      starting_tonnage: '',
+      per_ton_overage_price: '',
+      additional_day_price: ''
+    }]
   });
   const { user, logout } = useContext(AuthContext);
 
@@ -55,12 +61,36 @@ const Companies: React.FC = () => {
         phone: '',
         address: '',
         service_areas: '',
-        pricing_tiers: ''
+        dumpster_sizes: [{
+          cubic_yards: '',
+          dimensions: '',
+          starting_price: '',
+          starting_tonnage: '',
+          per_ton_overage_price: '',
+          additional_day_price: ''
+        }]
       });
       setMessage('Company registered successfully!');
       setTimeout(() => setMessage(''), 3000);
     } catch (error: any) {
-      setMessage(error.response?.data?.detail || 'Error registering company');
+      console.error('Full error object:', error);
+      console.error('Error response:', error.response?.data);
+      
+      let errorMessage = 'Error registering company';
+      if (error.response?.data) {
+        if (typeof error.response.data.detail === 'string') {
+          errorMessage = error.response.data.detail;
+        } else if (Array.isArray(error.response.data.detail)) {
+          errorMessage = error.response.data.detail.map((err: any) => {
+            if (typeof err === 'string') return err;
+            if (err.msg) return err.msg;
+            return JSON.stringify(err);
+          }).join(', ');
+        } else if (error.response.data.detail) {
+          errorMessage = JSON.stringify(error.response.data.detail);
+        }
+      }
+      setMessage(errorMessage);
       setTimeout(() => setMessage(''), 3000);
     }
   };
@@ -71,6 +101,42 @@ const Companies: React.FC = () => {
       ...formData,
       [name]: value
     });
+  };
+
+  const handleDumpsterSizeChange = (index: number, field: string, value: string) => {
+    const newDumpsterSizes = [...formData.dumpster_sizes];
+    newDumpsterSizes[index] = {
+      ...newDumpsterSizes[index],
+      [field]: value
+    };
+    setFormData({
+      ...formData,
+      dumpster_sizes: newDumpsterSizes
+    });
+  };
+
+  const addDumpsterSize = () => {
+    setFormData({
+      ...formData,
+      dumpster_sizes: [...formData.dumpster_sizes, {
+        cubic_yards: '',
+        dimensions: '',
+        starting_price: '',
+        starting_tonnage: '',
+        per_ton_overage_price: '',
+        additional_day_price: ''
+      }]
+    });
+  };
+
+  const removeDumpsterSize = (index: number) => {
+    if (formData.dumpster_sizes.length > 1) {
+      const newDumpsterSizes = formData.dumpster_sizes.filter((_, i) => i !== index);
+      setFormData({
+        ...formData,
+        dumpster_sizes: newDumpsterSizes
+      });
+    }
   };
 
   if (loading) return <div>Loading...</div>;
@@ -145,14 +211,89 @@ const Companies: React.FC = () => {
               rows={3}
               required
             />
-            <textarea
-              name="pricing_tiers"
-              placeholder="Pricing Information"
-              value={formData.pricing_tiers}
-              onChange={handleChange}
-              rows={3}
-              required
-            />
+            
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                <h3 style={{ margin: 0 }}>Dumpster Size Options</h3>
+                <button 
+                  type="button" 
+                  className="button" 
+                  onClick={addDumpsterSize}
+                  style={{ padding: '8px 16px', fontSize: '14px' }}
+                >
+                  Add Size Option
+                </button>
+              </div>
+              
+              {formData.dumpster_sizes.map((dumpsterSize, index) => (
+                <div key={index} style={{ 
+                  border: '1px solid #ddd', 
+                  borderRadius: '4px', 
+                  padding: '15px', 
+                  marginBottom: '15px',
+                  backgroundColor: '#f9f9f9'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <h4 style={{ margin: 0 }}>Size Option {index + 1}</h4>
+                    {formData.dumpster_sizes.length > 1 && (
+                      <button 
+                        type="button" 
+                        className="button button-secondary" 
+                        onClick={() => removeDumpsterSize(index)}
+                        style={{ padding: '6px 12px', fontSize: '12px' }}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                    <input
+                      type="text"
+                      placeholder="Cubic Yards"
+                      value={dumpsterSize.cubic_yards}
+                      onChange={(e) => handleDumpsterSizeChange(index, 'cubic_yards', e.target.value)}
+                      required
+                    />
+                    <input
+                      type="text"
+                      placeholder="Dimensions (e.g., 12' X 8' X 4')"
+                      value={dumpsterSize.dimensions}
+                      onChange={(e) => handleDumpsterSizeChange(index, 'dimensions', e.target.value)}
+                      required
+                    />
+                    <input
+                      type="text"
+                      placeholder="Starting Price ($)"
+                      value={dumpsterSize.starting_price}
+                      onChange={(e) => handleDumpsterSizeChange(index, 'starting_price', e.target.value)}
+                      required
+                    />
+                    <input
+                      type="text"
+                      placeholder="Starting Tonnage"
+                      value={dumpsterSize.starting_tonnage}
+                      onChange={(e) => handleDumpsterSizeChange(index, 'starting_tonnage', e.target.value)}
+                      required
+                    />
+                    <input
+                      type="text"
+                      placeholder="Per Ton Overage Price ($)"
+                      value={dumpsterSize.per_ton_overage_price}
+                      onChange={(e) => handleDumpsterSizeChange(index, 'per_ton_overage_price', e.target.value)}
+                      required
+                    />
+                    <input
+                      type="text"
+                      placeholder="Additional Day Price ($)"
+                      value={dumpsterSize.additional_day_price}
+                      onChange={(e) => handleDumpsterSizeChange(index, 'additional_day_price', e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
             <div style={{ display: 'flex', gap: '10px' }}>
               <button type="submit" className="button">Register Company</button>
               <button type="button" className="button button-secondary" onClick={() => setShowCreateForm(false)}>
@@ -176,7 +317,6 @@ const Companies: React.FC = () => {
                 <p><strong>Phone:</strong> {company.phone}</p>
                 <p><strong>Address:</strong> {company.address}</p>
                 <p><strong>Service Areas:</strong> {company.service_areas}</p>
-                <p><strong>Pricing:</strong> {company.pricing_tiers}</p>
                 {company.rating > 0 && (
                   <p><strong>Rating:</strong> {company.rating.toFixed(1)}/5.0</p>
                 )}

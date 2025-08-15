@@ -16,6 +16,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import stripe
+import json
 
 load_dotenv()
 
@@ -160,7 +161,7 @@ class Company(Base):
     phone = Column(String)
     address = Column(String)
     service_areas = Column(Text)
-    pricing_tiers = Column(Text)
+    dumpster_sizes = Column(Text)  # JSON string of dumpster sizes
     commission_rate = Column(Float, default=0.08)
     rating = Column(Float, default=0.0)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -383,13 +384,21 @@ class GroupResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class DumpsterSize(BaseModel):
+    cubic_yards: str
+    dimensions: str
+    starting_price: str
+    starting_tonnage: str
+    per_ton_overage_price: str
+    additional_day_price: str
+
 class CompanyCreate(BaseModel):
     name: str
     email: EmailStr
     phone: str
     address: str
     service_areas: str
-    pricing_tiers: str
+    dumpster_sizes: List[DumpsterSize]
 
 class CompanyResponse(BaseModel):
     id: int
@@ -398,7 +407,7 @@ class CompanyResponse(BaseModel):
     phone: str
     address: str
     service_areas: str
-    pricing_tiers: str
+    dumpster_sizes: List[DumpsterSize]
     rating: float
     
     class Config:
@@ -1046,30 +1055,69 @@ async def get_group_members(group_id: int, db: Session = Depends(get_db)):
 
 @app.post("/companies", response_model=CompanyResponse)
 async def create_company(company: CompanyCreate, db: Session = Depends(get_db)):
+    # Convert dumpster_sizes to JSON string for storage
+    dumpster_sizes_json = json.dumps([size.dict() for size in company.dumpster_sizes])
+    
     db_company = Company(
         name=company.name,
         email=company.email,
         phone=company.phone,
         address=company.address,
         service_areas=company.service_areas,
-        pricing_tiers=company.pricing_tiers
+        dumpster_sizes=dumpster_sizes_json
     )
     db.add(db_company)
     db.commit()
     db.refresh(db_company)
-    return db_company
+    
+    # Convert back to response format
+    response_data = {
+        "id": db_company.id,
+        "name": db_company.name,
+        "email": db_company.email,
+        "phone": db_company.phone,
+        "address": db_company.address,
+        "service_areas": db_company.service_areas,
+        "dumpster_sizes": [DumpsterSize(**size) for size in json.loads(db_company.dumpster_sizes)],
+        "rating": db_company.rating
+    }
+    return CompanyResponse(**response_data)
 
 @app.get("/companies", response_model=list[CompanyResponse])
 async def get_companies(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     companies = db.query(Company).offset(skip).limit(limit).all()
-    return companies
+    result = []
+    for company in companies:
+        company_data = {
+            "id": company.id,
+            "name": company.name,
+            "email": company.email,
+            "phone": company.phone,
+            "address": company.address,
+            "service_areas": company.service_areas,
+            "dumpster_sizes": [DumpsterSize(**size) for size in json.loads(company.dumpster_sizes)],
+            "rating": company.rating
+        }
+        result.append(CompanyResponse(**company_data))
+    return result
 
 @app.get("/companies/{company_id}", response_model=CompanyResponse)
 async def get_company(company_id: int, db: Session = Depends(get_db)):
     company = db.query(Company).filter(Company.id == company_id).first()
     if company is None:
         raise HTTPException(status_code=404, detail="Company not found")
-    return company
+    
+    company_data = {
+        "id": company.id,
+        "name": company.name,
+        "email": company.email,
+        "phone": company.phone,
+        "address": company.address,
+        "service_areas": company.service_areas,
+        "dumpster_sizes": [DumpsterSize(**size) for size in json.loads(company.dumpster_sizes)],
+        "rating": company.rating
+    }
+    return CompanyResponse(**company_data)
 
 class RentalCreate(BaseModel):
     group_id: int
