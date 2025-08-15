@@ -33,8 +33,17 @@ interface Company {
   phone: string;
   address: string;
   service_areas: string;
-  pricing_tiers: string;
+  dumpster_sizes: DumpsterSize[];
   rating: number;
+}
+
+interface DumpsterSize {
+  cubic_yards: string;
+  dimensions: string;
+  starting_price: string;
+  starting_tonnage: string;
+  per_ton_overage_price: string;
+  additional_day_price: string;
 }
 
 interface TimeSlot {
@@ -94,7 +103,8 @@ const Groups: React.FC = () => {
     name: '',
     address: '',
     max_participants: 5,
-    vendor_id: ''
+    vendor_id: '',
+    selected_dumpster_size: ''
   });
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [invitees, setInvitees] = useState<Invitee[]>([]);
@@ -257,11 +267,20 @@ const Groups: React.FC = () => {
         delete groupData.vendor_id;
       }
       
+      // Add rental information if service is selected
+      if (formData.vendor_id && formData.selected_dumpster_size) {
+        groupData.rental_info = {
+          dumpster_size: formData.selected_dumpster_size
+        };
+      } else if (formData.vendor_id && !formData.selected_dumpster_size) {
+        throw new Error('Please select a dumpster size when choosing a vendor.');
+      }
+      
       // Create group with payment in single transaction
       const response = await axios.post('/groups/create-with-payment', groupData);
       setGroups([response.data, ...groups]);
       setShowCreateForm(false);
-      setFormData({ name: '', address: '', max_participants: 5, vendor_id: '' });
+      setFormData({ name: '', address: '', max_participants: 5, vendor_id: '', selected_dumpster_size: '' });
       setTimeSlots([]);
       setInvitees([]);
       setMessage('Group created successfully with payment setup! Invitations have been sent.');
@@ -506,6 +525,151 @@ const Groups: React.FC = () => {
                 </option>
               ))}
             </select>
+            
+            {/* Service Selection Section */}
+            {formData.vendor_id && (
+              <div className="service-selection-section" style={{ 
+                marginTop: '20px', 
+                padding: '20px', 
+                border: '2px solid #28a745', 
+                borderRadius: '8px', 
+                backgroundColor: '#f8fff8' 
+              }}>
+                <h3 style={{ marginTop: '0', color: '#28a745' }}>🚚 Select Your Dumpster Service</h3>
+                
+                {(() => {
+                  const selectedCompany = companies.find(c => c.id === parseInt(formData.vendor_id));
+                  if (!selectedCompany?.dumpster_sizes?.length) {
+                    return (
+                      <p style={{ color: '#666', fontStyle: 'italic' }}>
+                        This vendor hasn't configured their dumpster sizes yet.
+                      </p>
+                    );
+                  }
+                  
+                  return (
+                    <>
+                      <div style={{ marginBottom: '15px' }}>
+                        <label style={{ display: 'block', fontSize: '16px', marginBottom: '15px', fontWeight: 'bold', color: '#155724' }}>
+                          Choose Your Dumpster Size:
+                        </label>
+                        <div style={{ display: 'grid', gap: '15px' }}>
+                          {selectedCompany.dumpster_sizes.map((size, index) => {
+                            const isSelected = formData.selected_dumpster_size === JSON.stringify(size);
+                            return (
+                              <div
+                                key={index}
+                                onClick={() => setFormData({...formData, selected_dumpster_size: JSON.stringify(size)})}
+                                style={{
+                                  border: `3px solid ${isSelected ? '#28a745' : '#dee2e6'}`,
+                                  borderRadius: '12px',
+                                  padding: '20px',
+                                  cursor: 'pointer',
+                                  backgroundColor: isSelected ? '#f8fff8' : '#ffffff',
+                                  transition: 'all 0.3s ease',
+                                  boxShadow: isSelected ? '0 4px 12px rgba(40, 167, 69, 0.2)' : '0 2px 6px rgba(0,0,0,0.1)',
+                                  position: 'relative'
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (!isSelected) {
+                                    e.currentTarget.style.borderColor = '#28a745';
+                                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(40, 167, 69, 0.15)';
+                                  }
+                                }}
+                                onMouseLeave={(e) => {
+                                  if (!isSelected) {
+                                    e.currentTarget.style.borderColor = '#dee2e6';
+                                    e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.1)';
+                                  }
+                                }}
+                              >
+                                {isSelected && (
+                                  <div style={{
+                                    position: 'absolute',
+                                    top: '10px',
+                                    right: '15px',
+                                    backgroundColor: '#28a745',
+                                    color: 'white',
+                                    borderRadius: '50%',
+                                    width: '24px',
+                                    height: '24px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '14px',
+                                    fontWeight: 'bold'
+                                  }}>
+                                    ✓
+                                  </div>
+                                )}
+                                
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
+                                  <div>
+                                    <h4 style={{ margin: '0 0 5px 0', color: '#155724', fontSize: '20px', fontWeight: 'bold' }}>
+                                      {size.cubic_yards} Cubic Yards
+                                    </h4>
+                                    <p style={{ margin: '0', color: '#666', fontSize: '14px' }}>
+                                      Dimensions: {size.dimensions}
+                                    </p>
+                                  </div>
+                                  <div style={{ textAlign: 'right' }}>
+                                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#28a745' }}>
+                                      ${size.starting_price}
+                                    </div>
+                                    <div style={{ fontSize: '12px', color: '#666' }}>
+                                      starting price
+                                    </div>
+                                  </div>
+                                </div>
+                                
+                                <div style={{ 
+                                  display: 'grid', 
+                                  gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', 
+                                  gap: '12px',
+                                  marginTop: '15px',
+                                  paddingTop: '15px',
+                                  borderTop: '1px solid #e9ecef'
+                                }}>
+                                  <div style={{ textAlign: 'center', padding: '8px', backgroundColor: '#f8f9fa', borderRadius: '6px' }}>
+                                    <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#495057' }}>
+                                      {size.starting_tonnage} tons
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: '#6c757d' }}>included</div>
+                                  </div>
+                                  <div style={{ textAlign: 'center', padding: '8px', backgroundColor: '#f8f9fa', borderRadius: '6px' }}>
+                                    <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#495057' }}>
+                                      ${size.per_ton_overage_price}
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: '#6c757d' }}>per extra ton</div>
+                                  </div>
+                                  <div style={{ textAlign: 'center', padding: '8px', backgroundColor: '#f8f9fa', borderRadius: '6px' }}>
+                                    <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#495057' }}>
+                                      ${size.additional_day_price}
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: '#6c757d' }}>per extra day</div>
+                                  </div>
+                                  <div style={{ textAlign: 'center', padding: '8px', backgroundColor: '#e8f5e8', borderRadius: '6px' }}>
+                                    <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#155724' }}>
+                                      7 days
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: '#155724' }}>rental period</div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {!formData.selected_dumpster_size && (
+                          <p style={{ color: '#dc3545', fontSize: '14px', marginTop: '10px', fontStyle: 'italic' }}>
+                            * Please select a dumpster size to continue
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            )}
             
             <div className="invitees-section">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>

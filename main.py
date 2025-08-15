@@ -428,6 +428,9 @@ class PaymentSetupResponse(BaseModel):
 class StripeConfigResponse(BaseModel):
     publishable_key: str
 
+class RentalInfo(BaseModel):
+    dumpster_size: str  # JSON string of selected dumpster size
+
 class GroupCreateWithPayment(BaseModel):
     name: str
     address: str
@@ -436,6 +439,7 @@ class GroupCreateWithPayment(BaseModel):
     time_slots: Optional[List[TimeSlotCreate]] = []
     invitees: Optional[List[InviteeCreate]] = []
     payment_method_id: str
+    rental_info: Optional[RentalInfo] = None
 
 async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
@@ -678,6 +682,34 @@ async def create_group_with_payment(
             
             # Send email invitations
             await send_invitations(db_group, current_user, db)
+        
+        # Create rental if service information is provided
+        if group.rental_info and group.vendor_id:
+            try:
+                # Parse the dumpster size information
+                dumpster_size_info = json.loads(group.rental_info.dumpster_size)
+                
+                # Calculate total cost (starting price for now - can be updated later with overage)
+                total_cost = float(dumpster_size_info['starting_price'])
+                
+                # Create rental record with placeholder delivery date (to be set on confirmation screen)
+                placeholder_delivery = datetime.utcnow() + timedelta(days=7)  # 7 days from now as placeholder
+                
+                rental = Rental(
+                    group_id=db_group.id,
+                    company_id=group.vendor_id,
+                    size=f"{dumpster_size_info['cubic_yards']} cu. yd. ({dumpster_size_info['dimensions']})",
+                    duration=7,  # Standard 7 days as mentioned in requirements
+                    total_cost=total_cost,
+                    delivery_date=placeholder_delivery,
+                    status="pending"
+                )
+                db.add(rental)
+                db.commit()
+                
+            except (json.JSONDecodeError, KeyError, ValueError) as e:
+                # Log the error but don't fail the group creation
+                print(f"Error creating rental: {str(e)}")
         
         # Refresh to get all related data
         db.refresh(db_group)
