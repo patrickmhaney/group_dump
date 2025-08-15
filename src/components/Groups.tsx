@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { AuthContext } from '../App.tsx';
+import { useStripe, useElements, CardElement } from '@stripe/react-stripe-js';
 
 interface Group {
   id: number;
@@ -91,7 +92,10 @@ const Groups: React.FC = () => {
   const [userTimeSlotSelections, setUserTimeSlotSelections] = useState<{[groupId: number]: number[]}>({});
   const [timeSlotAnalyses, setTimeSlotAnalyses] = useState<{[groupId: number]: TimeSlotAnalysis[]}>({});
   const [expandedGroups, setExpandedGroups] = useState<{[groupId: number]: boolean}>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { user, logout } = useContext(AuthContext);
+  const stripe = useStripe();
+  const elements = useElements();
 
   useEffect(() => {
     fetchGroups();
@@ -180,11 +184,37 @@ const Groups: React.FC = () => {
 
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!stripe || !elements) {
+      setMessage('Payment system not ready. Please try again.');
+      setTimeout(() => setMessage(''), 3000);
+      return;
+    }
+
+    setIsSubmitting(true);
+    
     try {
+      // Get card element and create payment method
+      const cardElement = elements.getElement(CardElement);
+      if (!cardElement) {
+        throw new Error('Card element not found');
+      }
+
+      const { error: paymentMethodError, paymentMethod } = await stripe.createPaymentMethod({
+        type: 'card',
+        card: cardElement,
+      });
+
+      if (paymentMethodError) {
+        throw new Error(paymentMethodError.message || 'Payment method creation failed');
+      }
+
+      // Prepare group data
       const groupData: any = {
         ...formData,
         time_slots: timeSlots,
-        invitees: invitees
+        invitees: invitees,
+        payment_method_id: paymentMethod.id
       };
       
       if (formData.vendor_id && formData.vendor_id !== '') {
@@ -193,22 +223,25 @@ const Groups: React.FC = () => {
         delete groupData.vendor_id;
       }
       
-      const response = await axios.post('/groups', groupData);
+      // Create group with payment in single transaction
+      const response = await axios.post('/groups/create-with-payment', groupData);
       setGroups([response.data, ...groups]);
       setShowCreateForm(false);
       setFormData({ name: '', address: '', max_participants: 5, vendor_id: '' });
       setTimeSlots([]);
       setInvitees([]);
-      setMessage('Group created successfully!');
-      setTimeout(() => setMessage(''), 3000);
+      setMessage('Group created successfully with payment setup! Invitations have been sent.');
+      setTimeout(() => setMessage(''), 5000);
     } catch (error: any) {
       const errorMessage = typeof error.response?.data?.detail === 'string' 
         ? error.response.data.detail
         : Array.isArray(error.response?.data?.detail)
         ? error.response.data.detail.map((err: any) => err.msg || err).join(', ')
-        : 'Error creating group';
+        : error.message || 'Error creating group';
       setMessage(errorMessage);
-      setTimeout(() => setMessage(''), 3000);
+      setTimeout(() => setMessage(''), 5000);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -277,6 +310,7 @@ const Groups: React.FC = () => {
       endDate.setDate(startDate.getDate() + 6);
 
       const newSlot: TimeSlot = {
+        id: Date.now(), // Temporary ID for new slots
         start_date: startDate.toISOString().split('T')[0],
         end_date: endDate.toISOString().split('T')[0]
       };
@@ -572,9 +606,69 @@ const Groups: React.FC = () => {
               )}
             </div>
             
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button type="submit" className="button">Create Group</button>
-              <button type="button" className="button button-secondary" onClick={() => setShowCreateForm(false)}>
+            <div className="payment-section" style={{ 
+              marginTop: '30px', 
+              padding: '20px', 
+              border: '2px solid #007bff', 
+              borderRadius: '8px', 
+              backgroundColor: '#f8f9fa' 
+            }}>
+              <h3 style={{ marginTop: '0', color: '#007bff' }}>💳 Payment Information</h3>
+              <p style={{ color: '#666', marginBottom: '15px' }}>
+                Your payment method is required to create the group. Your card will only be charged 
+                when the group is full and you schedule the service.
+              </p>
+              
+              <div style={{ 
+                padding: '15px', 
+                border: '1px solid #ccc', 
+                borderRadius: '4px', 
+                backgroundColor: 'white',
+                marginBottom: '15px'
+              }}>
+                <CardElement 
+                  options={{
+                    style: {
+                      base: {
+                        fontSize: '16px',
+                        color: '#424770',
+                        '::placeholder': {
+                          color: '#aab7c4',
+                        },
+                      },
+                    },
+                  }}
+                />
+              </div>
+
+              <div style={{ 
+                padding: '10px', 
+                backgroundColor: '#d1ecf1', 
+                border: '1px solid #bee5eb',
+                borderRadius: '4px',
+                fontSize: '14px',
+                color: '#0c5460'
+              }}>
+                <strong>🔒 Secure:</strong> Your payment information is securely processed by Stripe. 
+                We never store your card details on our servers.
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+              <button 
+                type="submit" 
+                className="button"
+                disabled={!stripe || isSubmitting}
+                style={{ opacity: (!stripe || isSubmitting) ? 0.6 : 1 }}
+              >
+                {isSubmitting ? 'Creating Group...' : 'Create Group & Setup Payment'}
+              </button>
+              <button 
+                type="button" 
+                className="button button-secondary" 
+                onClick={() => setShowCreateForm(false)}
+                disabled={isSubmitting}
+              >
                 Cancel
               </button>
             </div>

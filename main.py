@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import stripe
 
 load_dotenv()
 
@@ -29,6 +30,11 @@ SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USERNAME = os.getenv("SMTP_USERNAME", "")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 FROM_EMAIL = os.getenv("FROM_EMAIL", SMTP_USERNAME)
+
+# Stripe configuration
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
+stripe.api_key = STRIPE_SECRET_KEY
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -138,6 +144,9 @@ class GroupMember(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     joined_at = Column(DateTime, default=datetime.utcnow)
     contribution_amount = Column(Float)
+    payment_setup_intent_id = Column(String, nullable=True)
+    payment_method_id = Column(String, nullable=True)
+    payment_status = Column(String, default="pending")
     
     group = relationship("Group", back_populates="members")
     user = relationship("User", back_populates="groups")
@@ -208,6 +217,20 @@ class Rental(Base):
     
     group = relationship("Group", back_populates="rentals")
     company = relationship("Company", back_populates="rentals")
+
+class GroupPayment(Base):
+    __tablename__ = "group_payments"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    group_id = Column(Integer, ForeignKey("groups.id"))
+    total_amount = Column(Float)
+    platform_fee = Column(Float)
+    payment_intent_id = Column(String, nullable=True)
+    status = Column(String, default="pending")
+    scheduled_date = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    group = relationship("Group", foreign_keys=[group_id])
 
 Base.metadata.create_all(bind=engine)
 
@@ -382,6 +405,26 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
+class PaymentSetupRequest(BaseModel):
+    payment_method_id: str
+
+class PaymentSetupResponse(BaseModel):
+    setup_intent_id: str
+    client_secret: str
+    status: str
+
+class StripeConfigResponse(BaseModel):
+    publishable_key: str
+
+class GroupCreateWithPayment(BaseModel):
+    name: str
+    address: str
+    max_participants: int = 5
+    vendor_id: Optional[int] = None
+    time_slots: Optional[List[TimeSlotCreate]] = []
+    invitees: Optional[List[InviteeCreate]] = []
+    payment_method_id: str
+
 async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -534,6 +577,135 @@ async def create_group(group: GroupCreate, current_user: User = Depends(get_curr
         "time_slots": [{"id": ts.id, "start_date": ts.start_date, "end_date": ts.end_date} for ts in db_group.time_slots],
         "participants": participants
     }
+
+@app.post("/groups/create-with-payment", response_model=GroupResponse)
+async def create_group_with_payment(
+    group: GroupCreateWithPayment, 
+    current_user: User = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
+    """Create a group and setup payment method in a single transaction"""
+    try:
+        # First, create setup intent with Stripe to validate payment method
+        setup_intent = stripe.SetupIntent.create(
+            payment_method=group.payment_method_id,
+            confirm=True,
+            usage='off_session',
+            automatic_payment_methods={
+                'enabled': True,
+                'allow_redirects': 'never'
+            },
+            metadata={
+                'user_id': str(current_user.id),
+                'group_name': group.name
+            }
+        )
+        
+        if setup_intent.status != "succeeded":
+            raise HTTPException(status_code=400, detail="Payment method setup failed")
+        
+        # Create the group
+        db_group = Group(
+            name=group.name,
+            address=group.address,
+            max_participants=group.max_participants,
+            vendor_id=group.vendor_id,
+            created_by=current_user.id
+        )
+        db.add(db_group)
+        db.commit()
+        db.refresh(db_group)
+        
+        # Create time slots if provided
+        if group.time_slots:
+            for time_slot_data in group.time_slots:
+                time_slot = TimeSlot(
+                    group_id=db_group.id,
+                    start_date=time_slot_data.start_date,
+                    end_date=time_slot_data.end_date
+                )
+                db.add(time_slot)
+            db.commit()
+        
+        # Create group member with payment info
+        group_member = GroupMember(
+            group_id=db_group.id,
+            user_id=current_user.id,
+            payment_setup_intent_id=setup_intent.id,
+            payment_method_id=group.payment_method_id,
+            payment_status="setup_complete"
+        )
+        db.add(group_member)
+        db.commit()
+        db.refresh(group_member)
+        
+        # Auto-select all time slots for the group creator
+        if group.time_slots:
+            created_time_slots = db.query(TimeSlot).filter(TimeSlot.group_id == db_group.id).all()
+            for time_slot in created_time_slots:
+                time_slot_selection = UserTimeSlotSelection(
+                    group_member_id=group_member.id,
+                    time_slot_id=time_slot.id
+                )
+                db.add(time_slot_selection)
+            db.commit()
+        
+        # Create invitees if provided
+        if group.invitees:
+            for invitee_data in group.invitees:
+                if invitee_data.name and invitee_data.email:
+                    invitee = Invitee(
+                        group_id=db_group.id,
+                        name=invitee_data.name,
+                        email=invitee_data.email,
+                        phone=invitee_data.phone,
+                        join_token=generate_join_token()
+                    )
+                    db.add(invitee)
+            db.commit()
+            
+            # Send email invitations
+            await send_invitations(db_group, current_user, db)
+        
+        # Refresh to get all related data
+        db.refresh(db_group)
+        
+        # Get group members with user details for response
+        members = db.query(GroupMember).filter(GroupMember.group_id == db_group.id).all()
+        participants = []
+        for member in members:
+            user = db.query(User).filter(User.id == member.user_id).first()
+            if user:
+                participants.append({
+                    "id": user.id,
+                    "name": user.name,
+                    "email": user.email,
+                    "joined_at": member.joined_at
+                })
+        
+        return {
+            "id": db_group.id,
+            "name": db_group.name,
+            "address": db_group.address,
+            "max_participants": db_group.max_participants,
+            "current_participants": len(participants),
+            "status": db_group.status,
+            "created_by": db_group.created_by,
+            "vendor_id": db_group.vendor_id,
+            "vendor_name": db_group.vendor.name if db_group.vendor else None,
+            "created_at": db_group.created_at,
+            "time_slots": [{"id": ts.id, "start_date": ts.start_date, "end_date": ts.end_date} for ts in db_group.time_slots],
+            "participants": participants
+        }
+        
+    except stripe.error.StripeError as e:
+        # Rollback any database changes if payment fails
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Payment error: {str(e)}")
+    except Exception as e:
+        # Rollback any database changes if anything fails
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Group creation failed: {str(e)}")
 
 @app.get("/groups", response_model=list[GroupResponse])
 async def get_groups(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
@@ -1095,6 +1267,98 @@ async def get_time_slot_analysis(group_id: int, current_user: User = Depends(get
         })
     
     return result
+
+@app.get("/stripe/config", response_model=StripeConfigResponse)
+async def get_stripe_config():
+    """Get Stripe publishable key for frontend"""
+    return {"publishable_key": STRIPE_PUBLISHABLE_KEY}
+
+@app.post("/groups/{group_id}/setup-payment", response_model=PaymentSetupResponse)
+async def setup_group_creator_payment(
+    group_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Setup payment method for group creator"""
+    # Verify user is the group creator
+    group = db.query(Group).filter(Group.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    if group.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Only group creator can setup payment")
+    
+    # Get the group member record for the creator
+    member = db.query(GroupMember).filter(
+        GroupMember.group_id == group_id,
+        GroupMember.user_id == current_user.id
+    ).first()
+    
+    if not member:
+        raise HTTPException(status_code=404, detail="Group membership not found")
+    
+    try:
+        # Create setup intent with Stripe
+        setup_intent = stripe.SetupIntent.create(
+            customer=None,  # We'll create customer later if needed
+            payment_method_types=['card'],
+            usage='off_session',
+            metadata={
+                'group_id': str(group_id),
+                'user_id': str(current_user.id),
+                'member_id': str(member.id)
+            }
+        )
+        
+        # Store setup intent ID in database
+        member.payment_setup_intent_id = setup_intent.id
+        member.payment_status = "setup_required"
+        db.add(member)
+        db.commit()
+        
+        return {
+            "setup_intent_id": setup_intent.id,
+            "client_secret": setup_intent.client_secret,
+            "status": setup_intent.status
+        }
+        
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
+
+@app.post("/groups/{group_id}/confirm-payment-setup")
+async def confirm_payment_setup(
+    group_id: int,
+    request: PaymentSetupRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Confirm payment method setup for group creator"""
+    # Get the group member record
+    member = db.query(GroupMember).filter(
+        GroupMember.group_id == group_id,
+        GroupMember.user_id == current_user.id
+    ).first()
+    
+    if not member:
+        raise HTTPException(status_code=404, detail="Group membership not found")
+    
+    try:
+        # Retrieve and confirm the setup intent
+        setup_intent = stripe.SetupIntent.retrieve(member.payment_setup_intent_id)
+        
+        if setup_intent.status == "succeeded":
+            # Store payment method ID and update status
+            member.payment_method_id = request.payment_method_id
+            member.payment_status = "setup_complete"
+            db.add(member)
+            db.commit()
+            
+            return {"message": "Payment method setup completed successfully"}
+        else:
+            raise HTTPException(status_code=400, detail="Payment setup not completed")
+            
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
 
 @app.get("/")
 async def root():
