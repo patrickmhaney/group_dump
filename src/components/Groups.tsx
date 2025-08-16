@@ -93,6 +93,10 @@ interface GroupPaymentStatus {
 }
 
 const Groups: React.FC = () => {
+  const { user, logout } = useContext(AuthContext);
+  const stripe = useStripe();
+  const elements = useElements();
+  
   const [groups, setGroups] = useState<Group[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [rentals, setRentals] = useState<Rental[]>([]);
@@ -101,8 +105,11 @@ const Groups: React.FC = () => {
   const [message, setMessage] = useState('');
   const [formData, setFormData] = useState({
     name: '',
-    address: '',
-    max_participants: 5,
+    street_address: '',
+    city: '',
+    state: '',
+    zip_code: '',
+    max_participants: 2,
     vendor_id: '',
     selected_dumpster_size: ''
   });
@@ -114,15 +121,22 @@ const Groups: React.FC = () => {
   const [paymentStatuses, setPaymentStatuses] = useState<{[groupId: number]: GroupPaymentStatus[]}>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState<{groupId: number; groupName: string; groupAddress: string} | null>(null);
-  const { user, logout } = useContext(AuthContext);
-  const stripe = useStripe();
-  const elements = useElements();
+  const [comparisonSize, setComparisonSize] = useState<string>('20');
 
   useEffect(() => {
     fetchGroups();
     fetchCompanies();
     fetchRentals();
   }, []);
+
+  useEffect(() => {
+    if (user && formData.name === '') {
+      setFormData(prev => ({
+        ...prev,
+        name: `${user.name}'s Group Dump`
+      }));
+    }
+  }, [user, formData.name]);
 
   useEffect(() => {
     // Auto-load payment status for full groups where user is creator
@@ -256,6 +270,7 @@ const Groups: React.FC = () => {
       // Prepare group data
       const groupData: any = {
         ...formData,
+        address: `${formData.street_address}, ${formData.city}, ${formData.state} ${formData.zip_code}`,
         time_slots: timeSlots,
         invitees: invitees,
         payment_method_id: paymentMethod.id
@@ -280,7 +295,7 @@ const Groups: React.FC = () => {
       const response = await axios.post('/groups/create-with-payment', groupData);
       setGroups([response.data, ...groups]);
       setShowCreateForm(false);
-      setFormData({ name: '', address: '', max_participants: 5, vendor_id: '', selected_dumpster_size: '' });
+      setFormData({ name: user ? `${user.name}'s Group Dump` : '', street_address: '', city: '', state: '', zip_code: '', max_participants: 2, vendor_id: '', selected_dumpster_size: '' });
       setTimeSlots([]);
       setInvitees([]);
       setMessage('Group created successfully with payment setup! Invitations have been sent.');
@@ -348,9 +363,20 @@ const Groups: React.FC = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    let processedValue = value;
+    
+    if (name === 'max_participants') {
+      processedValue = parseInt(value);
+    } else if (name === 'state') {
+      processedValue = value.toUpperCase();
+    } else if (name === 'zip_code') {
+      // Allow only numbers and hyphens for ZIP code
+      processedValue = value.replace(/[^\d-]/g, '');
+    }
+    
     setFormData({
       ...formData,
-      [name]: name === 'max_participants' ? parseInt(value) : value
+      [name]: name === 'max_participants' ? processedValue : processedValue
     });
   };
 
@@ -496,35 +522,216 @@ const Groups: React.FC = () => {
             />
             <input
               type="text"
-              name="address"
-              placeholder="Address"
-              value={formData.address}
+              name="street_address"
+              placeholder="Street Address"
+              value={formData.street_address}
               onChange={handleChange}
               required
             />
-            <input
-              type="number"
-              name="max_participants"
-              placeholder="Max Participants"
-              value={formData.max_participants}
-              onChange={handleChange}
-              min="2"
-              max="10"
-              required
-            />
-            <select
-              name="vendor_id"
-              value={formData.vendor_id}
-              onChange={handleChange}
-              style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '4px' }}
-            >
-              <option value="">Select a Vendor (Optional)</option>
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.name} - {company.address}
-                </option>
-              ))}
-            </select>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '10px' }}>
+              <input
+                type="text"
+                name="city"
+                placeholder="City"
+                value={formData.city}
+                onChange={handleChange}
+                required
+              />
+              <input
+                type="text"
+                name="state"
+                placeholder="State"
+                value={formData.state}
+                onChange={handleChange}
+                required
+                maxLength={2}
+                style={{ textTransform: 'uppercase' }}
+              />
+              <input
+                type="text"
+                name="zip_code"
+                placeholder="ZIP Code"
+                value={formData.zip_code}
+                onChange={handleChange}
+                required
+                maxLength={10}
+                pattern="[0-9]{5}(-[0-9]{4})?"
+              />
+            </div>
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', fontSize: '16px', marginBottom: '10px', fontWeight: 'bold', color: '#333' }}>
+                Maximum Group Members
+              </label>
+              <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
+                Choose how many people can join your group (including yourself)
+              </p>
+              <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+                {[2, 3, 4].map(num => (
+                  <label
+                    key={num}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                      padding: '12px 20px',
+                      border: `2px solid ${formData.max_participants === num ? '#007bff' : '#dee2e6'}`,
+                      borderRadius: '8px',
+                      backgroundColor: formData.max_participants === num ? '#f8f9ff' : '#ffffff',
+                      transition: 'all 0.3s ease',
+                      minWidth: '80px',
+                      justifyContent: 'center',
+                      fontWeight: formData.max_participants === num ? 'bold' : 'normal'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (formData.max_participants !== num) {
+                        e.currentTarget.style.borderColor = '#007bff';
+                        e.currentTarget.style.backgroundColor = '#f8f9ff';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (formData.max_participants !== num) {
+                        e.currentTarget.style.borderColor = '#dee2e6';
+                        e.currentTarget.style.backgroundColor = '#ffffff';
+                      }
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="max_participants"
+                      value={num}
+                      checked={formData.max_participants === num}
+                      onChange={handleChange}
+                      style={{ display: 'none' }}
+                    />
+                    <span style={{ fontSize: '18px', color: formData.max_participants === num ? '#007bff' : '#666' }}>
+                      {num} {num === 1 ? 'Member' : 'Members'}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            
+            {/* Vendor Price Comparison Section */}
+            {companies.length > 0 && (
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', fontSize: '16px', marginBottom: '10px', fontWeight: 'bold', color: '#333' }}>
+                  Compare Vendor Prices
+                </label>
+                <p style={{ color: '#666', fontSize: '14px', marginBottom: '15px' }}>
+                  Select a dumpster size to compare prices across all vendors
+                </p>
+                
+                {/* Size Selector for Comparison */}
+                <div style={{ marginBottom: '20px' }}>
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    {['10', '15', '20', '25', '30', '40'].map(size => (
+                      <button
+                        key={size}
+                        type="button"
+                        onClick={() => setComparisonSize(size)}
+                        style={{
+                          padding: '12px 16px',
+                          border: `2px solid ${comparisonSize === size ? '#007bff' : '#dee2e6'}`,
+                          borderRadius: '6px',
+                          backgroundColor: comparisonSize === size ? '#f8f9ff' : '#ffffff',
+                          color: comparisonSize === size ? '#007bff' : '#666',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          fontWeight: comparisonSize === size ? 'bold' : 'normal',
+                          transition: 'all 0.3s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (comparisonSize !== size) {
+                            e.currentTarget.style.borderColor = '#007bff';
+                            e.currentTarget.style.backgroundColor = '#f8f9ff';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (comparisonSize !== size) {
+                            e.currentTarget.style.borderColor = '#dee2e6';
+                            e.currentTarget.style.backgroundColor = '#ffffff';
+                          }
+                        }}
+                      >
+                        {size} Yards
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                <label style={{ display: 'block', fontSize: '16px', marginBottom: '10px', fontWeight: 'bold', color: '#333' }}>
+                  Select Dumpster Service Provider
+                </label>
+                
+                {/* Price Comparison Grid */}
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+                  gap: '12px',
+                  marginBottom: '20px'
+                }}>
+                  {companies.map(company => {
+                    const matchingSize = company.dumpster_sizes?.find(size => size.cubic_yards === comparisonSize);
+                    return (
+                      <div
+                        key={company.id}
+                        style={{
+                          border: '2px solid #e9ecef',
+                          borderRadius: '8px',
+                          padding: '12px',
+                          backgroundColor: '#ffffff',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                          cursor: 'pointer',
+                          transition: 'all 0.3s ease'
+                        }}
+                        onClick={() => setFormData({...formData, vendor_id: company.id.toString()})}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = '#007bff';
+                          e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,123,255,0.15)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = '#e9ecef';
+                          e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.05)';
+                        }}
+                      >
+                        <div style={{ marginBottom: '8px' }}>
+                          <h4 style={{ margin: '0 0 3px 0', color: '#333', fontSize: '14px', fontWeight: 'bold' }}>
+                            {company.name}
+                          </h4>
+                          <p style={{ margin: '0', fontSize: '11px', color: '#666' }}>
+                            {company.address}
+                          </p>
+                        </div>
+                        
+                        {matchingSize ? (
+                          <div>
+                            <div style={{ 
+                              fontSize: '20px', 
+                              fontWeight: 'bold', 
+                              color: '#28a745',
+                              marginBottom: '6px'
+                            }}>
+                              {matchingSize.starting_price.startsWith('$') ? matchingSize.starting_price : `$${matchingSize.starting_price}`}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#666', marginBottom: '6px' }}>
+                              {comparisonSize} yards • {matchingSize.starting_tonnage} tons
+                            </div>
+                            <div style={{ fontSize: '10px', color: '#666' }}>
+                              +{matchingSize.per_ton_overage_price.startsWith('$') ? matchingSize.per_ton_overage_price : `$${matchingSize.per_ton_overage_price}`}/ton • 
+                              +{matchingSize.additional_day_price.startsWith('$') ? matchingSize.additional_day_price : `$${matchingSize.additional_day_price}`}/day
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ color: '#666', fontStyle: 'italic', fontSize: '12px' }}>
+                            {comparisonSize} yards not available
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             
             {/* Service Selection Section */}
             {formData.vendor_id && (
@@ -671,136 +878,341 @@ const Groups: React.FC = () => {
               </div>
             )}
             
-            <div className="invitees-section">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <h3>Invite People to Group</h3>
-                <button
-                  type="button"
-                  className="button button-secondary"
-                  onClick={addInvitee}
-                >
-                  Add Invitee
-                </button>
+            <div className="invitees-section" style={{ marginBottom: '20px' }}>
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', fontSize: '16px', marginBottom: '10px', fontWeight: 'bold', color: '#333' }}>
+                  Invite People to Group
+                </label>
+                <p style={{ color: '#666', fontSize: '14px', marginBottom: '15px' }}>
+                  Add neighbors to automatically send them email invitations when the group is created
+                </p>
               </div>
               
               {invitees.length === 0 ? (
-                <p style={{ color: '#666', fontStyle: 'italic' }}>
-                  Add people to automatically send them email invitations when the group is created
-                </p>
-              ) : (
-                <div className="invitees-list">
-                  {invitees.map((invitee, index) => (
-                    <div key={index} className="invitee-item" style={{ marginBottom: '15px', padding: '15px', border: '1px solid #ddd', borderRadius: '4px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                        <div style={{ flex: '1 1 200px' }}>
-                          <label style={{ display: 'block', fontSize: '14px', marginBottom: '5px' }}>
-                            Name *
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="Full Name"
-                            value={invitee.name}
-                            onChange={(e) => updateInvitee(index, 'name', e.target.value)}
-                            style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-                            required
-                          />
-                        </div>
-                        <div style={{ flex: '1 1 200px' }}>
-                          <label style={{ display: 'block', fontSize: '14px', marginBottom: '5px' }}>
-                            Email *
-                          </label>
-                          <input
-                            type="email"
-                            placeholder="email@example.com"
-                            value={invitee.email}
-                            onChange={(e) => updateInvitee(index, 'email', e.target.value)}
-                            style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-                            required
-                          />
-                        </div>
-                        <div style={{ flex: '1 1 150px' }}>
-                          <label style={{ display: 'block', fontSize: '14px', marginBottom: '5px' }}>
-                            Phone
-                          </label>
-                          <input
-                            type="tel"
-                            placeholder="(555) 123-4567"
-                            value={invitee.phone}
-                            onChange={(e) => updateInvitee(index, 'phone', e.target.value)}
-                            style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          className="button button-danger"
-                          onClick={() => removeInvitee(index)}
-                          style={{ marginTop: '20px', flexShrink: 0 }}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                <div style={{ 
+                  textAlign: 'center', 
+                  padding: '40px 20px', 
+                  border: '1px solid #dee2e6', 
+                  borderRadius: '8px',
+                  backgroundColor: '#f8f9fa'
+                }}>
+                  <button
+                    type="button"
+                    className="button"
+                    onClick={addInvitee}
+                    style={{ fontSize: '16px', padding: '12px 24px' }}
+                  >
+                    Add First Person
+                  </button>
                 </div>
+              ) : (
+                <>
+                  <div className="invitees-list" style={{ marginBottom: '20px' }}>
+                    {invitees.map((invitee, index) => (
+                      <div 
+                        key={index} 
+                        style={{ 
+                          marginBottom: '15px', 
+                          padding: '20px', 
+                          border: '2px solid #e9ecef', 
+                          borderRadius: '12px',
+                          backgroundColor: '#ffffff',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '15px', flexWrap: 'wrap' }}>
+                          <div style={{ flex: '1 1 180px' }}>
+                            <label style={{ 
+                              display: 'block', 
+                              fontSize: '14px', 
+                              fontWeight: 'bold',
+                              marginBottom: '8px',
+                              color: '#495057'
+                            }}>
+                              Name *
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Full Name"
+                              value={invitee.name}
+                              onChange={(e) => updateInvitee(index, 'name', e.target.value)}
+                              style={{ 
+                                width: '100%', 
+                                padding: '12px', 
+                                border: '2px solid #dee2e6', 
+                                borderRadius: '8px',
+                                fontSize: '16px'
+                              }}
+                              required
+                            />
+                          </div>
+                          <div style={{ flex: '1 1 200px' }}>
+                            <label style={{ 
+                              display: 'block', 
+                              fontSize: '14px', 
+                              fontWeight: 'bold',
+                              marginBottom: '8px',
+                              color: '#495057'
+                            }}>
+                              Email *
+                            </label>
+                            <input
+                              type="email"
+                              placeholder="email@example.com"
+                              value={invitee.email}
+                              onChange={(e) => updateInvitee(index, 'email', e.target.value)}
+                              style={{ 
+                                width: '100%', 
+                                padding: '12px', 
+                                border: '2px solid #dee2e6', 
+                                borderRadius: '8px',
+                                fontSize: '16px'
+                              }}
+                              required
+                            />
+                          </div>
+                          <div style={{ flex: '1 1 160px' }}>
+                            <label style={{ 
+                              display: 'block', 
+                              fontSize: '14px', 
+                              fontWeight: 'bold',
+                              marginBottom: '8px',
+                              color: '#495057'
+                            }}>
+                              Phone (Optional)
+                            </label>
+                            <input
+                              type="tel"
+                              placeholder="(555) 123-4567"
+                              value={invitee.phone}
+                              onChange={(e) => updateInvitee(index, 'phone', e.target.value)}
+                              style={{ 
+                                width: '100%', 
+                                padding: '12px', 
+                                border: '2px solid #dee2e6', 
+                                borderRadius: '8px',
+                                fontSize: '16px'
+                              }}
+                            />
+                          </div>
+                          <div style={{ flex: '0 0 auto', marginTop: '28px' }}>
+                            <button
+                              type="button"
+                              onClick={() => removeInvitee(index)}
+                              style={{
+                                padding: '10px 15px',
+                                backgroundColor: '#dc3545',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                fontWeight: 'bold',
+                                transition: 'all 0.3s ease'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#c82333';
+                                e.currentTarget.style.transform = 'translateY(-1px)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = '#dc3545';
+                                e.currentTarget.style.transform = 'translateY(0)';
+                              }}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div style={{ textAlign: 'center' }}>
+                    <button
+                      type="button"
+                      className="button button-secondary"
+                      onClick={addInvitee}
+                      style={{
+                        padding: '12px 24px',
+                        fontSize: '16px'
+                      }}
+                    >
+                      Add Another Person
+                    </button>
+                  </div>
+                </>
               )}
             </div>
-            
-            <div className="time-slots-section">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <h3>Available Time Slots (Choose up to 5)</h3>
-                <button
-                  type="button"
-                  className="button button-secondary"
-                  onClick={addTimeSlot}
-                  disabled={timeSlots.length >= 5}
-                >
-                  Add Time Slot
-                </button>
+
+            <div className="time-slots-section" style={{ marginBottom: '20px' }}>
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', fontSize: '16px', marginBottom: '10px', fontWeight: 'bold', color: '#333' }}>
+                  Add Potential Service Dates
+                </label>
+                <p style={{ color: '#666', fontSize: '14px', marginBottom: '15px' }}>
+                  Choose up to 5 different 7-day periods when your group could rent the dumpster. 
+                  This helps coordinate everyone's schedule.
+                </p>
               </div>
               
               {timeSlots.length === 0 ? (
-                <p style={{ color: '#666', fontStyle: 'italic' }}>
-                  Add time slots to help coordinate schedules with group members
-                </p>
-              ) : (
-                <div className="time-slots-list">
-                  {timeSlots.map((slot, index) => (
-                    <div key={index} className="time-slot-item">
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div style={{ flex: 1 }}>
-                          <label style={{ display: 'block', fontSize: '14px', marginBottom: '5px' }}>
-                            7-day period starting:
-                          </label>
-                          <input
-                            type="date"
-                            value={slot.start_date}
-                            onChange={(e) => updateTimeSlot(index, 'start_date', e.target.value)}
-                            style={{ width: '100%' }}
-                          />
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <label style={{ display: 'block', fontSize: '14px', marginBottom: '5px' }}>
-                            Ending:
-                          </label>
-                          <input
-                            type="date"
-                            value={slot.end_date}
-                            readOnly
-                            style={{ width: '100%', backgroundColor: '#f5f5f5' }}
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          className="button button-danger"
-                          onClick={() => removeTimeSlot(index)}
-                          style={{ marginTop: '20px' }}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                <div style={{ 
+                  textAlign: 'center', 
+                  padding: '40px 20px', 
+                  border: '1px solid #dee2e6', 
+                  borderRadius: '8px'
+                }}>
+                  <button
+                    type="button"
+                    className="button"
+                    onClick={addTimeSlot}
+                    style={{ fontSize: '16px', padding: '12px 24px' }}
+                  >
+                    Add Your First Time Slot
+                  </button>
                 </div>
+              ) : (
+                <>
+                  <div className="time-slots-list" style={{ marginBottom: '20px' }}>
+                    {timeSlots.map((slot, index) => (
+                      <div 
+                        key={index} 
+                        style={{ 
+                          marginBottom: '15px', 
+                          padding: '20px', 
+                          border: '2px solid #e9ecef', 
+                          borderRadius: '12px',
+                          backgroundColor: '#ffffff',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
+                          <div style={{ flex: '1 1 200px' }}>
+                            <label style={{ 
+                              display: 'block', 
+                              fontSize: '14px', 
+                              fontWeight: 'bold',
+                              marginBottom: '8px',
+                              color: '#495057'
+                            }}>
+                              Start Date
+                            </label>
+                            <input
+                              type="date"
+                              value={slot.start_date}
+                              onChange={(e) => updateTimeSlot(index, 'start_date', e.target.value)}
+                              style={{ 
+                                width: '100%',
+                                padding: '12px',
+                                border: '2px solid #dee2e6',
+                                borderRadius: '8px',
+                                fontSize: '16px'
+                              }}
+                            />
+                          </div>
+                          
+                          <div style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            color: '#6c757d',
+                            fontSize: '24px',
+                            margin: '20px 0 0 0'
+                          }}>
+                            →
+                          </div>
+                          
+                          <div style={{ flex: '1 1 200px' }}>
+                            <label style={{ 
+                              display: 'block', 
+                              fontSize: '14px', 
+                              fontWeight: 'bold',
+                              marginBottom: '8px',
+                              color: '#495057'
+                            }}>
+                              End Date (Auto-calculated)
+                            </label>
+                            <input
+                              type="date"
+                              value={slot.end_date}
+                              readOnly
+                              style={{ 
+                                width: '100%',
+                                padding: '12px',
+                                border: '2px solid #e9ecef',
+                                borderRadius: '8px',
+                                backgroundColor: '#f8f9fa',
+                                color: '#6c757d',
+                                fontSize: '16px'
+                              }}
+                            />
+                          </div>
+                          
+                          <div style={{ flex: '0 0 auto', marginTop: '20px' }}>
+                            <button
+                              type="button"
+                              onClick={() => removeTimeSlot(index)}
+                              style={{
+                                padding: '10px 15px',
+                                backgroundColor: '#dc3545',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                fontWeight: 'bold',
+                                transition: 'all 0.3s ease'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#c82333';
+                                e.currentTarget.style.transform = 'translateY(-1px)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = '#dc3545';
+                                e.currentTarget.style.transform = 'translateY(0)';
+                              }}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <div style={{ 
+                          marginTop: '15px',
+                          padding: '12px',
+                          backgroundColor: '#e8f5e8',
+                          borderRadius: '8px',
+                          border: '1px solid #d4edda'
+                        }}>
+                          <div style={{ fontSize: '14px', color: '#155724', fontWeight: 'bold' }}>
+                            7-Day Rental Period: {new Date(slot.start_date).toLocaleDateString()} - {new Date(slot.end_date).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div style={{ textAlign: 'center' }}>
+                    <button
+                      type="button"
+                      className="button button-secondary"
+                      onClick={addTimeSlot}
+                      disabled={timeSlots.length >= 5}
+                      style={{
+                        padding: '12px 24px',
+                        fontSize: '16px',
+                        opacity: timeSlots.length >= 5 ? 0.6 : 1,
+                        cursor: timeSlots.length >= 5 ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      Add Another Time Slot ({timeSlots.length}/5)
+                    </button>
+                    {timeSlots.length >= 5 && (
+                      <p style={{ color: '#dc3545', fontSize: '14px', marginTop: '8px', fontStyle: 'italic' }}>
+                        Maximum of 5 time slots reached
+                      </p>
+                    )}
+                  </div>
+                </>
               )}
             </div>
             
