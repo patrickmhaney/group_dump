@@ -603,7 +603,7 @@ const Groups: React.FC = () => {
                       onChange={handleChange}
                       style={{ display: 'none' }}
                     />
-                    <span style={{ fontSize: '18px', color: formData.max_participants === num ? '#007bff' : '#666' }}>
+                    <span style={{ fontSize: '14px', color: formData.max_participants === num ? '#007bff' : '#666' }}>
                       {num} {num === 1 ? 'Member' : 'Members'}
                     </span>
                   </label>
@@ -611,14 +611,14 @@ const Groups: React.FC = () => {
               </div>
             </div>
             
-            {/* Vendor Price Comparison Section */}
+            {/* Vendor Services Comparison Section */}
             {companies.length > 0 && (
               <div style={{ marginBottom: '20px' }}>
                 <label style={{ display: 'block', fontSize: '16px', marginBottom: '10px', fontWeight: 'bold', color: '#333' }}>
-                  Compare Vendor Prices
+                  Compare Vendor Services
                 </label>
                 <p style={{ color: '#666', fontSize: '14px', marginBottom: '15px' }}>
-                  Select a dumpster size to compare prices across all vendors
+                  Select a dumpster size to compare services across all vendors
                 </p>
                 
                 {/* Size Selector for Comparison */}
@@ -663,7 +663,7 @@ const Groups: React.FC = () => {
                   Select Dumpster Service Provider
                 </label>
                 
-                {/* Price Comparison Grid */}
+                {/* Services Comparison Grid */}
                 <div style={{ 
                   display: 'grid', 
                   gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 

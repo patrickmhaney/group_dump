@@ -128,7 +128,7 @@ const ServiceConfirmation: React.FC<ServiceConfirmationProps> = ({
         overflowY: 'auto'
       }}>
         <h2 style={{ marginTop: 0, color: '#007bff', textAlign: 'center' }}>
-          📋 Final Service Confirmation
+          ✅ Your Service Order Summary
         </h2>
         
         {error && (
@@ -146,7 +146,7 @@ const ServiceConfirmation: React.FC<ServiceConfirmationProps> = ({
 
         <div style={{ marginBottom: '25px' }}>
           <h3 style={{ color: '#495057', borderBottom: '2px solid #e9ecef', paddingBottom: '8px' }}>
-            🏠 Group Information
+            🏠 Service Location
           </h3>
           <div style={{ marginLeft: '15px' }}>
             <p><strong>Group:</strong> {groupName}</p>
@@ -157,7 +157,7 @@ const ServiceConfirmation: React.FC<ServiceConfirmationProps> = ({
         {serviceDetails && (
           <div style={{ marginBottom: '25px' }}>
             <h3 style={{ color: '#495057', borderBottom: '2px solid #e9ecef', paddingBottom: '8px' }}>
-              🚚 Service Details
+              🚚 Your Dumpster Service
             </h3>
             <div style={{ marginLeft: '15px' }}>
               <p><strong>Vendor:</strong> {serviceDetails.vendor_name}</p>
@@ -181,7 +181,7 @@ const ServiceConfirmation: React.FC<ServiceConfirmationProps> = ({
 
         <div style={{ marginBottom: '25px' }}>
           <h3 style={{ color: '#495057', borderBottom: '2px solid #e9ecef', paddingBottom: '8px' }}>
-            💰 Payment Breakdown
+            💰 Your Payment Details
           </h3>
           <div style={{ marginLeft: '15px' }}>
             {memberPayments.map((payment) => (
@@ -221,11 +221,9 @@ const ServiceConfirmation: React.FC<ServiceConfirmationProps> = ({
                 fontWeight: 'bold',
                 color: '#155724'
               }}>
-                <span>Total to Your Business Account:</span>
+                <span>Total Service Cost:</span>
                 <span>
-                  {serviceDetails && formatCurrency(
-                    serviceDetails.total_cost * 0.971 // Assuming ~2.9% Stripe fee
-                  )}
+                  {serviceDetails && formatCurrency(serviceDetails.total_cost)}
                 </span>
               </div>
               <div style={{ 
@@ -233,7 +231,7 @@ const ServiceConfirmation: React.FC<ServiceConfirmationProps> = ({
                 color: '#856404', 
                 marginTop: '5px' 
               }}>
-                * After Stripe processing fees (~2.9%)
+                * Split equally among all group members
               </div>
             </div>
           </div>
@@ -250,10 +248,10 @@ const ServiceConfirmation: React.FC<ServiceConfirmationProps> = ({
             ⚡ What happens next:
           </h4>
           <ul style={{ margin: 0, paddingLeft: '20px', color: '#856404' }}>
-            <li>All member payments will be captured simultaneously</li>
-            <li>Funds will be transferred to your business account</li>
-            <li>Service will be scheduled with the vendor</li>
-            <li>All members will receive confirmation emails</li>
+            <li>Your payment will be processed along with all group members</li>
+            <li>The dumpster service will be scheduled for your group</li>
+            <li>You'll receive a confirmation email with service details</li>
+            <li>The vendor will deliver your dumpster on the scheduled date</li>
           </ul>
         </div>
 
@@ -295,7 +293,7 @@ const ServiceConfirmation: React.FC<ServiceConfirmationProps> = ({
               opacity: confirming ? 0.6 : 1
             }}
           >
-            {confirming ? '⏳ Processing...' : '✅ Confirm & Schedule Service'}
+{confirming ? '⏳ Processing...' : '✅ Confirm My Order'}
           </button>
         </div>
       </div>
