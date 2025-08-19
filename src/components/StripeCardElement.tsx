@@ -1,13 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { loadStripe } from '@stripe/stripe-js';
+import axios from 'axios';
 
 interface StripeCardElementProps {
   cardId: string;
   onCardReady?: () => void;
   onError?: (error: string) => void;
 }
-
-const STRIPE_PUBLISHABLE_KEY = process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || '';
 
 export const StripeCardElement: React.FC<StripeCardElementProps> = ({ 
   cardId, 
@@ -17,283 +15,177 @@ export const StripeCardElement: React.FC<StripeCardElementProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const elementRef = useRef<HTMLDivElement>(null);
-  const stripeRef = useRef<any>(null);
-  const cardElementRef = useRef<any>(null);
 
   useEffect(() => {
-    initializeStripeCard();
-    
-    return () => {
-      // Cleanup
-      if (cardElementRef.current) {
-        cardElementRef.current.unmount();
-      }
-    };
+    initializeCard();
   }, [cardId]);
 
-  const initializeStripeCard = async () => {
+  const initializeCard = async () => {
     try {
       setLoading(true);
       setError('');
 
-      if (!STRIPE_PUBLISHABLE_KEY) {
-        throw new Error('Stripe publishable key not configured');
+      console.log('Initializing card display for:', cardId);
+
+      // Fetch secure card details from our backend
+      const cardDetails = await fetchCardDetails(cardId);
+      
+      console.log('Card details received:', cardDetails);
+      
+      if (cardDetails && elementRef.current) {
+        // Display card details securely
+        displayCardDetails(cardDetails);
       }
 
-      // Load Stripe
-      const stripe = await loadStripe(STRIPE_PUBLISHABLE_KEY);
-      if (!stripe) {
-        throw new Error('Failed to load Stripe');
+    } catch (error: any) {
+      console.error('Error loading card:', error);
+      setError(error.message || 'Failed to load card details');
+      if (onError) {
+        onError(error.message || 'Failed to load card details');
       }
-
-      stripeRef.current = stripe;
-
-      // Create elements instance for card issuing
-      const elements = stripe.elements({
-        mode: 'issuing',
-        card: cardId,
-        appearance: {
-          theme: 'stripe',
-          variables: {
-            colorPrimary: '#007bff',
-            colorBackground: '#ffffff',
-            colorText: '#333333',
-            colorDanger: '#dc3545',
-            fontFamily: 'system-ui, -apple-system, sans-serif',
-            spacingUnit: '4px',
-            borderRadius: '8px'
-          },
-          rules: {
-            '.Tab': {
-              borderColor: '#dee2e6',
-              color: '#495057'
-            },
-            '.Tab--selected': {
-              borderColor: '#007bff',
-              color: '#007bff'
-            },
-            '.Input': {
-              fontSize: '16px',
-              padding: '12px'
-            }
-          }
-        }
-      });
-
-      // Create the issuing card element
-      const cardElement = elements.create('issuingCard', {
-        displayType: 'details', // Show full card details (number, expiry, CVC)
-        style: {
-          base: {
-            fontSize: '16px',
-            fontFamily: 'system-ui, -apple-system, sans-serif',
-            color: '#333333',
-            '::placeholder': {
-              color: '#999999'
-            }
-          },
-          invalid: {
-            color: '#dc3545',
-            iconColor: '#dc3545'
-          }
-        }
-      });
-
-      cardElementRef.current = cardElement;
-
-      // Mount the element
-      if (elementRef.current) {
-        cardElement.mount(elementRef.current);
-      }
-
-      // Handle ready event
-      cardElement.on('ready', () => {
-        setLoading(false);
-        onCardReady?.();
-      });
-
-      // Handle change events
-      cardElement.on('change', (event: any) => {
-        if (event.error) {
-          setError(event.error.message);
-          onError?.(event.error.message);
-        } else {
-          setError('');
-        }
-      });
-
-      // Handle focus events
-      cardElement.on('focus', () => {
-        setError('');
-      });
-
-    } catch (err: any) {
+    } finally {
       setLoading(false);
-      const errorMessage = err.message || 'Failed to initialize secure card display';
-      setError(errorMessage);
-      onError?.(errorMessage);
     }
   };
 
-  const copyCardDetails = async () => {
-    if (!stripeRef.current || !cardElementRef.current) {
-      setError('Card details not available');
-      return;
-    }
-
+  const fetchCardDetails = async (cardId: string) => {
     try {
-      // Note: In a real implementation, you would use Stripe's methods to securely
-      // handle card data. This is a placeholder for the copy functionality.
-      setError('Card details copied to clipboard');
-      setTimeout(() => setError(''), 3000);
-    } catch (err: any) {
-      setError('Failed to copy card details');
+      // Get auth token from localStorage
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      // Fetch real card details from backend API
+      const response = await axios.get(`/api/cards/${cardId}/details`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      const cardData = response.data;
+      
+      return {
+        id: cardData.id,
+        last4: cardData.last4,
+        brand: cardData.brand,
+        exp_month: cardData.exp_month,
+        exp_year: cardData.exp_year,
+        status: cardData.status,
+        // Use full details if available, otherwise use masked versions
+        displayNumber: cardData.full_number || cardData.display_number,
+        displayCVC: cardData.cvc || cardData.display_cvc,
+        spending_limit: cardData.spending_limit,
+        group_name: cardData.group_name,
+        // Keep track of whether we have full details
+        hasFullDetails: !!(cardData.full_number && cardData.cvc)
+      };
+    } catch (error: any) {
+      console.error('Error fetching card details:', error);
+      if (error.response?.status === 403) {
+        throw new Error('You do not have permission to view this card');
+      } else if (error.response?.status === 404) {
+        throw new Error('Card not found');
+      } else {
+        throw new Error(error.response?.data?.detail || 'Failed to fetch card details');
+      }
+    }
+  };
+
+  const displayCardDetails = (cardDetails: any) => {
+    if (!elementRef.current) return;
+
+    elementRef.current.innerHTML = `
+      <div style="
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 16px;
+        padding: 24px;
+        color: white;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        max-width: 400px;
+        margin: 0 auto;
+      ">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px;">
+          <div style="font-size: 18px; font-weight: 600;">Virtual Card</div>
+          <div style="font-size: 24px; font-weight: bold;">${cardDetails.brand.toUpperCase()}</div>
+        </div>
+        
+        <div style="font-size: 24px; font-family: 'Courier New', monospace; letter-spacing: 2px; margin-bottom: 24px;">
+          ${cardDetails.displayNumber}
+        </div>
+        
+        <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+          <div>
+            <div style="font-size: 12px; opacity: 0.8; margin-bottom: 4px;">EXPIRES</div>
+            <div style="font-size: 18px; font-family: 'Courier New', monospace;">${cardDetails.exp_month}/${cardDetails.exp_year}</div>
+          </div>
+          <div>
+            <div style="font-size: 12px; opacity: 0.8; margin-bottom: 4px;">CVC</div>
+            <div style="font-size: 18px; font-family: 'Courier New', monospace;">${cardDetails.displayCVC}</div>
+          </div>
+          <div>
+            <div style="font-size: 12px; opacity: 0.8; margin-bottom: 4px;">STATUS</div>
+            <div style="font-size: 14px; color: #4CAF50; font-weight: 600;">${cardDetails.status.toUpperCase()}</div>
+          </div>
+        </div>
+        
+        <div style="margin-top: 20px; padding: 12px; background: rgba(255,255,255,0.1); border-radius: 8px; font-size: 12px; opacity: 0.9;">
+          <strong>🔒 Secure Virtual Card</strong><br>
+          Group: ${cardDetails.group_name || 'Unknown'}<br>
+          Limit: $${(cardDetails.spending_limit / 100).toFixed(2)}<br>
+          ${cardDetails.hasFullDetails ? 
+            'Full card details available for booking.' : 
+            'Card details are masked for security.'}
+        </div>
+      </div>
+    `;
+
+    if (onCardReady) {
+      onCardReady();
     }
   };
 
   if (loading) {
     return (
-      <div style={{
-        padding: '40px',
-        textAlign: 'center',
-        backgroundColor: '#f8f9fa',
-        border: '1px solid #dee2e6',
-        borderRadius: '8px'
+      <div style={{ textAlign: 'center', padding: '20px' }}>
+        <div>Loading secure card details...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ 
+        padding: '20px', 
+        backgroundColor: '#fee', 
+        border: '1px solid #fcc', 
+        borderRadius: '8px',
+        color: '#c33' 
       }}>
-        <div style={{ fontSize: '18px', marginBottom: '10px' }}>🔄</div>
-        <div style={{ color: '#666' }}>Loading secure card details...</div>
+        <strong>Card Loading Error:</strong> {error}
+        <button 
+          onClick={initializeCard}
+          style={{ 
+            marginLeft: '10px', 
+            padding: '4px 8px', 
+            fontSize: '12px',
+            backgroundColor: '#007bff',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}
+        >
+          Retry
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="stripe-card-element" style={{ margin: '0' }}>
-      {error && (
-        <div style={{
-          color: '#dc3545',
-          backgroundColor: '#f8d7da',
-          border: '1px solid #f5c6cb',
-          borderRadius: '4px',
-          padding: '10px',
-          marginBottom: '15px',
-          fontSize: '14px'
-        }}>
-          {error}
-        </div>
-      )}
-
-      <div style={{
-        backgroundColor: '#ffffff',
-        border: '2px solid #007bff',
-        borderRadius: '12px',
-        padding: '20px',
-        marginBottom: '15px'
-      }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '15px'
-        }}>
-          <h5 style={{ margin: 0, color: '#007bff', fontSize: '16px', fontWeight: 'bold' }}>
-            💳 Virtual Card Details
-          </h5>
-          <button
-            onClick={copyCardDetails}
-            style={{
-              padding: '8px 12px',
-              backgroundColor: '#28a745',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '12px',
-              fontWeight: 'bold'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#218838';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#28a745';
-            }}
-          >
-            📋 Copy Details
-          </button>
-        </div>
-
-        <div 
-          ref={elementRef}
-          id="card-details-element"
-          style={{
-            minHeight: '60px',
-            padding: '15px',
-            backgroundColor: '#f8f9fa',
-            border: '1px solid #dee2e6',
-            borderRadius: '6px'
-          }}
-        />
-      </div>
-
-      <div style={{
-        backgroundColor: '#e8f4fd',
-        border: '1px solid #b8daff',
-        borderRadius: '6px',
-        padding: '12px',
-        fontSize: '13px',
-        color: '#004085'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-          <span style={{ marginRight: '8px' }}>🔒</span>
-          <strong>PCI-Compliant Security</strong>
-        </div>
-        <ul style={{ margin: 0, paddingLeft: '20px' }}>
-          <li>Card details are securely provided by Stripe's PCI-compliant infrastructure</li>
-          <li>Your card information is never stored on our servers</li>
-          <li>All data transmission is encrypted end-to-end</li>
-          <li>Use these details immediately for your vendor booking</li>
-        </ul>
-      </div>
-
-      {/* Card Usage Instructions */}
-      <div style={{
-        marginTop: '15px',
-        backgroundColor: '#fff3cd',
-        border: '1px solid #ffeaa7',
-        borderRadius: '6px',
-        padding: '15px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
-          <span style={{ marginRight: '8px' }}>💡</span>
-          <strong style={{ color: '#856404' }}>Usage Instructions</strong>
-        </div>
-        <ol style={{ margin: 0, paddingLeft: '20px', color: '#856404', fontSize: '13px' }}>
-          <li>Copy the card details using the button above</li>
-          <li>Navigate to your vendor's website in a new tab</li>
-          <li>Enter the card details during checkout</li>
-          <li>Complete your booking immediately</li>
-          <li>Return here to monitor transaction status</li>
-        </ol>
-      </div>
-
-      {/* Security Warning */}
-      <div style={{
-        marginTop: '15px',
-        backgroundColor: '#f8d7da',
-        border: '1px solid #f5c6cb',
-        borderRadius: '6px',
-        padding: '12px',
-        fontSize: '12px',
-        color: '#721c24'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '5px' }}>
-          <span style={{ marginRight: '8px' }}>⚠️</span>
-          <strong>Important Security Notice</strong>
-        </div>
-        <p style={{ margin: 0 }}>
-          Only use this virtual card for the intended vendor booking. The card has spending limits 
-          and is monitored for security. Report any suspicious activity immediately.
-        </p>
-      </div>
+    <div>
+      <div ref={elementRef}></div>
     </div>
   );
 };

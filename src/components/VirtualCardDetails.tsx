@@ -29,7 +29,7 @@ interface VirtualCardDetailsProps {
   groupId: string;
 }
 
-const STRIPE_PUBLISHABLE_KEY = process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || '';
+// Stripe key will be fetched from backend API
 
 export const VirtualCardDetails: React.FC<VirtualCardDetailsProps> = ({ groupId }) => {
   const [cardRevealed, setCardRevealed] = useState(false);
@@ -84,6 +84,7 @@ export const VirtualCardDetails: React.FC<VirtualCardDetailsProps> = ({ groupId 
   };
 
   const handleRevealCard = async () => {
+    console.log('🔍 Card reveal button clicked');
     setCardLoading(true);
     setError('');
     
@@ -94,17 +95,26 @@ export const VirtualCardDetails: React.FC<VirtualCardDetailsProps> = ({ groupId 
         throw new Error(`Too many failed access attempts. Please wait 30 minutes before trying again.`);
       }
       
+      console.log('🔐 Attempting card access verification...');
+      
       // Log security event
       logSecurityEvent('Card access attempt initiated');
       
       // Use security context for verification
       const accessGranted = await security.verifyCardAccess(groupId);
       
+      console.log('✅ Access verification result:', accessGranted);
+      
       if (accessGranted) {
+        console.log('🎉 Setting cardRevealed to true');
         setCardRevealed(true);
         logSecurityEvent('Card access granted successfully');
+      } else {
+        console.log('❌ Access verification returned false');
+        throw new Error('Access verification failed');
       }
     } catch (err: any) {
+      console.error('❌ Card reveal error:', err);
       const errorMessage = err.message || 'Access denied. Only group creators can view card details.';
       setError(errorMessage);
       logSecurityEvent(`Card access denied: ${errorMessage}`);
@@ -171,6 +181,7 @@ export const VirtualCardDetails: React.FC<VirtualCardDetailsProps> = ({ groupId 
   }
 
   if (!group?.virtual_card_id) {
+    console.log('⚠️  No virtual card found for group:', group);
     return (
       <div style={{ 
         padding: '20px', 
@@ -186,6 +197,14 @@ export const VirtualCardDetails: React.FC<VirtualCardDetailsProps> = ({ groupId 
       </div>
     );
   }
+
+  console.log('💳 Virtual card component rendering with:', {
+    groupId,
+    cardId: group?.virtual_card_id,
+    cardRevealed,
+    loading,
+    error
+  });
 
   return (
     <div className="virtual-card-container" style={{ margin: '20px 0' }}>

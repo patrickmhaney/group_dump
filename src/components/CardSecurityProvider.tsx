@@ -72,6 +72,12 @@ export const CardSecurityProvider: React.FC<CardSecurityProviderProps> = ({ chil
         throw new Error('Please wait before attempting access again');
       }
 
+      // Get auth token from localStorage
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
       // Verify with backend
       const response = await axios.post(`/groups/${groupId}/verify-card-access`, {
         timestamp,
@@ -80,6 +86,10 @@ export const CardSecurityProvider: React.FC<CardSecurityProviderProps> = ({ chil
           // eslint-disable-next-line no-restricted-globals
           screen_resolution: `${window.screen.width}x${window.screen.height}`,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+        }
+      }, {
+        headers: {
+          Authorization: `Bearer ${token}`
         }
       });
 

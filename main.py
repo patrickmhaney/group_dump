@@ -527,6 +527,44 @@ class GroupCreateWithPayment(BaseModel):
     rental_info: Optional[RentalInfo] = None
 
 # Virtual Card Service Functions
+
+async def create_virtual_card_for_full_group(group_id: int, db: Session) -> dict:
+    """
+    Create virtual card when a group becomes full, using rental cost if available
+    or estimated cost if no rental exists yet
+    """
+    try:
+        group = db.query(Group).filter(Group.id == group_id).first()
+        if not group:
+            raise Exception("Group not found")
+        
+        # Skip if card already exists
+        if group.virtual_card_id:
+            return {"message": "Virtual card already exists", "card_id": group.virtual_card_id}
+        
+        # Try to get rental cost first
+        rental = db.query(Rental).filter(Rental.group_id == group_id).first()
+        if rental:
+            # Use actual rental cost
+            total_amount = rental.total_cost
+            print(f"📊 Using rental cost ${total_amount:.2f} for virtual card")
+        else:
+            # Use estimated cost based on group size and typical dumpster rental
+            member_count = db.query(GroupMember).filter(GroupMember.group_id == group_id).count()
+            estimated_cost = 200.0 + (member_count * 50.0)  # Base $200 + $50 per member
+            total_amount = estimated_cost
+            print(f"📊 Using estimated cost ${total_amount:.2f} for virtual card (no rental found)")
+        
+        # Create the virtual card
+        card_result = await create_virtual_card_for_group(group_id, total_amount, db)
+        
+        print(f"✅ Virtual card created for group {group_id}: {card_result['card_id']}")
+        return card_result
+        
+    except Exception as e:
+        print(f"❌ Failed to create virtual card for group {group_id}: {str(e)}")
+        raise
+
 async def create_virtual_card_for_group(group_id: int, amount_cents: int, db: Session) -> dict:
     """Create a virtual card for a fully funded group"""
     try:
@@ -543,9 +581,9 @@ async def create_virtual_card_for_group(group_id: int, amount_cents: int, db: Se
                 'spending_limits': [{
                     'amount': amount_cents,
                     'interval': 'per_authorization'
-                }],
-                'allowed_categories': ['rental_and_leasing_services'],
-                'blocked_categories': ['gambling']
+                }]
+                # Removed category restrictions to avoid validation errors in sandbox
+                # In production, you can add specific merchant controls
             },
             metadata={
                 'group_id': str(group_id),
@@ -1127,6 +1165,16 @@ async def join_group(group_id: int, join_request: JoinGroupRequest, current_user
     
     db.commit()
     
+    # Check if group is now full and create virtual card if needed
+    member_count_after_join = db.query(GroupMember).filter(GroupMember.group_id == group_id).count()
+    if member_count_after_join >= group.max_participants and not group.virtual_card_id:
+        try:
+            # Create virtual card using helper function that handles rental/estimated costs
+            await create_virtual_card_for_full_group(group_id, db)
+        except Exception as e:
+            print(f"❌ Failed to create virtual card for group {group_id}: {str(e)}")
+            # Don't fail the join if card creation fails - just log it
+    
     return {"message": "Successfully joined group"}
 
 @app.post("/join/{token}")
@@ -1198,6 +1246,16 @@ async def join_group_by_token(token: str, join_request: JoinGroupRequest, curren
     # Remove the invitation token as it's been used
     db.delete(invitee)
     db.commit()
+    
+    # Check if group is now full and create virtual card if needed
+    member_count_after_join = db.query(GroupMember).filter(GroupMember.group_id == group.id).count()
+    if member_count_after_join >= group.max_participants and not group.virtual_card_id:
+        try:
+            # Create virtual card using helper function that handles rental/estimated costs
+            await create_virtual_card_for_full_group(group.id, db)
+        except Exception as e:
+            print(f"❌ Failed to create virtual card for group {group.id}: {str(e)}")
+            # Don't fail the join if card creation fails - just log it
     
     return {
         "message": "Successfully joined group",
@@ -2023,64 +2081,70 @@ async def schedule_service(
 
 # Virtual Card Service Functions for Phase 2
 
-async def create_virtual_card_for_group(group_id: int, amount: float, db: Session):
+async def create_virtual_card_for_group_wrapper(group_id: int, amount: float, db: Session):
     """
-    Create virtual card for group - Phase 2 implementation
-    This function will be enhanced with actual Stripe Issuing API in production
+    Wrapper function that calculates service fee and calls the real Stripe implementation
     """
     try:
-        group = db.query(Group).filter(Group.id == group_id).first()
-        if not group:
-            raise Exception("Group not found")
-        
         # Calculate amounts
         service_fee = amount * 0.10  # 10% service fee
         card_amount = amount - service_fee
         card_amount_cents = int(card_amount * 100)
         
-        # In production, this would create actual Stripe Issuing card:
-        # stripe.issuing.cards.create(
-        #     cardholder=YOUR_BUSINESS_CARDHOLDER_ID,
-        #     spending_controls={
-        #         'spending_limits': [{
-        #             'amount': card_amount_cents,
-        #             'interval': 'per_authorization',
-        #             'categories': ['rental_and_leasing_services']
-        #         }],
-        #         'allowed_categories': ['rental_and_leasing_services'],
-        #         'blocked_categories': ['gambling']
-        #     },
-        #     metadata={
-        #         'group_id': str(group_id),
-        #         'purpose': 'group_rental_booking'
-        #     }
-        # )
+        # Call the real Stripe implementation directly
+        BUSINESS_CARDHOLDER_ID = os.getenv("STRIPE_BUSINESS_CARDHOLDER_ID", "ich_test_placeholder")
         
-        # For Phase 2, simulate card creation
-        virtual_card_id = f"card_{group_id}_{int(datetime.utcnow().timestamp())}"
+        # Create virtual card with Stripe Issuing
+        card = stripe.issuing.Card.create(
+            cardholder=BUSINESS_CARDHOLDER_ID,
+            currency='usd',
+            type='virtual',
+            spending_controls={
+                'spending_limits': [{
+                    'amount': card_amount_cents,
+                    'interval': 'per_authorization'
+                }]
+                # Removed category restrictions to avoid validation errors in sandbox
+                # In production, you can add specific merchant controls
+            },
+            metadata={
+                'group_id': str(group_id),
+                'purpose': 'group_rental_booking'
+            }
+        )
         
-        # Update group with virtual card info
-        group.virtual_card_id = virtual_card_id
+        # Update group with card information
+        group = db.query(Group).filter(Group.id == group_id).first()
+        if not group:
+            raise Exception("Group not found")
+            
+        group.virtual_card_id = card.id
         group.card_spending_limit = card_amount_cents
-        group.card_status = "active"
+        group.card_status = 'active'
+        
+        card_result = {
+            'card_id': card.id,
+            'status': card.status,
+            'spending_limit': card_amount_cents
+        }
+        
+        # Update additional fields that the legacy function set
         group.service_fee_collected = service_fee
         group.total_collected_amount = amount
-        
         db.add(group)
         db.commit()
         
-        # In production, send notification to group creator about card availability
-        await notify_creator_card_ready(group_id, virtual_card_id, db)
+        # Send notification
+        await notify_creator_card_ready(group_id, card_result['card_id'], db)
         
-        return {
-            "card_id": virtual_card_id,
-            "spending_limit": card_amount_cents,
-            "status": "active"
-        }
+        return card_result
         
     except Exception as e:
         db.rollback()
         raise Exception(f"Virtual card creation failed: {str(e)}")
+
+# Keep the legacy function name for compatibility
+create_virtual_card_for_group = create_virtual_card_for_group_wrapper
 
 async def notify_creator_card_ready(group_id: int, card_id: str, db: Session):
     """Notify group creator that virtual card is ready for use"""
@@ -2414,6 +2478,56 @@ async def handle_issuing_transaction_webhook(
         return {"error": str(e)}, 400
 
 # Phase 3 Secure Card Details API Endpoints
+
+@app.get("/api/cards/{card_id}/details")
+async def get_stripe_card_details(
+    card_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get virtual card details from Stripe for display"""
+    try:
+        # Verify user has permission to view this card
+        group = db.query(Group).filter(Group.virtual_card_id == card_id).first()
+        if not group:
+            raise HTTPException(status_code=404, detail="Card not found")
+        
+        if group.created_by != current_user.id:
+            raise HTTPException(status_code=403, detail="Only group creator can view card details")
+        
+        # Get card details from Stripe with expanded sensitive fields
+        # Note: This requires proper PCI compliance in production
+        # For Stripe Issuing cards, we need to explicitly expand number and cvc
+        card = stripe.issuing.Card.retrieve(
+            card_id,
+            expand=['number', 'cvc']
+        )
+        
+        # Get the full card number and CVC (now available with expand)
+        full_card_number = getattr(card, 'number', None)
+        card_cvc = getattr(card, 'cvc', None)
+        
+        return {
+            "id": card.id,
+            "brand": card.brand,
+            "last4": card.last4,
+            "exp_month": f"{card.exp_month:02d}",
+            "exp_year": str(card.exp_year),
+            "status": card.status,
+            # Full card details for actual usage (only in secure, authenticated context)
+            "full_number": full_card_number,
+            "cvc": card_cvc,
+            # Display versions (formatted for UI)
+            "display_number": full_card_number if full_card_number else f"****-****-****-{card.last4}",
+            "display_cvc": card_cvc if card_cvc else "***",
+            "spending_limit": group.card_spending_limit or 0,
+            "group_name": group.name
+        }
+        
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving card details: {str(e)}")
 
 @app.get("/groups/{group_id}/virtual-card-details")
 async def get_virtual_card_details(
