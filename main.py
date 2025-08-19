@@ -17,6 +17,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import stripe
 import json
+import logging
 
 load_dotenv()
 
@@ -227,11 +228,27 @@ class GroupPayment(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     group_id = Column(Integer, ForeignKey("groups.id"))
-    total_amount = Column(Float)
-    platform_fee = Column(Float)
+    member_id = Column(Integer, ForeignKey("group_members.id"), nullable=True)
+    amount = Column(Float)
+    platform_fee = Column(Float, nullable=True)
     payment_intent_id = Column(String, nullable=True)
     status = Column(String, default="pending")
     scheduled_date = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    group = relationship("Group", foreign_keys=[group_id])
+    member = relationship("GroupMember", foreign_keys=[member_id])
+
+class CardTransaction(Base):
+    __tablename__ = "card_transactions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    group_id = Column(Integer, ForeignKey("groups.id"))
+    card_id = Column(String)
+    amount = Column(Integer)  # Amount in cents
+    merchant_name = Column(String)
+    status = Column(String)
+    authorization_code = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     group = relationship("Group", foreign_keys=[group_id])
@@ -428,6 +445,56 @@ class PaymentSetupResponse(BaseModel):
 class StripeConfigResponse(BaseModel):
     publishable_key: str
 
+class VirtualCardCreateRequest(BaseModel):
+    group_id: int
+    spending_limit: int  # Amount in cents
+
+class VirtualCardResponse(BaseModel):
+    card_id: str
+    group_id: int
+    spending_limit: int
+    status: str
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class CardDetailsResponse(BaseModel):
+    card_id: str
+    group_id: int
+    spending_limit: int
+    status: str
+    remaining_balance: int
+    
+    class Config:
+        from_attributes = True
+
+class TransactionResponse(BaseModel):
+    id: int
+    group_id: int
+    card_id: str
+    amount: int
+    merchant_name: str
+    status: str
+    authorization_code: Optional[str]
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class CardControlsRequest(BaseModel):
+    spending_limit: Optional[int] = None
+    freeze_card: Optional[bool] = None
+
+class GroupFundingStatus(BaseModel):
+    group_id: int
+    total_collected: float
+    service_fee: float
+    card_amount: float
+    members_paid: int
+    total_members: int
+    is_fully_funded: bool
+
 class RentalInfo(BaseModel):
     dumpster_size: str  # JSON string of selected dumpster size
 
@@ -440,6 +507,105 @@ class GroupCreateWithPayment(BaseModel):
     invitees: Optional[List[InviteeCreate]] = []
     payment_method_id: str
     rental_info: Optional[RentalInfo] = None
+
+# Virtual Card Service Functions
+async def create_virtual_card_for_group(group_id: int, amount_cents: int, db: Session) -> dict:
+    """Create a virtual card for a fully funded group"""
+    try:
+        # Note: Replace YOUR_BUSINESS_CARDHOLDER_ID with actual cardholder ID from Stripe setup
+        # This would be configured during Phase 1.1 (Stripe Issuing setup)
+        BUSINESS_CARDHOLDER_ID = os.getenv("STRIPE_BUSINESS_CARDHOLDER_ID", "ich_test_placeholder")
+        
+        # Create virtual card with Stripe Issuing
+        card = stripe.issuing.Card.create(
+            cardholder=BUSINESS_CARDHOLDER_ID,
+            currency='usd',
+            type='virtual',
+            spending_controls={
+                'spending_limits': [{
+                    'amount': amount_cents,
+                    'interval': 'per_authorization'
+                }],
+                'allowed_categories': ['rental_and_leasing_services'],
+                'blocked_categories': ['gambling']
+            },
+            metadata={
+                'group_id': str(group_id),
+                'purpose': 'group_rental_booking'
+            }
+        )
+        
+        # Update group with card information
+        group = db.query(Group).filter(Group.id == group_id).first()
+        if group:
+            group.virtual_card_id = card.id
+            group.card_spending_limit = amount_cents
+            group.card_status = 'active'
+            db.add(group)
+            db.commit()
+        
+        return {
+            'card_id': card.id,
+            'status': card.status,
+            'spending_limit': amount_cents
+        }
+        
+    except stripe.error.StripeError as e:
+        logging.error(f"Stripe error creating virtual card: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Card creation failed: {str(e)}")
+    except Exception as e:
+        logging.error(f"Error creating virtual card: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Card creation failed: {str(e)}")
+
+async def calculate_group_funding_status(group_id: int, db: Session) -> GroupFundingStatus:
+    """Calculate funding status for a group"""
+    # Get group and rental info
+    group = db.query(Group).filter(Group.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    rental = db.query(Rental).filter(Rental.group_id == group_id).first()
+    if not rental:
+        raise HTTPException(status_code=404, detail="No rental found for group")
+    
+    # Get all members and count those with completed payments
+    members = db.query(GroupMember).filter(GroupMember.group_id == group_id).all()
+    members_with_payment = [m for m in members if m.payment_status == "setup_complete"]
+    
+    total_cost = rental.total_cost
+    service_fee_percentage = 0.10  # 10% service fee
+    service_fee = total_cost * service_fee_percentage
+    card_amount = total_cost - service_fee
+    
+    # For now, assume equal split among all members
+    # In future, could support different contribution amounts
+    total_collected = len(members_with_payment) * (total_cost / len(members)) if members else 0
+    
+    return GroupFundingStatus(
+        group_id=group_id,
+        total_collected=total_collected,
+        service_fee=service_fee,
+        card_amount=card_amount,
+        members_paid=len(members_with_payment),
+        total_members=len(members),
+        is_fully_funded=len(members_with_payment) == len(members) and len(members) > 0
+    )
+
+async def log_card_transaction(transaction_data: dict, db: Session):
+    """Log a card transaction to the database"""
+    try:
+        card_transaction = CardTransaction(
+            group_id=transaction_data['group_id'],
+            card_id=transaction_data['card_id'],
+            amount=transaction_data['amount'],
+            merchant_name=transaction_data.get('merchant_name', 'Unknown'),
+            status=transaction_data['status'],
+            authorization_code=transaction_data.get('authorization_code')
+        )
+        db.add(card_transaction)
+        db.commit()
+    except Exception as e:
+        logging.error(f"Error logging card transaction: {str(e)}")
 
 async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
@@ -1815,6 +1981,252 @@ async def schedule_service(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error scheduling service: {str(e)}")
 
+# Virtual Card API Endpoints
+
+@app.post("/api/cards/create-virtual-card", response_model=VirtualCardResponse)
+async def create_virtual_card(
+    request: VirtualCardCreateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Create virtual card when group is fully funded"""
+    # Verify user is group creator
+    group = db.query(Group).filter(Group.id == request.group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    if group.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Only group creator can create virtual card")
+    
+    # Check if group is fully funded
+    funding_status = await calculate_group_funding_status(request.group_id, db)
+    if not funding_status.is_fully_funded:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Group not fully funded. {funding_status.members_paid}/{funding_status.total_members} members have paid"
+        )
+    
+    # Check if card already exists
+    if group.virtual_card_id:
+        raise HTTPException(status_code=400, detail="Virtual card already exists for this group")
+    
+    # Create virtual card
+    card_result = await create_virtual_card_for_group(request.group_id, request.spending_limit, db)
+    
+    return VirtualCardResponse(
+        card_id=card_result['card_id'],
+        group_id=request.group_id,
+        spending_limit=request.spending_limit,
+        status=card_result['status'],
+        created_at=datetime.utcnow()
+    )
+
+@app.get("/api/cards/details/{group_id}", response_model=CardDetailsResponse)
+async def get_card_details(
+    group_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get virtual card details for group creator"""
+    # Verify user is group creator
+    group = db.query(Group).filter(Group.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    if group.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Only group creator can view card details")
+    
+    if not group.virtual_card_id:
+        raise HTTPException(status_code=404, detail="No virtual card found for this group")
+    
+    try:
+        # Get card from Stripe
+        card = stripe.issuing.Card.retrieve(group.virtual_card_id)
+        
+        # Calculate remaining balance by getting transactions
+        transactions = db.query(CardTransaction).filter(
+            CardTransaction.group_id == group_id,
+            CardTransaction.status == 'approved'
+        ).all()
+        
+        spent_amount = sum(tx.amount for tx in transactions)
+        remaining_balance = (group.card_spending_limit or 0) - spent_amount
+        
+        return CardDetailsResponse(
+            card_id=group.virtual_card_id,
+            group_id=group_id,
+            spending_limit=group.card_spending_limit or 0,
+            status=group.card_status or 'unknown',
+            remaining_balance=max(0, remaining_balance)
+        )
+        
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=400, detail=f"Error retrieving card: {str(e)}")
+
+@app.put("/api/cards/{group_id}/spending-limits")
+async def update_card_controls(
+    group_id: int,
+    request: CardControlsRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update card spending limits and controls"""
+    # Verify user is group creator
+    group = db.query(Group).filter(Group.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    if group.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Only group creator can update card controls")
+    
+    if not group.virtual_card_id:
+        raise HTTPException(status_code=404, detail="No virtual card found for this group")
+    
+    try:
+        update_data = {}
+        
+        if request.spending_limit is not None:
+            update_data['spending_controls'] = {
+                'spending_limits': [{
+                    'amount': request.spending_limit,
+                    'interval': 'per_authorization'
+                }]
+            }
+            # Update database
+            group.card_spending_limit = request.spending_limit
+        
+        if request.freeze_card is not None:
+            update_data['status'] = 'inactive' if request.freeze_card else 'active'
+            # Update database
+            group.card_status = 'frozen' if request.freeze_card else 'active'
+        
+        if update_data:
+            # Update card in Stripe
+            stripe.issuing.Card.modify(group.virtual_card_id, **update_data)
+            
+            # Save changes to database
+            db.add(group)
+            db.commit()
+        
+        return {"message": "Card controls updated successfully"}
+        
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=400, detail=f"Error updating card: {str(e)}")
+
+@app.post("/api/cards/{group_id}/freeze")
+async def freeze_card(
+    group_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Freeze virtual card"""
+    return await update_card_controls(
+        group_id, 
+        CardControlsRequest(freeze_card=True), 
+        current_user, 
+        db
+    )
+
+@app.get("/api/cards/{group_id}/transactions", response_model=list[TransactionResponse])
+async def get_card_transactions(
+    group_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get transaction history for group's virtual card"""
+    # Verify user is group creator
+    group = db.query(Group).filter(Group.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    if group.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Only group creator can view transactions")
+    
+    # Get transactions from database
+    transactions = db.query(CardTransaction).filter(
+        CardTransaction.group_id == group_id
+    ).order_by(CardTransaction.created_at.desc()).all()
+    
+    return [
+        TransactionResponse(
+            id=tx.id,
+            group_id=tx.group_id,
+            card_id=tx.card_id,
+            amount=tx.amount,
+            merchant_name=tx.merchant_name,
+            status=tx.status,
+            authorization_code=tx.authorization_code,
+            created_at=tx.created_at
+        ) for tx in transactions
+    ]
+
+@app.get("/api/groups/{group_id}/funding-status", response_model=GroupFundingStatus)
+async def get_group_funding_status(
+    group_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get funding status for a group"""
+    # Verify user is group creator or member
+    group = db.query(Group).filter(Group.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    # Check if user is creator or member
+    is_creator = group.created_by == current_user.id
+    is_member = db.query(GroupMember).filter(
+        GroupMember.group_id == group_id,
+        GroupMember.user_id == current_user.id
+    ).first() is not None
+    
+    if not (is_creator or is_member):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    return await calculate_group_funding_status(group_id, db)
+
+@app.post("/webhooks/issuing/transaction")
+async def handle_issuing_transaction_webhook(
+    request: dict,
+    db: Session = Depends(get_db)
+):
+    """Handle Stripe Issuing transaction webhooks"""
+    try:
+        event_type = request.get('type')
+        
+        if event_type == 'issuing_transaction.created':
+            transaction = request['data']['object']
+            
+            # Extract group_id from card metadata
+            card_id = transaction['card']
+            group_id = None
+            
+            # Get group_id from card metadata or database
+            try:
+                card = stripe.issuing.Card.retrieve(card_id)
+                group_id = int(card.metadata.get('group_id'))
+            except:
+                # Fallback: find group by card_id in database
+                group = db.query(Group).filter(Group.virtual_card_id == card_id).first()
+                if group:
+                    group_id = group.id
+            
+            if group_id:
+                # Log transaction
+                await log_card_transaction({
+                    'group_id': group_id,
+                    'card_id': card_id,
+                    'amount': transaction['amount'],
+                    'merchant_name': transaction.get('merchant_data', {}).get('name', 'Unknown'),
+                    'status': transaction['status'],
+                    'authorization_code': transaction.get('authorization', {}).get('id')
+                }, db)
+        
+        return {"received": True}
+        
+    except Exception as e:
+        logging.error(f"Error processing issuing webhook: {str(e)}")
+        return {"error": str(e)}, 400
+
 @app.get("/")
 async def root():
-    return {"message": "Dumpster Sharing API", "version": "1.0.0"}
+    return {"message": "Dumpster Sharing API", "version": "1.0.0", "features": ["virtual_cards"]}
