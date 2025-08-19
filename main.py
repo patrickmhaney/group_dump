@@ -132,6 +132,15 @@ class Group(Base):
     vendor_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     
+    # Virtual card fields for Phase 2
+    virtual_card_id = Column(String, nullable=True)
+    card_spending_limit = Column(Integer, nullable=True)  # Amount in cents
+    card_status = Column(String, default="pending")  # pending, active, frozen, expired
+    service_fee_collected = Column(Float, nullable=True)
+    total_collected_amount = Column(Float, nullable=True)
+    vendor_name = Column(String, nullable=True)
+    vendor_website = Column(String, nullable=True)
+    
     members = relationship("GroupMember", back_populates="group")
     rentals = relationship("Rental", back_populates="group")
     time_slots = relationship("TimeSlot", back_populates="group")
@@ -397,6 +406,14 @@ class GroupResponse(BaseModel):
     created_at: datetime
     time_slots: Optional[List[TimeSlotResponse]] = []
     participants: Optional[List[ParticipantResponse]] = []
+    
+    # Virtual card fields for Phase 2
+    virtual_card_id: Optional[str] = None
+    card_spending_limit: Optional[int] = None
+    card_status: Optional[str] = "pending"
+    service_fee_collected: Optional[float] = None
+    total_collected_amount: Optional[float] = None
+    vendor_website: Optional[str] = None
     
     class Config:
         from_attributes = True
@@ -1914,6 +1931,14 @@ async def schedule_service(
             )
             db.add(group_payment)
         
+        # Create virtual card for group creator - Phase 2 implementation
+        try:
+            await create_virtual_card_for_group(group_id, rental.total_cost, db)
+        except Exception as e:
+            print(f"Virtual card creation failed: {str(e)}")
+            # Continue without virtual card for now
+            pass
+        
         # Update group status to scheduled
         group.status = "scheduled"
         db.add(group)
@@ -1981,6 +2006,118 @@ async def schedule_service(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error scheduling service: {str(e)}")
 
+# Virtual Card Service Functions for Phase 2
+
+async def create_virtual_card_for_group(group_id: int, amount: float, db: Session):
+    """
+    Create virtual card for group - Phase 2 implementation
+    This function will be enhanced with actual Stripe Issuing API in production
+    """
+    try:
+        group = db.query(Group).filter(Group.id == group_id).first()
+        if not group:
+            raise Exception("Group not found")
+        
+        # Calculate amounts
+        service_fee = amount * 0.10  # 10% service fee
+        card_amount = amount - service_fee
+        card_amount_cents = int(card_amount * 100)
+        
+        # In production, this would create actual Stripe Issuing card:
+        # stripe.issuing.cards.create(
+        #     cardholder=YOUR_BUSINESS_CARDHOLDER_ID,
+        #     spending_controls={
+        #         'spending_limits': [{
+        #             'amount': card_amount_cents,
+        #             'interval': 'per_authorization',
+        #             'categories': ['rental_and_leasing_services']
+        #         }],
+        #         'allowed_categories': ['rental_and_leasing_services'],
+        #         'blocked_categories': ['gambling']
+        #     },
+        #     metadata={
+        #         'group_id': str(group_id),
+        #         'purpose': 'group_rental_booking'
+        #     }
+        # )
+        
+        # For Phase 2, simulate card creation
+        virtual_card_id = f"card_{group_id}_{int(datetime.utcnow().timestamp())}"
+        
+        # Update group with virtual card info
+        group.virtual_card_id = virtual_card_id
+        group.card_spending_limit = card_amount_cents
+        group.card_status = "active"
+        group.service_fee_collected = service_fee
+        group.total_collected_amount = amount
+        
+        db.add(group)
+        db.commit()
+        
+        # In production, send notification to group creator about card availability
+        await notify_creator_card_ready(group_id, virtual_card_id, db)
+        
+        return {
+            "card_id": virtual_card_id,
+            "spending_limit": card_amount_cents,
+            "status": "active"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise Exception(f"Virtual card creation failed: {str(e)}")
+
+async def notify_creator_card_ready(group_id: int, card_id: str, db: Session):
+    """Notify group creator that virtual card is ready for use"""
+    try:
+        group = db.query(Group).filter(Group.id == group_id).first()
+        if not group:
+            return
+        
+        creator = db.query(User).filter(User.id == group.created_by).first()
+        if not creator:
+            return
+        
+        card_amount = (group.card_spending_limit or 0) / 100  # Convert cents to dollars
+        
+        subject = f"Virtual Card Ready - {group.name}"
+        body = f"""
+        <html>
+        <body>
+            <h2>💳 Your Virtual Card is Ready!</h2>
+            
+            <p>Dear {creator.name},</p>
+            
+            <p>Great news! Your virtual card for group <strong>"{group.name}"</strong> has been issued and is ready to use.</p>
+            
+            <h3>💳 Card Details:</h3>
+            <ul>
+                <li><strong>Available Amount:</strong> ${card_amount:.2f}</li>
+                <li><strong>Purpose:</strong> {group.vendor_name or 'Vendor'} booking</li>
+                <li><strong>Status:</strong> Active</li>
+            </ul>
+            
+            <h3>📋 Next Steps:</h3>
+            <ol>
+                <li>Log into your dashboard to view secure card details</li>
+                <li>Use the card to book your vendor service directly</li>
+                <li>The card will only work for the allocated amount</li>
+            </ol>
+            
+            <p><a href="http://localhost:3000" style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">View Card Details</a></p>
+            
+            <p>Thank you for using our dumpster sharing service!</p>
+            
+            <p>Best regards,<br>The Dumpster Sharing Team</p>
+        </body>
+        </html>
+        """
+        
+        await send_email(creator.email, subject, body)
+        
+    except Exception as e:
+        print(f"Failed to send card notification: {str(e)}")
+
 # Virtual Card API Endpoints
 
 @app.post("/api/cards/create-virtual-card", response_model=VirtualCardResponse)
@@ -2040,8 +2177,9 @@ async def get_card_details(
         raise HTTPException(status_code=404, detail="No virtual card found for this group")
     
     try:
-        # Get card from Stripe
-        card = stripe.issuing.Card.retrieve(group.virtual_card_id)
+        # For Phase 2, we simulate card details since we don't have real Stripe Issuing yet
+        # In production, this would retrieve from Stripe:
+        # card = stripe.issuing.Card.retrieve(group.virtual_card_id)
         
         # Calculate remaining balance by getting transactions
         transactions = db.query(CardTransaction).filter(
@@ -2183,6 +2321,39 @@ async def get_group_funding_status(
         raise HTTPException(status_code=403, detail="Access denied")
     
     return await calculate_group_funding_status(group_id, db)
+
+@app.get("/api/groups/{group_id}/virtual-card-info")
+async def get_group_virtual_card_info(
+    group_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get virtual card information for a group - Phase 2 endpoint"""
+    # Verify group exists and user is member or creator
+    group = db.query(Group).filter(Group.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    # Check if user is member of the group
+    membership = db.query(GroupMember).filter(
+        GroupMember.group_id == group_id,
+        GroupMember.user_id == current_user.id
+    ).first()
+    
+    if not membership and group.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    return {
+        "group_id": group_id,
+        "has_virtual_card": bool(group.virtual_card_id),
+        "card_status": group.card_status or "pending",
+        "card_amount": (group.card_spending_limit or 0) / 100,  # Convert cents to dollars
+        "service_fee_collected": group.service_fee_collected or 0.0,
+        "total_collected": group.total_collected_amount or 0.0,
+        "vendor_name": group.vendor_name,
+        "vendor_website": group.vendor_website,
+        "is_creator": group.created_by == current_user.id
+    }
 
 @app.post("/webhooks/issuing/transaction")
 async def handle_issuing_transaction_webhook(

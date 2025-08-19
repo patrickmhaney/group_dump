@@ -181,7 +181,7 @@ const ServiceConfirmation: React.FC<ServiceConfirmationProps> = ({
 
         <div style={{ marginBottom: '25px' }}>
           <h3 style={{ color: '#495057', borderBottom: '2px solid #e9ecef', paddingBottom: '8px' }}>
-            💰 Your Payment Details
+            💰 Payment Details & Virtual Card
           </h3>
           <div style={{ marginLeft: '15px' }}>
             {memberPayments.map((payment) => (
@@ -206,33 +206,54 @@ const ServiceConfirmation: React.FC<ServiceConfirmationProps> = ({
               </div>
             ))}
             
+            {/* Service Fee Breakdown */}
             <div style={{ 
               marginTop: '15px',
               padding: '15px',
-              backgroundColor: '#d4edda',
+              backgroundColor: '#e8f4fd',
               borderRadius: '6px',
-              border: '1px solid #c3e6cb'
+              border: '1px solid #b8daff'
             }}>
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center',
-                fontSize: '16px',
-                fontWeight: 'bold',
-                color: '#155724'
-              }}>
-                <span>Total Service Cost:</span>
-                <span>
-                  {serviceDetails && formatCurrency(serviceDetails.total_cost)}
-                </span>
-              </div>
-              <div style={{ 
-                fontSize: '12px', 
-                color: '#856404', 
-                marginTop: '5px' 
-              }}>
-                * Split equally among all group members
-              </div>
+              <h4 style={{ margin: '0 0 10px 0', color: '#004085' }}>Payment Breakdown:</h4>
+              {serviceDetails && (() => {
+                const totalAmount = serviceDetails.total_cost;
+                const serviceFee = Math.round(totalAmount * 0.10 * 100) / 100; // 10% service fee
+                const cardAmount = totalAmount - serviceFee;
+                
+                return (
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                      <span>Total Payment:</span>
+                      <span style={{ fontWeight: 'bold' }}>{formatCurrency(totalAmount)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                      <span>Service Fee (10%):</span>
+                      <span>{formatCurrency(serviceFee)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '10px', borderTop: '1px solid #b8daff' }}>
+                      <span style={{ fontWeight: 'bold' }}>Virtual Card Amount:</span>
+                      <span style={{ fontWeight: 'bold', color: '#28a745' }}>{formatCurrency(cardAmount)}</span>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+
+            {/* Virtual Card Information */}
+            <div style={{ 
+              marginTop: '15px',
+              padding: '15px',
+              backgroundColor: '#f8f9ff',
+              borderRadius: '6px',
+              border: '2px solid #007bff'
+            }}>
+              <h4 style={{ margin: '0 0 10px 0', color: '#007bff' }}>💳 Virtual Card Details:</h4>
+              <ul style={{ margin: 0, paddingLeft: '20px', color: '#495057' }}>
+                <li>A virtual debit card will be issued to the group creator</li>
+                <li>Card will have a spending limit equal to the amount collected</li>
+                <li>Use the card to book your vendor service directly</li>
+                <li>All transactions are monitored and reported to group members</li>
+              </ul>
             </div>
           </div>
         </div>
@@ -248,9 +269,10 @@ const ServiceConfirmation: React.FC<ServiceConfirmationProps> = ({
             ⚡ What happens next:
           </h4>
           <ul style={{ margin: 0, paddingLeft: '20px', color: '#856404' }}>
-            <li>Your payment will be processed along with all group members</li>
-            <li>The dumpster service will be scheduled for your group</li>
-            <li>You'll receive a confirmation email with service details</li>
+            <li>All group payments will be processed immediately</li>
+            <li>A virtual card will be issued to the group creator for vendor booking</li>
+            <li>The group creator will receive secure card details to complete the booking</li>
+            <li>You'll receive confirmation emails with booking and service details</li>
             <li>The vendor will deliver your dumpster on the scheduled date</li>
           </ul>
         </div>

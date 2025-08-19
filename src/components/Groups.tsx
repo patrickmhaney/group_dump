@@ -17,6 +17,14 @@ interface Group {
   time_slots?: TimeSlot[];
   vendor_id?: number;
   vendor_name?: string;
+  
+  // Virtual card fields for Phase 2
+  virtual_card_id?: string;
+  card_spending_limit?: number;
+  card_status?: string;
+  service_fee_collected?: number;
+  total_collected_amount?: number;
+  vendor_website?: string;
 }
 
 interface Participant {
