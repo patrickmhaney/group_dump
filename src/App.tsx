@@ -7,6 +7,7 @@ import Groups from './components/Groups.tsx';
 import Companies from './components/Companies.tsx';
 import Join from './components/Join.tsx';
 import StripeProvider from './components/StripeProvider.tsx';
+import CardSecurityProvider from './components/CardSecurityProvider.tsx';
 
 interface User {
   id: number;
@@ -66,21 +67,23 @@ function App() {
   return (
     <AuthContext.Provider value={{ user, token, login, logout }}>
       <StripeProvider>
-        <Router>
-          <div className="App">
-            
-            <div className="container">
-              <Routes>
-                <Route path="/login" element={!user ? <Login /> : <Navigate to={user.user_type === 'renter' ? "/groups" : "/companies"} />} />
-                <Route path="/register" element={!user ? <Register /> : <Navigate to={user.user_type === 'renter' ? "/groups" : "/companies"} />} />
-                <Route path="/groups" element={user ? (user.user_type === 'renter' ? <Groups /> : <Navigate to="/companies" />) : <Navigate to="/login" />} />
-                <Route path="/companies" element={user ? (user.user_type === 'company' ? <Companies /> : <Navigate to="/groups" />) : <Navigate to="/login" />} />
-                <Route path="/join/:token" element={<Join />} />
-                <Route path="/" element={<Navigate to={user ? (user.user_type === 'renter' ? "/groups" : "/companies") : "/login"} />} />
-              </Routes>
+        <CardSecurityProvider>
+          <Router>
+            <div className="App">
+              
+              <div className="container">
+                <Routes>
+                  <Route path="/login" element={!user ? <Login /> : <Navigate to={user.user_type === 'renter' ? "/groups" : "/companies"} />} />
+                  <Route path="/register" element={!user ? <Register /> : <Navigate to={user.user_type === 'renter' ? "/groups" : "/companies"} />} />
+                  <Route path="/groups" element={user ? (user.user_type === 'renter' ? <Groups /> : <Navigate to="/companies" />) : <Navigate to="/login" />} />
+                  <Route path="/companies" element={user ? (user.user_type === 'company' ? <Companies /> : <Navigate to="/groups" />) : <Navigate to="/login" />} />
+                  <Route path="/join/:token" element={<Join />} />
+                  <Route path="/" element={<Navigate to={user ? (user.user_type === 'renter' ? "/groups" : "/companies") : "/login"} />} />
+                </Routes>
+              </div>
             </div>
-          </div>
-        </Router>
+          </Router>
+        </CardSecurityProvider>
       </StripeProvider>
     </AuthContext.Provider>
   );

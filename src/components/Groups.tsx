@@ -3,6 +3,7 @@ import axios from 'axios';
 import { AuthContext } from '../App.tsx';
 import { useStripe, useElements, CardElement } from '@stripe/react-stripe-js';
 import ServiceConfirmation from './ServiceConfirmation.tsx';
+import VirtualCardDetails from './VirtualCardDetails.tsx';
 
 interface Group {
   id: number;
@@ -1527,6 +1528,12 @@ const Groups: React.FC = () => {
                     )}
                   </div>
                 )}
+                
+                {/* Virtual Card Details Section - Show for groups with virtual cards */}
+                {group.virtual_card_id && group.created_by === user?.id && (
+                  <VirtualCardDetails groupId={group.id.toString()} />
+                )}
+                
                 {group.created_by === user?.id && (
                   <div style={{ marginTop: '10px' }}>
                     <span style={{ color: '#28a745', fontWeight: 'bold' }}>You created this group</span>
