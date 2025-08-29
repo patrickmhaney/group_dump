@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { useStripe, useElements, CardElement } from '@stripe/react-stripe-js';
 import axios from 'axios';
 
 interface PaymentSetupProps {
   groupId: number;
-  onPaymentSetupComplete: () => void;
+  onPaymentSetupComplete: (details: any) => void;
   onCancel: () => void;
 }
 
@@ -13,55 +12,48 @@ const PaymentSetup: React.FC<PaymentSetupProps> = ({
   onPaymentSetupComplete, 
   onCancel 
 }) => {
-  const stripe = useStripe();
-  const elements = useElements();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
+  const [preferredMethod, setPreferredMethod] = useState<string>('zelle');
+  const [zelleEmail, setZelleEmail] = useState<string>('');
+  const [zellePhone, setZellePhone] = useState<string>('');
+  const [venmoUsername, setVenmoUsername] = useState<string>('');
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     
-    if (!stripe || !elements) {
-      return;
-    }
-
     setLoading(true);
     setError('');
 
     try {
-      // Step 1: Get setup intent from backend
-      const setupResponse = await axios.post(`/groups/${groupId}/setup-payment`);
-      const { client_secret } = setupResponse.data;
-
-      // Step 2: Confirm setup intent with Stripe
-      const cardElement = elements.getElement(CardElement);
+      let paymentDetails = '';
       
-      if (!cardElement) {
-        throw new Error('Card element not found');
-      }
-
-      const { error: stripeError, setupIntent } = await stripe.confirmCardSetup(
-        client_secret,
-        {
-          payment_method: {
-            card: cardElement,
-          }
+      if (preferredMethod === 'zelle') {
+        if (!zelleEmail && !zellePhone) {
+          throw new Error('Please provide either Zelle email or phone number');
         }
-      );
-
-      if (stripeError) {
-        setError(stripeError.message || 'An error occurred');
-        return;
-      }
-
-      // Step 3: Confirm with backend
-      if (setupIntent && setupIntent.payment_method) {
-        await axios.post(`/groups/${groupId}/confirm-payment-setup`, {
-          payment_method_id: setupIntent.payment_method
+        paymentDetails = JSON.stringify({
+          email: zelleEmail,
+          phone: zellePhone
         });
-
-        onPaymentSetupComplete();
+      } else if (preferredMethod === 'venmo') {
+        if (!venmoUsername) {
+          throw new Error('Please provide Venmo username');
+        }
+        paymentDetails = JSON.stringify({
+          username: venmoUsername
+        });
       }
+
+      const response = await axios.post(`/groups/${groupId}/setup-payment-method`, {
+        preferred_method: preferredMethod,
+        payment_details: paymentDetails
+      });
+
+      onPaymentSetupComplete({
+        preferred_method: preferredMethod,
+        payment_details: paymentDetails
+      });
 
     } catch (err: any) {
       const errorMessage = err.response?.data?.detail || err.message || 'An error occurred';
@@ -79,34 +71,109 @@ const PaymentSetup: React.FC<PaymentSetupProps> = ({
       backgroundColor: '#f9f9f9',
       margin: '20px 0'
     }}>
-      <h3>💳 Payment Information Required</h3>
+      <h3>💰 Payment Method Setup</h3>
       <p style={{ color: '#666', marginBottom: '20px' }}>
-        Please add your payment method to create this group. Your card will only be charged 
-        when the group is full and you schedule the service.
+        Choose how you'd like to receive payments from group members. No credit cards required!
       </p>
       
       <form onSubmit={handleSubmit}>
-        <div style={{ 
-          padding: '15px', 
-          border: '1px solid #ccc', 
-          borderRadius: '4px', 
-          backgroundColor: 'white',
-          marginBottom: '15px'
-        }}>
-          <CardElement 
-            options={{
-              style: {
-                base: {
-                  fontSize: '16px',
-                  color: '#424770',
-                  '::placeholder': {
-                    color: '#aab7c4',
-                  },
-                },
-              },
-            }}
-          />
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ display: 'block', marginBottom: '10px', fontWeight: 'bold' }}>
+            Preferred Payment Method:
+          </label>
+          
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+              <input
+                type="radio"
+                value="zelle"
+                checked={preferredMethod === 'zelle'}
+                onChange={(e) => setPreferredMethod(e.target.value)}
+                style={{ marginRight: '8px' }}
+              />
+              Zelle
+            </label>
+            
+            <label style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+              <input
+                type="radio"
+                value="venmo"
+                checked={preferredMethod === 'venmo'}
+                onChange={(e) => setPreferredMethod(e.target.value)}
+                style={{ marginRight: '8px' }}
+              />
+              Venmo
+            </label>
+            
+            <label style={{ display: 'flex', alignItems: 'center' }}>
+              <input
+                type="radio"
+                value="cash"
+                checked={preferredMethod === 'cash'}
+                onChange={(e) => setPreferredMethod(e.target.value)}
+                style={{ marginRight: '8px' }}
+              />
+              Cash
+            </label>
+          </div>
         </div>
+
+        {preferredMethod === 'zelle' && (
+          <div style={{ marginBottom: '20px' }}>
+            <h4>Zelle Information:</h4>
+            <div style={{ marginBottom: '10px' }}>
+              <label style={{ display: 'block', marginBottom: '5px' }}>Email (optional):</label>
+              <input
+                type="email"
+                value={zelleEmail}
+                onChange={(e) => setZelleEmail(e.target.value)}
+                placeholder="your-email@example.com"
+                style={{ 
+                  width: '100%', 
+                  padding: '8px', 
+                  border: '1px solid #ccc', 
+                  borderRadius: '4px' 
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px' }}>Phone (optional):</label>
+              <input
+                type="tel"
+                value={zellePhone}
+                onChange={(e) => setZellePhone(e.target.value)}
+                placeholder="(555) 123-4567"
+                style={{ 
+                  width: '100%', 
+                  padding: '8px', 
+                  border: '1px solid #ccc', 
+                  borderRadius: '4px' 
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {preferredMethod === 'venmo' && (
+          <div style={{ marginBottom: '20px' }}>
+            <h4>Venmo Information:</h4>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px' }}>Username:</label>
+              <input
+                type="text"
+                value={venmoUsername}
+                onChange={(e) => setVenmoUsername(e.target.value)}
+                placeholder="@your-username"
+                style={{ 
+                  width: '100%', 
+                  padding: '8px', 
+                  border: '1px solid #ccc', 
+                  borderRadius: '4px' 
+                }}
+              />
+            </div>
+          </div>
+        )}
 
         {error && (
           <div style={{ 
@@ -124,7 +191,7 @@ const PaymentSetup: React.FC<PaymentSetupProps> = ({
         <div style={{ display: 'flex', gap: '10px' }}>
           <button
             type="submit"
-            disabled={!stripe || loading}
+            disabled={loading}
             className="button"
             style={{ opacity: loading ? 0.6 : 1 }}
           >
@@ -151,8 +218,8 @@ const PaymentSetup: React.FC<PaymentSetupProps> = ({
         fontSize: '14px',
         color: '#0c5460'
       }}>
-        <strong>🔒 Secure:</strong> Your payment information is securely processed by Stripe. 
-        We never store your card details on our servers.
+        <strong>💡 How it works:</strong> Members will receive your payment details and send payments directly to you. 
+        You'll track received payments through the app dashboard.
       </div>
     </div>
   );

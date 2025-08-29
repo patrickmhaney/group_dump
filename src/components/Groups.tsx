@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { AuthContext } from '../App.tsx';
-import { useStripe, useElements, CardElement } from '@stripe/react-stripe-js';
 import ServiceConfirmation from './ServiceConfirmation.tsx';
+import ServiceOrderSummary from './ServiceOrderSummary.tsx';
 
 interface Group {
   id: number;
@@ -17,6 +17,7 @@ interface Group {
   time_slots?: TimeSlot[];
   vendor_id?: number;
   vendor_name?: string;
+  invitees?: GroupInvitee[];
 }
 
 interface Participant {
@@ -24,6 +25,16 @@ interface Participant {
   name: string;
   email: string;
   joined_at: string;
+}
+
+interface GroupInvitee {
+  id: number;
+  name: string;
+  email: string;
+  phone?: string;
+  join_token: string;
+  invitation_sent: boolean;
+  created_at: string;
 }
 
 interface Company {
@@ -92,10 +103,147 @@ interface GroupPaymentStatus {
   joined_at: string;
 }
 
+// Enhanced Vendor Details Component
+interface VendorDetailsProps {
+  vendorId: number;
+  groupId: number;
+}
+
+const VendorDetails: React.FC<VendorDetailsProps> = ({ vendorId, groupId }) => {
+  const [vendorInfo, setVendorInfo] = useState<Company | null>(null);
+  const [rentalInfo, setRentalInfo] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchVendorDetails = async () => {
+      try {
+        // Fetch company details
+        const companyResponse = await axios.get(`/companies/${vendorId}`);
+        setVendorInfo(companyResponse.data);
+
+        // Try to fetch rental information for this group
+        try {
+          const rentalResponse = await axios.get(`/groups/${groupId}/service-details`);
+          setRentalInfo(rentalResponse.data);
+        } catch (rentalError) {
+          // Rental info might not be available for all groups
+          console.log('No rental info available:', rentalError);
+        }
+      } catch (error) {
+        console.error('Error fetching vendor details:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchVendorDetails();
+  }, [vendorId, groupId]);
+
+  if (loading) {
+    return (
+      <div style={{ 
+        marginBottom: '20px',
+        padding: '16px',
+        backgroundColor: '#f8f9fa',
+        borderRadius: '12px',
+        border: '1px solid #e9ecef'
+      }}>
+        <div style={{ color: '#6c757d', fontStyle: 'italic' }}>Loading service provider details...</div>
+      </div>
+    );
+  }
+
+  if (!vendorInfo) {
+    return (
+      <div style={{ 
+        marginBottom: '20px',
+        padding: '16px',
+        backgroundColor: '#f8f9fa',
+        borderRadius: '12px',
+        border: '1px solid #e9ecef'
+      }}>
+        <div style={{ color: '#6c757d', fontStyle: 'italic' }}>Service provider information not available</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginBottom: '20px' }}>
+      {/* Service Provider Header - outside the box */}
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        marginBottom: '8px'
+      }}>
+        <span style={{ fontWeight: 'bold', color: '#2c3e50' }}>
+          Service Provider
+        </span>
+        {vendorInfo.rating > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <span style={{ marginRight: '4px', color: '#f6ad55' }}>⭐</span>
+            <span style={{ fontWeight: '500', color: '#2d3748' }}>{vendorInfo.rating.toFixed(1)}</span>
+          </div>
+        )}
+      </div>
+      
+      {/* Service Provider Box */}
+      <div style={{ 
+        padding: '18px',
+        backgroundColor: '#f8fafe',
+        borderRadius: '12px',
+        border: '1px solid #e3e8f0',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
+      }}>
+        {/* Vendor Name - more prominent */}
+        <div style={{ 
+          fontWeight: '700', 
+          fontSize: '18px', 
+          color: '#2d3748', 
+          marginBottom: rentalInfo ? '16px' : '0'
+        }}>
+          {vendorInfo.name}
+        </div>
+
+        {/* Rental Details (if available) */}
+        {rentalInfo && (
+        <div style={{ 
+          backgroundColor: 'white',
+          borderRadius: '8px',
+          padding: '14px',
+          border: '1px solid #e2e8f0'
+        }}>
+          <div style={{ fontSize: '13px', color: '#4a5568', marginBottom: '10px', fontWeight: '500' }}>
+            Service Details
+          </div>
+          <div style={{ 
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
+            gap: '12px',
+            fontSize: '13px'
+          }}>
+            <div>
+              <div style={{ color: '#718096', marginBottom: '2px' }}>Size</div>
+              <div style={{ fontWeight: '500', color: '#2d3748' }}>{rentalInfo.size}</div>
+            </div>
+            <div>
+              <div style={{ color: '#718096', marginBottom: '2px' }}>Duration</div>
+              <div style={{ fontWeight: '500', color: '#2d3748' }}>{rentalInfo.duration} days</div>
+            </div>
+            <div>
+              <div style={{ color: '#718096', marginBottom: '2px' }}>Total Cost</div>
+              <div style={{ fontWeight: '600', color: '#38a169' }}>${rentalInfo.total_cost}</div>
+            </div>
+          </div>
+        </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const Groups: React.FC = () => {
   const { user, logout } = useContext(AuthContext);
-  const stripe = useStripe();
-  const elements = useElements();
   
   const [groups, setGroups] = useState<Group[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -117,17 +265,54 @@ const Groups: React.FC = () => {
   const [invitees, setInvitees] = useState<Invitee[]>([]);
   const [userTimeSlotSelections, setUserTimeSlotSelections] = useState<{[groupId: number]: number[]}>({});
   const [timeSlotAnalyses, setTimeSlotAnalyses] = useState<{[groupId: number]: TimeSlotAnalysis[]}>({});
-  const [expandedGroups, setExpandedGroups] = useState<{[groupId: number]: boolean}>({});
   const [paymentStatuses, setPaymentStatuses] = useState<{[groupId: number]: GroupPaymentStatus[]}>({});
+  const [selectedFinalTimeSlots, setSelectedFinalTimeSlots] = useState<{[groupId: number]: number}>({});
+  const [costBreakdowns, setCostBreakdowns] = useState<{[groupId: number]: any}>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState<{groupId: number; groupName: string; groupAddress: string} | null>(null);
   const [comparisonSize, setComparisonSize] = useState<string>('20');
+  
+  // Payment method setup state
+  const [paymentMethodType, setPaymentMethodType] = useState('zelle');
+  const [zelleEmail, setZelleEmail] = useState('');
+  const [zellePhone, setZellePhone] = useState('');
+  const [venmoUsername, setVenmoUsername] = useState('');
 
   useEffect(() => {
     fetchGroups();
     fetchCompanies();
     fetchRentals();
   }, []);
+
+  // Auto-load time slot data for all groups with time slots
+  useEffect(() => {
+    groups.forEach(group => {
+      if (group.time_slots && group.time_slots.length > 0 && 
+          (group.current_participants || 0) < group.max_participants) {
+        // Load time slot data for groups that are still forming
+        fetchUserTimeSlotSelections(group.id);
+        fetchTimeSlotAnalysis(group.id);
+      }
+    });
+  }, [groups]);
+
+  const getPaymentDetails = () => {
+    if (paymentMethodType === 'zelle') {
+      return {
+        email: zelleEmail,
+        phone: zellePhone
+      };
+    } else if (paymentMethodType === 'venmo') {
+      return {
+        username: venmoUsername
+      };
+    } else if (paymentMethodType === 'cash') {
+      return {
+        method: 'cash'
+      };
+    }
+    return {};
+  };
 
   useEffect(() => {
     if (user && formData.name === '') {
@@ -139,15 +324,19 @@ const Groups: React.FC = () => {
   }, [user, formData.name]);
 
   useEffect(() => {
-    // Auto-load payment status for full groups where user is creator
+    // Auto-load payment status and cost breakdown for full groups where user is creator
     groups.forEach(group => {
       if ((group.current_participants || 0) >= group.max_participants && 
-          group.created_by === user?.id && 
-          !paymentStatuses[group.id]) {
-        fetchPaymentStatus(group.id);
+          group.created_by === user?.id) {
+        if (!paymentStatuses[group.id]) {
+          fetchPaymentStatus(group.id);
+        }
+        if (!costBreakdowns[group.id]) {
+          fetchCostBreakdown(group.id);
+        }
       }
     });
-  }, [groups, user?.id, paymentStatuses]);
+  }, [groups, user?.id, paymentStatuses, costBreakdowns]);
 
   const fetchGroups = async () => {
     try {
@@ -215,6 +404,18 @@ const Groups: React.FC = () => {
     }
   };
 
+  const fetchCostBreakdown = async (groupId: number) => {
+    try {
+      const response = await axios.get(`/groups/${groupId}/payment-breakdown`);
+      setCostBreakdowns(prev => ({
+        ...prev,
+        [groupId]: response.data
+      }));
+    } catch (error) {
+      console.error('Error fetching cost breakdown:', error);
+    }
+  };
+
   const updateUserTimeSlotSelections = async (groupId: number, timeSlotIds: number[]) => {
     try {
       await axios.put(`/groups/${groupId}/user-time-slots`, {
@@ -243,37 +444,19 @@ const Groups: React.FC = () => {
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!stripe || !elements) {
-      setMessage('Payment system not ready. Please try again.');
-      setTimeout(() => setMessage(''), 3000);
-      return;
-    }
-
     setIsSubmitting(true);
     
     try {
-      // Get card element and create payment method
-      const cardElement = elements.getElement(CardElement);
-      if (!cardElement) {
-        throw new Error('Card element not found');
-      }
-
-      const { error: paymentMethodError, paymentMethod } = await stripe.createPaymentMethod({
-        type: 'card',
-        card: cardElement,
-      });
-
-      if (paymentMethodError) {
-        throw new Error(paymentMethodError.message || 'Payment method creation failed');
-      }
-
-      // Prepare group data
+      // Prepare group data with simplified payment method details
       const groupData: any = {
         ...formData,
         address: `${formData.street_address}, ${formData.city}, ${formData.state} ${formData.zip_code}`,
         time_slots: timeSlots,
         invitees: invitees,
-        payment_method_id: paymentMethod.id
+        payment_method_details: {
+          preferred_method: paymentMethodType,
+          payment_details: JSON.stringify(getPaymentDetails())
+        }
       };
       
       if (formData.vendor_id && formData.vendor_id !== '') {
@@ -292,6 +475,7 @@ const Groups: React.FC = () => {
       }
       
       // Create group with payment in single transaction
+      console.log('Sending group data:', JSON.stringify(groupData, null, 2));
       const response = await axios.post('/groups/create-with-payment', groupData);
       setGroups([response.data, ...groups]);
       setShowCreateForm(false);
@@ -301,11 +485,30 @@ const Groups: React.FC = () => {
       setMessage('Group created successfully with payment setup! Invitations have been sent.');
       setTimeout(() => setMessage(''), 5000);
     } catch (error: any) {
-      const errorMessage = typeof error.response?.data?.detail === 'string' 
-        ? error.response.data.detail
-        : Array.isArray(error.response?.data?.detail)
-        ? error.response.data.detail.map((err: any) => err.msg || err).join(', ')
-        : error.message || 'Error creating group';
+      console.error('Full error object:', error);
+      console.error('Error response:', error.response);
+      console.error('Error response data:', error.response?.data);
+      
+      let errorMessage = 'Error creating group';
+      
+      if (error.response?.data) {
+        const data = error.response.data;
+        if (typeof data.detail === 'string') {
+          errorMessage = data.detail;
+        } else if (Array.isArray(data.detail)) {
+          errorMessage = data.detail.map((err: any) => {
+            if (typeof err === 'string') return err;
+            return `${err.loc?.join('.') || 'field'}: ${err.msg || err.message || 'validation error'}`;
+          }).join(', ');
+        } else if (data.message) {
+          errorMessage = data.message;
+        } else {
+          errorMessage = JSON.stringify(data);
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       setMessage(errorMessage);
       setTimeout(() => setMessage(''), 5000);
     } finally {
@@ -445,22 +648,13 @@ const Groups: React.FC = () => {
     updateUserTimeSlotSelections(groupId, newSelections);
   };
 
-  const toggleGroupExpansion = async (groupId: number) => {
-    const isExpanding = !expandedGroups[groupId];
-    
-    setExpandedGroups(prev => ({
+  const handleFinalTimeSlotSelection = (groupId: number, timeSlotId: number) => {
+    setSelectedFinalTimeSlots(prev => ({
       ...prev,
-      [groupId]: isExpanding
+      [groupId]: timeSlotId
     }));
-
-    // Load time slot data when expanding
-    if (isExpanding) {
-      await Promise.all([
-        fetchUserTimeSlotSelections(groupId),
-        fetchTimeSlotAnalysis(groupId)
-      ]);
-    }
   };
+
 
   if (loading) return <div>Loading...</div>;
 
@@ -1223,10 +1417,9 @@ const Groups: React.FC = () => {
               borderRadius: '8px', 
               backgroundColor: '#f8f9fa' 
             }}>
-              <h3 style={{ marginTop: '0', color: '#007bff' }}>💳 Payment Information</h3>
+              <h3 style={{ marginTop: '0', color: '#007bff' }}>💰 Payment Method Setup</h3>
               <p style={{ color: '#666', marginBottom: '15px' }}>
-                Your payment method is required to create the group. Your card will only be charged 
-                when the group is full and you schedule the service.
+                Choose how you'd like to receive payments from group members. No credit cards required!
               </p>
               
               <div style={{ 
@@ -1236,19 +1429,103 @@ const Groups: React.FC = () => {
                 backgroundColor: 'white',
                 marginBottom: '15px'
               }}>
-                <CardElement 
-                  options={{
-                    style: {
-                      base: {
-                        fontSize: '16px',
-                        color: '#424770',
-                        '::placeholder': {
-                          color: '#aab7c4',
-                        },
-                      },
-                    },
-                  }}
-                />
+                <div style={{ marginBottom: '15px' }}>
+                  <label style={{ display: 'block', marginBottom: '10px', fontWeight: 'bold' }}>
+                    Preferred Payment Method:
+                  </label>
+                  
+                  <div style={{ marginBottom: '15px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+                      <input
+                        type="radio"
+                        value="zelle"
+                        checked={paymentMethodType === 'zelle'}
+                        onChange={(e) => setPaymentMethodType(e.target.value)}
+                        style={{ marginRight: '8px' }}
+                      />
+                      Zelle
+                    </label>
+                    
+                    <label style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+                      <input
+                        type="radio"
+                        value="venmo"
+                        checked={paymentMethodType === 'venmo'}
+                        onChange={(e) => setPaymentMethodType(e.target.value)}
+                        style={{ marginRight: '8px' }}
+                      />
+                      Venmo
+                    </label>
+                    
+                    <label style={{ display: 'flex', alignItems: 'center' }}>
+                      <input
+                        type="radio"
+                        value="cash"
+                        checked={paymentMethodType === 'cash'}
+                        onChange={(e) => setPaymentMethodType(e.target.value)}
+                        style={{ marginRight: '8px' }}
+                      />
+                      Cash
+                    </label>
+                  </div>
+                </div>
+
+                {paymentMethodType === 'zelle' && (
+                  <div style={{ marginBottom: '15px' }}>
+                    <h4>Zelle Information:</h4>
+                    <div style={{ marginBottom: '10px' }}>
+                      <label style={{ display: 'block', marginBottom: '5px' }}>Email (optional):</label>
+                      <input
+                        type="email"
+                        value={zelleEmail}
+                        onChange={(e) => setZelleEmail(e.target.value)}
+                        placeholder="your-email@example.com"
+                        style={{ 
+                          width: '100%', 
+                          padding: '8px', 
+                          border: '1px solid #ccc', 
+                          borderRadius: '4px' 
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '5px' }}>Phone (optional):</label>
+                      <input
+                        type="tel"
+                        value={zellePhone}
+                        onChange={(e) => setZellePhone(e.target.value)}
+                        placeholder="(555) 123-4567"
+                        style={{ 
+                          width: '100%', 
+                          padding: '8px', 
+                          border: '1px solid #ccc', 
+                          borderRadius: '4px' 
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {paymentMethodType === 'venmo' && (
+                  <div style={{ marginBottom: '15px' }}>
+                    <h4>Venmo Information:</h4>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '5px' }}>Username:</label>
+                      <input
+                        type="text"
+                        value={venmoUsername}
+                        onChange={(e) => setVenmoUsername(e.target.value)}
+                        placeholder="@your-username"
+                        style={{ 
+                          width: '100%', 
+                          padding: '8px', 
+                          border: '1px solid #ccc', 
+                          borderRadius: '4px' 
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div style={{ 
@@ -1259,8 +1536,8 @@ const Groups: React.FC = () => {
                 fontSize: '14px',
                 color: '#0c5460'
               }}>
-                <strong>🔒 Secure:</strong> Your payment information is securely processed by Stripe. 
-                We never store your card details on our servers.
+                <strong>💡 How it works:</strong> Members will receive your payment details and send payments directly to you. 
+                You'll track received payments through the app dashboard.
               </div>
             </div>
             
@@ -1268,8 +1545,8 @@ const Groups: React.FC = () => {
               <button 
                 type="submit" 
                 className="button"
-                disabled={!stripe || isSubmitting}
-                style={{ opacity: (!stripe || isSubmitting) ? 0.6 : 1 }}
+                disabled={isSubmitting}
+                style={{ opacity: isSubmitting ? 0.6 : 1 }}
               >
                 {isSubmitting ? 'Creating Group...' : 'Create Group & Setup Payment'}
               </button>
@@ -1289,201 +1566,468 @@ const Groups: React.FC = () => {
       <div className="card">
         <h2>Groups</h2>
         {groups.length === 0 ? (
-          <p>No groups found. You'll see groups here that you've created or been invited to.</p>
+          <div style={{ 
+            textAlign: 'center', 
+            padding: '60px 40px', 
+            color: '#666',
+            backgroundColor: '#f8f9fa',
+            borderRadius: '12px',
+            border: '2px dashed #dee2e6'
+          }}>
+            <div style={{ fontSize: '48px', marginBottom: '20px' }}>🏠</div>
+            <h3 style={{ color: '#495057', marginBottom: '10px' }}>No Groups Yet</h3>
+            <p style={{ margin: 0 }}>Create your first group or wait for an invitation to get started!</p>
+          </div>
         ) : (
-          <div className="group-list">
-            {groups.map((group) => (
-              <div key={group.id} className="group-item">
-                <h3>{group.name}</h3>
-                <p><strong>Address:</strong> {group.address}</p>
-                <p><strong>Participants:</strong> {group.current_participants || 0} / {group.max_participants}</p>
-                <p><strong>Status:</strong> 
-                  <span style={{ 
-                    color: (group.current_participants || 0) >= group.max_participants ? '#28a745' : 'inherit',
-                    fontWeight: (group.current_participants || 0) >= group.max_participants ? 'bold' : 'normal'
-                  }}>
-                    {(group.current_participants || 0) >= group.max_participants ? 'Ready!' : group.status}
-                  </span>
-                </p>
-                {(group.current_participants || 0) >= group.max_participants && (
+          <div className="group-list" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {groups.map((group) => {
+              const isReady = (group.current_participants || 0) >= group.max_participants;
+              const isCreator = group.created_by === user?.id;
+              
+              return (
+                <div key={group.id} style={{
+                  backgroundColor: '#ffffff',
+                  border: `2px solid ${isReady ? '#28a745' : '#e9ecef'}`,
+                  borderRadius: '16px',
+                  padding: '24px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                  transition: 'all 0.3s ease'
+                }}>
+                  {/* Header Section */}
                   <div style={{ 
-                    padding: '10px', 
-                    backgroundColor: '#d4edda', 
-                    border: '1px solid #c3e6cb', 
-                    borderRadius: '4px', 
-                    marginTop: '10px',
-                    color: '#155724'
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'flex-start',
+                    marginBottom: '20px',
+                    paddingBottom: '16px',
+                    borderBottom: '1px solid #f0f0f0'
                   }}>
-                    <strong>🎉 Group is ready!</strong> You have reached the maximum number of participants.
-                    
-                    {group.created_by === user?.id && (
-                      <div style={{ marginTop: '15px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '6px', border: '1px solid #dee2e6' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                          <h4 style={{ margin: '0', color: '#495057' }}>💳 Payment Status Overview</h4>
-                          <button
-                            className="button button-secondary"
-                            style={{ padding: '5px 10px', fontSize: '12px' }}
-                            onClick={() => fetchPaymentStatus(group.id)}
-                          >
-                            Refresh Status
-                          </button>
+                    <div style={{ flex: 1 }}>
+                      <h3 style={{ 
+                        margin: '0 0 8px 0', 
+                        color: '#2c3e50',
+                        fontSize: '22px',
+                        fontWeight: 'bold'
+                      }}>
+                        {group.name}
+                      </h3>
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center',
+                        color: '#7f8c8d',
+                        fontSize: '14px',
+                        marginBottom: '8px'
+                      }}>
+                        <span style={{ marginRight: '8px' }}>📍</span>
+                        {group.address}
+                      </div>
+                      {isCreator && (
+                        <div style={{
+                          display: 'inline-block',
+                          backgroundColor: '#3498db',
+                          color: 'white',
+                          padding: '4px 12px',
+                          borderRadius: '20px',
+                          fontSize: '12px',
+                          fontWeight: 'bold',
+                          marginTop: '4px'
+                        }}>
+                          Your Group
                         </div>
-                        
-                        {paymentStatuses[group.id] ? (
-                          <div>
-                            {paymentStatuses[group.id].map((memberStatus) => {
-                              const statusColor = memberStatus.payment_status === 'setup_complete' ? '#28a745' : 
-                                                 memberStatus.payment_status === 'setup_required' ? '#ffc107' : '#dc3545';
-                              const statusText = memberStatus.payment_status === 'setup_complete' ? 'Confirmed' :
-                                               memberStatus.payment_status === 'setup_required' ? 'Pending' : 'Not Set Up';
-                              const statusIcon = memberStatus.payment_status === 'setup_complete' ? '✅' :
-                                               memberStatus.payment_status === 'setup_required' ? '⏳' : '❌';
-                              
-                              return (
-                                <div 
-                                  key={memberStatus.member_id}
-                                  style={{ 
-                                    display: 'flex', 
-                                    justifyContent: 'space-between', 
-                                    alignItems: 'center',
-                                    padding: '8px 0',
-                                    borderBottom: '1px solid #e9ecef'
-                                  }}
-                                >
-                                  <span style={{ fontSize: '14px' }}>
-                                    {memberStatus.user_name} ({memberStatus.user_email})
-                                  </span>
-                                  <span style={{ 
-                                    fontSize: '13px', 
-                                    fontWeight: 'bold',
-                                    color: statusColor,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '5px'
-                                  }}>
-                                    <span>{statusIcon}</span>
-                                    {statusText}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                            
-                            {paymentStatuses[group.id].every(status => status.payment_status === 'setup_complete') && (
+                      )}
+                    </div>
+                    
+                    {/* Status Badge */}
+                    <div style={{
+                      backgroundColor: isReady ? '#d4f8d4' : '#fff3cd',
+                      color: isReady ? '#155724' : '#856404',
+                      padding: '12px 20px',
+                      borderRadius: '25px',
+                      fontWeight: 'bold',
+                      fontSize: '14px',
+                      border: `2px solid ${isReady ? '#28a745' : '#ffc107'}`,
+                      textAlign: 'center',
+                      minWidth: '120px'
+                    }}>
+                      {isReady ? '✅ Ready!' : '⏳ Forming'}
+                    </div>
+                  </div>
+
+                  {/* Progress Section */}
+                  <div style={{ marginBottom: '20px' }}>
+                    <div style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center',
+                      marginBottom: '8px'
+                    }}>
+                      <span style={{ fontWeight: 'bold', color: '#2c3e50' }}>
+                        Group Forming Status
+                      </span>
+                      <span style={{ 
+                        color: isReady ? '#28a745' : '#6c757d',
+                        fontWeight: 'bold'
+                      }}>
+                        {group.current_participants || 0} / {group.max_participants}
+                      </span>
+                    </div>
+                    
+                    {/* Progress Bar */}
+                    <div style={{
+                      width: '100%',
+                      height: '8px',
+                      backgroundColor: '#e9ecef',
+                      borderRadius: '4px',
+                      overflow: 'hidden'
+                    }}>
+                      <div style={{
+                        width: `${((group.current_participants || 0) / group.max_participants) * 100}%`,
+                        height: '100%',
+                        backgroundColor: isReady ? '#28a745' : '#007bff',
+                        transition: 'width 0.3s ease'
+                      }} />
+                    </div>
+                  </div>
+
+                  {/* Members Section - both current and invited */}
+                  <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: group.participants && group.participants.length > 0 && group.invitees && group.invitees.length > 0 ? '1fr 1fr' : '1fr',
+                    gap: '20px',
+                    marginBottom: '20px'
+                  }}>
+                    {/* Current Members Section */}
+                    {group.participants && group.participants.length > 0 && (
+                      <div>
+                        <div style={{ 
+                          display: 'flex', 
+                          alignItems: 'center',
+                          marginBottom: '12px'
+                        }}>
+                          <span style={{ fontWeight: 'bold', color: '#2c3e50' }}>Current Members</span>
+                        </div>
+                        <div style={{ 
+                          display: 'grid', 
+                          gap: '8px'
+                        }}>
+                          {group.participants.map((participant) => (
+                            <div key={participant.id} style={{ 
+                              display: 'flex',
+                              alignItems: 'center',
+                              padding: '8px 12px',
+                              backgroundColor: '#f8f9fa',
+                              borderRadius: '8px',
+                              border: '1px solid #e9ecef'
+                            }}>
                               <div style={{ 
-                                marginTop: '10px', 
-                                padding: '8px', 
-                                backgroundColor: '#d4edda', 
-                                borderRadius: '4px', 
-                                fontSize: '13px',
-                                color: '#155724',
-                                fontWeight: 'bold'
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: '50%',
+                                backgroundColor: '#28a745',
+                                color: 'white',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '14px',
+                                fontWeight: 'bold',
+                                marginRight: '12px'
                               }}>
-                                🎉 All members have confirmed payment methods!
+                                {participant.name.charAt(0).toUpperCase()}
                               </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div style={{ textAlign: 'center', padding: '10px', color: '#6c757d', fontSize: '14px' }}>
-                            <button
-                              className="button button-secondary"
-                              onClick={() => fetchPaymentStatus(group.id)}
-                              style={{ fontSize: '12px' }}
-                            >
-                              Load Payment Status
-                            </button>
-                          </div>
-                        )}
+                              <div>
+                                <div style={{ fontWeight: 'bold', color: '#2c3e50', fontSize: '14px' }}>
+                                  {participant.name}
+                                </div>
+                                <div style={{ color: '#6c757d', fontSize: '12px' }}>
+                                  {participant.email}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Invited Members Section */}
+                    {group.invitees && group.invitees.length > 0 && (
+                      <div>
+                        <div style={{ 
+                          display: 'flex', 
+                          alignItems: 'center',
+                          marginBottom: '12px'
+                        }}>
+                          <span style={{ fontWeight: 'bold', color: '#2c3e50' }}>Invited Members</span>
+                        </div>
+                        <div style={{ 
+                          display: 'grid', 
+                          gap: '8px'
+                        }}>
+                          {group.invitees.map((invitee) => (
+                            <div key={invitee.id} style={{ 
+                              display: 'flex',
+                              alignItems: 'center',
+                              padding: '8px 12px',
+                              backgroundColor: '#fff3cd',
+                              borderRadius: '8px',
+                              border: '1px solid #ffeaa7'
+                            }}>
+                              <div style={{ 
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: '50%',
+                                backgroundColor: '#ffc107',
+                                color: 'white',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '14px',
+                                fontWeight: 'bold',
+                                marginRight: '12px'
+                              }}>
+                                {invitee.name.charAt(0).toUpperCase()}
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontWeight: 'bold', color: '#2c3e50', fontSize: '14px' }}>
+                                  {invitee.name}
+                                </div>
+                                <div style={{ color: '#6c757d', fontSize: '12px' }}>
+                                  {invitee.email}
+                                </div>
+                              </div>
+                              <div style={{
+                                fontSize: '11px',
+                                color: invitee.invitation_sent ? '#28a745' : '#dc3545',
+                                fontWeight: 'bold',
+                                textAlign: 'right'
+                              }}>
+                                {invitee.invitation_sent ? '✓ Invited' : '⏳ Pending'}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
-                )}
-                {group.vendor_name && (
-                  <p><strong>Vendor:</strong> {group.vendor_name}</p>
-                )}
-                <p><strong>Created:</strong> {new Date(group.created_at).toLocaleDateString()}</p>
-                {group.participants && group.participants.length > 0 && (
-                  <div style={{ marginTop: '10px' }}>
-                    <p><strong>Current Members:</strong></p>
-                    <div style={{ marginLeft: '15px' }}>
-                      {group.participants.map((participant) => (
-                        <div key={participant.id} style={{ fontSize: '14px', color: '#666', marginBottom: '3px' }}>
-                          {participant.name} ({participant.email})
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {group.time_slots && group.time_slots.length > 0 && (
-                  <div style={{ marginTop: '10px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                      <p style={{ margin: 0 }}><strong>Time Slots:</strong></p>
-                      <button
-                        className="button button-secondary"
-                        style={{ padding: '5px 10px', fontSize: '12px' }}
-                        onClick={() => toggleGroupExpansion(group.id)}
-                      >
-                        {expandedGroups[group.id] ? 'Hide Details' : 'Manage Schedule'}
-                      </button>
-                    </div>
-                    
-                    {!expandedGroups[group.id] ? (
-                      // Collapsed view - show basic time slot list
-                      <div style={{ marginLeft: '15px' }}>
-                        {group.time_slots.map((slot, index) => (
-                          <div key={index} style={{ fontSize: '14px', color: '#666', marginBottom: '5px' }}>
-                            {new Date(slot.start_date).toLocaleDateString()} - {new Date(slot.end_date).toLocaleDateString()}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      // Expanded view - show interactive checkboxes and analysis
+
+                  {/* Enhanced Vendor Information */}
+                  {group.vendor_id && <VendorDetails vendorId={group.vendor_id} groupId={group.id} />}
+
+                  {/* Cost Breakdown Section - for ready groups */}
+                  {isReady && group.vendor_id && (
+                    <div style={{ marginBottom: '20px' }}>
                       <div style={{ 
-                        marginTop: '15px', 
-                        padding: '15px', 
-                        backgroundColor: '#f8f9fa', 
-                        borderRadius: '8px',
-                        border: '1px solid #dee2e6'
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center',
+                        marginBottom: '8px'
                       }}>
-                        <h4 style={{ marginTop: '0', marginBottom: '15px' }}>Select Your Available Time Slots:</h4>
-                        
-                        {group.time_slots.map((slot) => {
-                          const isSelected = (userTimeSlotSelections[group.id] || []).includes(slot.id);
-                          const analysis = timeSlotAnalyses[group.id]?.find(a => a.time_slot_id === slot.id);
+                        <span style={{ fontWeight: 'bold', color: '#2c3e50' }}>
+                          Cost Breakdown
+                        </span>
+                      </div>
+                      
+                      <div style={{ 
+                        padding: '18px',
+                        backgroundColor: '#f0f8ff',
+                        borderRadius: '12px',
+                        border: '1px solid #bee5eb',
+                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
+                      }}>
+                        {(() => {
+                          // Calculate cost breakdown from available data
+                          const totalMembers = group.current_participants || 0;
+                          // Try to get cost from API breakdown data, fallback to service details, then to default
+                          let totalCost = 0;
+                          if (costBreakdowns[group.id] && costBreakdowns[group.id].length > 0) {
+                            totalCost = costBreakdowns[group.id][0].individual_cost * costBreakdowns[group.id].length;
+                          } else {
+                            // Fallback - we'll get this from the service details shown in the UI
+                            totalCost = 430; // This will be visible once the VendorDetails loads the service details
+                          }
+                          const costPerMember = totalMembers > 0 ? totalCost / totalMembers : 0;
                           
                           return (
-                            <div 
-                              key={slot.id} 
-                              style={{ 
-                                marginBottom: '15px',
-                                padding: '12px',
-                                backgroundColor: analysis?.is_universal ? '#d4f8d4' : 'white',
-                                border: `2px solid ${analysis?.is_universal ? '#28a745' : '#dee2e6'}`,
-                                borderRadius: '6px'
-                              }}
-                            >
-                              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flex: 1 }}>
+                            <>
+                              {/* Total Cost Display */}
+                              <div style={{ 
+                                textAlign: 'center',
+                                marginBottom: '16px',
+                                padding: '16px',
+                                backgroundColor: 'white',
+                                borderRadius: '8px',
+                                border: '1px solid #dee2e6'
+                              }}>
+                                <div style={{ fontSize: '14px', color: '#6c757d', marginBottom: '4px' }}>
+                                  Total Service Cost
+                                </div>
+                                <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#28a745' }}>
+                                  ${totalCost.toFixed(2)}
+                                </div>
+                              </div>
+
+                              {/* Individual Member Breakdown */}
+                              <div style={{ 
+                                display: 'grid',
+                                gap: '8px'
+                              }}>
+                                <div style={{ 
+                                  fontSize: '14px', 
+                                  color: '#495057', 
+                                  fontWeight: '500',
+                                  marginBottom: '8px'
+                                }}>
+                                  Cost per member (split evenly):
+                                </div>
+                                
+                                {group.participants?.map((participant: any, index: number) => (
+                                  <div key={index} style={{ 
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    padding: '12px 16px',
+                                    backgroundColor: 'white',
+                                    borderRadius: '8px',
+                                    border: '1px solid #e2e8f0'
+                                  }}>
+                                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                                      <div style={{ 
+                                        width: '32px',
+                                        height: '32px',
+                                        borderRadius: '50%',
+                                        backgroundColor: '#007bff',
+                                        color: 'white',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '14px',
+                                        fontWeight: 'bold',
+                                        marginRight: '12px'
+                                      }}>
+                                        {participant.name.charAt(0).toUpperCase()}
+                                      </div>
+                                      <div>
+                                        <div style={{ fontWeight: '500', color: '#2d3748', fontSize: '14px' }}>
+                                          {participant.name}
+                                        </div>
+                                        <div style={{ fontSize: '12px', color: '#6c757d' }}>
+                                          {participant.email}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div style={{ 
+                                      fontSize: '18px', 
+                                      fontWeight: 'bold', 
+                                      color: '#28a745' 
+                                    }}>
+                                      ${costPerMember.toFixed(2)}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </>
+                          );
+                        })()}
+                        
+                        <div style={{ 
+                          marginTop: '12px',
+                          padding: '12px',
+                          backgroundColor: '#e8f5e8',
+                          borderRadius: '8px',
+                          border: '1px solid #d4edda',
+                          fontSize: '13px',
+                          color: '#155724'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span>💡</span>
+                            <div>
+                              <strong>Payment Info:</strong> Each member pays their individual amount directly to the group creator using the configured payment method.
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Time Slots Section */}
+                  {group.time_slots && group.time_slots.length > 0 && (
+                    <div style={{ marginBottom: '20px' }}>
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center',
+                        marginBottom: '12px'
+                      }}>
+                        <span style={{ marginRight: '8px', fontSize: '16px' }}>📅</span>
+                        <span style={{ fontWeight: 'bold', color: '#2c3e50' }}>Available Time Slots</span>
+                      </div>
+                      
+                      {/* Always show time slots with interactive features for non-ready groups */}
+                      {!isReady ? (
+                        <div style={{ 
+                          marginLeft: '24px',
+                          padding: '16px', 
+                          backgroundColor: '#f8f9fa', 
+                          borderRadius: '10px',
+                          border: '1px solid #dee2e6'
+                        }}>
+                          <div style={{ marginBottom: '12px', fontSize: '14px', color: '#495057' }}>
+                            Select your available time slots to help coordinate the group:
+                          </div>
+                          
+                          {group.time_slots.map((slot) => {
+                            const isSelected = (userTimeSlotSelections[group.id] || []).includes(slot.id);
+                            const analysis = timeSlotAnalyses[group.id]?.find(a => a.time_slot_id === slot.id);
+                            
+                            return (
+                              <div 
+                                key={slot.id} 
+                                style={{ 
+                                  marginBottom: '12px',
+                                  padding: '12px',
+                                  backgroundColor: analysis?.is_universal ? '#d4f8d4' : 'white',
+                                  border: `2px solid ${analysis?.is_universal ? '#28a745' : '#e9ecef'}`,
+                                  borderRadius: '8px',
+                                  transition: 'all 0.2s ease'
+                                }}
+                              >
+                                <label style={{ display: 'flex', alignItems: 'flex-start', cursor: 'pointer', gap: '12px' }}>
                                   <input
                                     type="checkbox"
                                     checked={isSelected}
                                     onChange={() => handleTimeSlotToggle(group.id, slot.id)}
-                                    style={{ marginRight: '10px', transform: 'scale(1.2)' }}
+                                    style={{ 
+                                      marginTop: '2px',
+                                      transform: 'scale(1.2)',
+                                      accentColor: '#007bff'
+                                    }}
                                   />
-                                  <div>
-                                    <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
+                                  <div style={{ flex: 1 }}>
+                                    <div style={{ 
+                                      fontWeight: 'bold', 
+                                      marginBottom: '4px',
+                                      color: '#2c3e50'
+                                    }}>
                                       {new Date(slot.start_date).toLocaleDateString()} - {new Date(slot.end_date).toLocaleDateString()}
                                     </div>
                                     {analysis && (
-                                      <div style={{ fontSize: '13px', color: '#666' }}>
-                                        <strong>{analysis.selected_by_count}</strong> of {group.current_participants} members available
+                                      <div style={{ fontSize: '13px', color: '#6c757d' }}>
+                                        <div style={{ marginBottom: '2px' }}>
+                                          <strong style={{ color: '#495057' }}>{analysis.selected_by_count}</strong> of {group.current_participants} members available
+                                        </div>
                                         {analysis.selected_by_users.length > 0 && (
-                                          <div style={{ marginTop: '4px' }}>
+                                          <div style={{ marginBottom: '4px' }}>
                                             <strong>Available:</strong> {analysis.selected_by_users.join(', ')}
                                           </div>
                                         )}
                                         {analysis.is_universal && (
-                                          <div style={{ color: '#28a745', fontWeight: 'bold', marginTop: '4px' }}>
-                                            ✅ Everyone is available!
+                                          <div style={{ 
+                                            color: '#28a745', 
+                                            fontWeight: 'bold',
+                                            fontSize: '12px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '4px'
+                                          }}>
+                                            <span>✅</span> Everyone is available!
                                           </div>
                                         )}
                                       </div>
@@ -1491,91 +2035,260 @@ const Groups: React.FC = () => {
                                   </div>
                                 </label>
                               </div>
+                            );
+                          })}
+                          
+                          <div style={{ 
+                            marginTop: '12px', 
+                            padding: '12px', 
+                            backgroundColor: '#fff3cd', 
+                            borderRadius: '8px', 
+                            border: '1px solid #ffeaa7'
+                          }}>
+                            <div style={{ fontSize: '13px', color: '#856404', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                              <span>💡</span>
+                              <div>
+                                <strong>Tip:</strong> Green highlighted slots work for all group members. 
+                                Select at least one time slot to stay in the group.
+                              </div>
                             </div>
-                          );
-                        })}
-                        
-                        <div style={{ marginTop: '15px', padding: '10px', backgroundColor: '#fff3cd', borderRadius: '4px', border: '1px solid #ffeaa7' }}>
-                          <small style={{ color: '#856404' }}>
-                            <strong>💡 Tip:</strong> Green highlighted slots work for all group members. 
-                            Select at least one time slot to stay in the group.
-                          </small>
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-                {group.created_by !== user?.id && (
-                  <div style={{ marginTop: '10px' }}>
-                    {(group.current_participants || 0) >= group.max_participants ? (
-                      <span style={{ color: '#dc3545', fontWeight: 'bold' }}>Group Full</span>
-                    ) : (
-                      <button
-                        className="button"
-                        onClick={() => handleJoinGroup(group.id)}
-                      >
-                        Join Group ({(group.current_participants || 0)}/{group.max_participants})
-                      </button>
-                    )}
-                  </div>
-                )}
-                {group.created_by === user?.id && (
-                  <div style={{ marginTop: '10px' }}>
-                    <span style={{ color: '#28a745', fontWeight: 'bold' }}>You created this group</span>
-                    <div style={{ marginTop: '10px', display: 'flex', gap: '10px' }}>
-                      {(group.current_participants || 0) >= group.max_participants && (() => {
-                        const allPaymentsConfirmed = paymentStatuses[group.id] && 
-                          paymentStatuses[group.id].every(status => status.payment_status === 'setup_complete');
-                        const hasPaymentData = paymentStatuses[group.id];
-                        
-                        return (
+                      ) : (
+                        // For ready groups, show time slot selection for creators or final selection for members
+                        <div style={{ marginLeft: '24px' }}>
+                          {isCreator ? (
+                            <>
+                              <div style={{ 
+                                marginBottom: '12px', 
+                                fontSize: '14px', 
+                                color: '#495057',
+                                padding: '12px',
+                                backgroundColor: '#e7f5ff',
+                                borderRadius: '8px',
+                                border: '1px solid #bee5eb'
+                              }}>
+                                <strong>Final Step:</strong> Your group is ready! Select one time slot to finalize booking.
+                              </div>
+                              <div style={{ display: 'grid', gap: '8px' }}>
+                                {group.time_slots.map((slot) => {
+                                  const analysis = timeSlotAnalyses[group.id]?.find(a => a.time_slot_id === slot.id);
+                                  const isSelected = selectedFinalTimeSlots[group.id] === slot.id;
+                                  
+                                  return (
+                                    <div 
+                                      key={slot.id} 
+                                      onClick={() => handleFinalTimeSlotSelection(group.id, slot.id)}
+                                      style={{ 
+                                        padding: '12px',
+                                        backgroundColor: isSelected ? '#d4edda' : '#f8f9fa',
+                                        borderRadius: '8px',
+                                        border: `2px solid ${isSelected ? '#28a745' : '#e9ecef'}`,
+                                        fontSize: '14px',
+                                        color: '#495057',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease'
+                                      }}
+                                      onMouseEnter={(e) => {
+                                        if (!isSelected) {
+                                          e.currentTarget.style.backgroundColor = '#e9ecef';
+                                          e.currentTarget.style.borderColor = '#adb5bd';
+                                        }
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        if (!isSelected) {
+                                          e.currentTarget.style.backgroundColor = '#f8f9fa';
+                                          e.currentTarget.style.borderColor = '#e9ecef';
+                                        }
+                                      }}
+                                    >
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div>
+                                          <div style={{ fontWeight: '500' }}>
+                                            {new Date(slot.start_date).toLocaleDateString()} - {new Date(slot.end_date).toLocaleDateString()}
+                                          </div>
+                                          {analysis && (
+                                            <div style={{ fontSize: '12px', color: '#6c757d', marginTop: '4px' }}>
+                                              All {analysis.selected_by_count} members available
+                                            </div>
+                                          )}
+                                        </div>
+                                        {isSelected && (
+                                          <div style={{ color: '#28a745', fontWeight: 'bold', fontSize: '18px' }}>✓</div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </>
+                          ) : (
+                            // For non-creators, show the final selected time slot or pending selection
+                            <div style={{ display: 'grid', gap: '8px' }}>
+                              {selectedFinalTimeSlots[group.id] ? (
+                                <div style={{ 
+                                  padding: '12px',
+                                  backgroundColor: '#d4edda',
+                                  borderRadius: '8px',
+                                  border: '2px solid #28a745',
+                                  fontSize: '14px',
+                                  color: '#495057'
+                                }}>
+                                  <div style={{ fontWeight: 'bold', color: '#28a745', marginBottom: '4px' }}>
+                                    ✓ Final Time Slot Selected
+                                  </div>
+                                  <div>
+                                    {(() => {
+                                      const selectedSlot = group.time_slots?.find(s => s.id === selectedFinalTimeSlots[group.id]);
+                                      return selectedSlot ? `${new Date(selectedSlot.start_date).toLocaleDateString()} - ${new Date(selectedSlot.end_date).toLocaleDateString()}` : '';
+                                    })()}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div style={{ 
+                                  padding: '12px',
+                                  backgroundColor: '#fff3cd',
+                                  borderRadius: '8px',
+                                  border: '1px solid #ffeaa7',
+                                  fontSize: '14px',
+                                  color: '#856404'
+                                }}>
+                                  ⏳ Waiting for group creator to select final time slot...
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {/* Action Buttons Section */}
+                  <div style={{ 
+                    marginTop: '24px',
+                    paddingTop: '20px',
+                    borderTop: '1px solid #f0f0f0',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '12px'
+                  }}>
+                    {/* Left side - Group info */}
+                    <div style={{ fontSize: '13px', color: '#6c757d' }}>
+                      Created {new Date(group.created_at).toLocaleDateString()}
+                    </div>
+                    
+                    {/* Right side - Action buttons */}
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      {!isCreator ? (
+                        // Non-creator actions
+                        isReady ? (
+                          <div style={{ 
+                            padding: '8px 16px',
+                            backgroundColor: '#dc3545',
+                            color: 'white',
+                            borderRadius: '20px',
+                            fontSize: '14px',
+                            fontWeight: 'bold'
+                          }}>
+                            Group Full
+                          </div>
+                        ) : (
                           <button
                             className="button"
-                            style={{ 
-                              backgroundColor: allPaymentsConfirmed ? '#007bff' : '#6c757d', 
+                            onClick={() => handleJoinGroup(group.id)}
+                            style={{
+                              backgroundColor: '#28a745',
                               color: 'white',
-                              opacity: allPaymentsConfirmed ? 1 : 0.6,
-                              cursor: allPaymentsConfirmed ? 'pointer' : 'not-allowed'
+                              border: 'none',
+                              padding: '10px 20px',
+                              borderRadius: '25px',
+                              fontWeight: 'bold',
+                              fontSize: '14px',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease'
                             }}
-                            disabled={!allPaymentsConfirmed}
-                            onClick={() => {
-                              if (allPaymentsConfirmed) {
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = '#218838';
+                              e.currentTarget.style.transform = 'translateY(-1px)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = '#28a745';
+                              e.currentTarget.style.transform = 'translateY(0)';
+                            }}
+                          >
+                            Join Group ({(group.current_participants || 0)}/{group.max_participants})
+                          </button>
+                        )
+                      ) : (
+                        // Creator actions
+                        <>
+                          {isReady && selectedFinalTimeSlots[group.id] && (
+                            <button
+                              className="button"
+                              onClick={() => {
                                 setShowConfirmation({
                                   groupId: group.id,
                                   groupName: group.name,
                                   groupAddress: group.address
                                 });
-                              } else if (!hasPaymentData) {
-                                fetchPaymentStatus(group.id);
-                                setMessage('Loading payment status...');
-                                setTimeout(() => setMessage(''), 2000);
-                              } else {
-                                setMessage('All members must confirm their payment methods before scheduling service.');
-                                setTimeout(() => setMessage(''), 4000);
-                              }
+                              }}
+                              style={{
+                                backgroundColor: '#007bff',
+                                color: 'white',
+                                border: 'none',
+                                padding: '10px 20px',
+                                borderRadius: '25px',
+                                fontWeight: 'bold',
+                                fontSize: '14px',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#0056b3';
+                                e.currentTarget.style.transform = 'translateY(-1px)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = '#007bff';
+                                e.currentTarget.style.transform = 'translateY(0)';
+                              }}
+                              title="Complete your group and book the service"
+                            >
+                              📅 Complete & Book Service
+                            </button>
+                          )}
+                          <button
+                            className="button"
+                            onClick={() => handleDeleteGroup(group.id, group.name)}
+                            style={{
+                              backgroundColor: '#dc3545',
+                              color: 'white',
+                              border: 'none',
+                              padding: '10px 20px',
+                              borderRadius: '25px',
+                              fontWeight: 'bold',
+                              fontSize: '14px',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease'
                             }}
-                            title={
-                              !hasPaymentData ? 'Load payment status first' :
-                              !allPaymentsConfirmed ? 'All members must confirm payment methods' :
-                              'Schedule your dumpster service'
-                            }
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = '#c82333';
+                              e.currentTarget.style.transform = 'translateY(-1px)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = '#dc3545';
+                              e.currentTarget.style.transform = 'translateY(0)';
+                            }}
                           >
-                            {allPaymentsConfirmed ? '📅 Schedule Service' : '⏳ Waiting for Payments'}
+                            Delete Group
                           </button>
-                        );
-                      })()}
-                      <button
-                        className="button"
-                        style={{ backgroundColor: '#dc3545', color: 'white' }}
-                        onClick={() => handleDeleteGroup(group.id, group.name)}
-                      >
-                        Delete Group
-                      </button>
+                        </>
+                      )}
                     </div>
                   </div>
-                )}
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

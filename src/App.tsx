@@ -65,23 +65,25 @@ function App() {
 
   return (
     <AuthContext.Provider value={{ user, token, login, logout }}>
-      <StripeProvider>
-        <Router>
-          <div className="App">
-            
-            <div className="container">
-              <Routes>
-                <Route path="/login" element={!user ? <Login /> : <Navigate to={user.user_type === 'renter' ? "/groups" : "/companies"} />} />
-                <Route path="/register" element={!user ? <Register /> : <Navigate to={user.user_type === 'renter' ? "/groups" : "/companies"} />} />
-                <Route path="/groups" element={user ? (user.user_type === 'renter' ? <Groups /> : <Navigate to="/companies" />) : <Navigate to="/login" />} />
-                <Route path="/companies" element={user ? (user.user_type === 'company' ? <Companies /> : <Navigate to="/groups" />) : <Navigate to="/login" />} />
-                <Route path="/join/:token" element={<Join />} />
-                <Route path="/" element={<Navigate to={user ? (user.user_type === 'renter' ? "/groups" : "/companies") : "/login"} />} />
-              </Routes>
-            </div>
+      <Router>
+        <div className="App">
+          
+          <div className="container">
+            <Routes>
+              <Route path="/login" element={!user ? <Login /> : <Navigate to={user.user_type === 'renter' ? "/groups" : "/companies"} />} />
+              <Route path="/register" element={!user ? <Register /> : <Navigate to={user.user_type === 'renter' ? "/groups" : "/companies"} />} />
+              <Route path="/groups" element={user ? (user.user_type === 'renter' ? <Groups /> : <Navigate to="/companies" />) : <Navigate to="/login" />} />
+              <Route path="/companies" element={user ? (user.user_type === 'company' ? (
+                <StripeProvider>
+                  <Companies />
+                </StripeProvider>
+              ) : <Navigate to="/groups" />) : <Navigate to="/login" />} />
+              <Route path="/join/:token" element={<Join />} />
+              <Route path="/" element={<Navigate to={user ? (user.user_type === 'renter' ? "/groups" : "/companies") : "/login"} />} />
+            </Routes>
           </div>
-        </Router>
-      </StripeProvider>
+        </div>
+      </Router>
     </AuthContext.Provider>
   );
 }
