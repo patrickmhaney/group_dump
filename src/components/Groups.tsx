@@ -271,6 +271,15 @@ const Groups: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState<{groupId: number; groupName: string; groupAddress: string} | null>(null);
   const [comparisonSize, setComparisonSize] = useState<string>('20');
+  const [bookedServices, setBookedServices] = useState<Set<number>>(new Set());
+  const [showPaymentModal, setShowPaymentModal] = useState<{groupId: number; groupName: string} | null>(null);
+  const [actualCost, setActualCost] = useState<string>('');
+  
+  // Payment request modal states
+  const [modalPaymentMethod, setModalPaymentMethod] = useState('zelle');
+  const [modalZelleEmail, setModalZelleEmail] = useState('');
+  const [modalZellePhone, setModalZellePhone] = useState('');
+  const [modalVenmoUsername, setModalVenmoUsername] = useState('');
   
   // Payment method setup state
   const [paymentMethodType, setPaymentMethodType] = useState('zelle');
@@ -307,6 +316,24 @@ const Groups: React.FC = () => {
         username: venmoUsername
       };
     } else if (paymentMethodType === 'cash') {
+      return {
+        method: 'cash'
+      };
+    }
+    return {};
+  };
+
+  const getModalPaymentDetails = () => {
+    if (modalPaymentMethod === 'zelle') {
+      return {
+        email: modalZelleEmail,
+        phone: modalZellePhone
+      };
+    } else if (modalPaymentMethod === 'venmo') {
+      return {
+        username: modalVenmoUsername
+      };
+    } else if (modalPaymentMethod === 'cash') {
       return {
         method: 'cash'
       };
@@ -1689,7 +1716,7 @@ const Groups: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Members Section - both current and invited */}
+                  {/* Members Section - both current and invited with cost breakdown */}
                   <div style={{ 
                     display: 'grid', 
                     gridTemplateColumns: group.participants && group.participants.length > 0 && group.invitees && group.invitees.length > 0 ? '1fr 1fr' : '1fr',
@@ -1705,46 +1732,113 @@ const Groups: React.FC = () => {
                           marginBottom: '12px'
                         }}>
                           <span style={{ fontWeight: 'bold', color: '#2c3e50' }}>Current Members</span>
+                          {isReady && group.vendor_id && (() => {
+                            const totalMembers = group.current_participants || 0;
+                            let totalCost = 0;
+                            if (costBreakdowns[group.id] && costBreakdowns[group.id].length > 0) {
+                              totalCost = costBreakdowns[group.id][0].individual_cost * costBreakdowns[group.id].length;
+                            } else {
+                              totalCost = 430; // Fallback value
+                            }
+                            const costPerMember = totalMembers > 0 ? totalCost / totalMembers : 0;
+                            
+                            return (
+                              <div style={{
+                                marginLeft: 'auto',
+                                fontSize: '12px',
+                                color: '#28a745',
+                                fontWeight: 'bold',
+                                backgroundColor: '#f0f8ff',
+                                padding: '4px 8px',
+                                borderRadius: '12px',
+                                border: '1px solid #bee5eb'
+                              }}>
+                                ${costPerMember.toFixed(2)} each
+                              </div>
+                            );
+                          })()}
                         </div>
                         <div style={{ 
                           display: 'grid', 
                           gap: '8px'
                         }}>
-                          {group.participants.map((participant) => (
-                            <div key={participant.id} style={{ 
-                              display: 'flex',
-                              alignItems: 'center',
-                              padding: '8px 12px',
-                              backgroundColor: '#f8f9fa',
-                              borderRadius: '8px',
-                              border: '1px solid #e9ecef'
-                            }}>
-                              <div style={{ 
-                                width: '32px',
-                                height: '32px',
-                                borderRadius: '50%',
-                                backgroundColor: '#28a745',
-                                color: 'white',
+                          {group.participants.map((participant) => {
+                            const totalMembers = group.current_participants || 0;
+                            let totalCost = 0;
+                            if (costBreakdowns[group.id] && costBreakdowns[group.id].length > 0) {
+                              totalCost = costBreakdowns[group.id][0].individual_cost * costBreakdowns[group.id].length;
+                            } else {
+                              totalCost = 430; // Fallback value
+                            }
+                            const costPerMember = totalMembers > 0 ? totalCost / totalMembers : 0;
+                            
+                            return (
+                              <div key={participant.id} style={{ 
                                 display: 'flex',
                                 alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '14px',
-                                fontWeight: 'bold',
-                                marginRight: '12px'
+                                padding: '12px',
+                                backgroundColor: '#f8f9fa',
+                                borderRadius: '8px',
+                                border: '1px solid #e9ecef'
                               }}>
-                                {participant.name.charAt(0).toUpperCase()}
+                                <div style={{ 
+                                  width: '32px',
+                                  height: '32px',
+                                  borderRadius: '50%',
+                                  backgroundColor: '#28a745',
+                                  color: 'white',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '14px',
+                                  fontWeight: 'bold',
+                                  marginRight: '12px'
+                                }}>
+                                  {participant.name.charAt(0).toUpperCase()}
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ fontWeight: 'bold', color: '#2c3e50', fontSize: '14px' }}>
+                                    {participant.name}
+                                  </div>
+                                  <div style={{ color: '#6c757d', fontSize: '12px' }}>
+                                    {participant.email}
+                                  </div>
+                                </div>
+                                {isReady && group.vendor_id && (
+                                  <div style={{
+                                    fontSize: '16px',
+                                    fontWeight: 'bold',
+                                    color: '#28a745',
+                                    backgroundColor: '#e8f5e8',
+                                    padding: '6px 12px',
+                                    borderRadius: '20px',
+                                    border: '1px solid #d4edda'
+                                  }}>
+                                    ${costPerMember.toFixed(2)}
+                                  </div>
+                                )}
                               </div>
+                            );
+                          })}
+                        </div>
+                        {isReady && group.vendor_id && (
+                          <div style={{ 
+                            marginTop: '12px',
+                            padding: '12px',
+                            backgroundColor: '#e8f5e8',
+                            borderRadius: '8px',
+                            border: '1px solid #d4edda',
+                            fontSize: '13px',
+                            color: '#155724'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span>💡</span>
                               <div>
-                                <div style={{ fontWeight: 'bold', color: '#2c3e50', fontSize: '14px' }}>
-                                  {participant.name}
-                                </div>
-                                <div style={{ color: '#6c757d', fontSize: '12px' }}>
-                                  {participant.email}
-                                </div>
+                                <strong>Payment Info:</strong> Each member pays their individual amount directly to you using the configured payment method.
                               </div>
                             </div>
-                          ))}
-                        </div>
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -1757,53 +1851,104 @@ const Groups: React.FC = () => {
                           marginBottom: '12px'
                         }}>
                           <span style={{ fontWeight: 'bold', color: '#2c3e50' }}>Invited Members</span>
+                          {isReady && group.vendor_id && (() => {
+                            const totalMembers = group.max_participants;
+                            let totalCost = 0;
+                            if (costBreakdowns[group.id] && costBreakdowns[group.id].length > 0) {
+                              totalCost = costBreakdowns[group.id][0].individual_cost * costBreakdowns[group.id].length;
+                            } else {
+                              totalCost = 430; // Fallback value
+                            }
+                            const costPerMember = totalMembers > 0 ? totalCost / totalMembers : 0;
+                            
+                            return (
+                              <div style={{
+                                marginLeft: 'auto',
+                                fontSize: '12px',
+                                color: '#ffc107',
+                                fontWeight: 'bold',
+                                backgroundColor: '#fff3cd',
+                                padding: '4px 8px',
+                                borderRadius: '12px',
+                                border: '1px solid #ffeaa7'
+                              }}>
+                                ${costPerMember.toFixed(2)} each when joined
+                              </div>
+                            );
+                          })()}
                         </div>
                         <div style={{ 
                           display: 'grid', 
                           gap: '8px'
                         }}>
-                          {group.invitees.map((invitee) => (
-                            <div key={invitee.id} style={{ 
-                              display: 'flex',
-                              alignItems: 'center',
-                              padding: '8px 12px',
-                              backgroundColor: '#fff3cd',
-                              borderRadius: '8px',
-                              border: '1px solid #ffeaa7'
-                            }}>
-                              <div style={{ 
-                                width: '32px',
-                                height: '32px',
-                                borderRadius: '50%',
-                                backgroundColor: '#ffc107',
-                                color: 'white',
+                          {group.invitees.map((invitee) => {
+                            const totalMembers = group.max_participants;
+                            let totalCost = 0;
+                            if (costBreakdowns[group.id] && costBreakdowns[group.id].length > 0) {
+                              totalCost = costBreakdowns[group.id][0].individual_cost * costBreakdowns[group.id].length;
+                            } else {
+                              totalCost = 430; // Fallback value
+                            }
+                            const costPerMember = totalMembers > 0 ? totalCost / totalMembers : 0;
+                            
+                            return (
+                              <div key={invitee.id} style={{ 
                                 display: 'flex',
                                 alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '14px',
-                                fontWeight: 'bold',
-                                marginRight: '12px'
+                                padding: '12px',
+                                backgroundColor: '#fff3cd',
+                                borderRadius: '8px',
+                                border: '1px solid #ffeaa7'
                               }}>
-                                {invitee.name.charAt(0).toUpperCase()}
-                              </div>
-                              <div style={{ flex: 1 }}>
-                                <div style={{ fontWeight: 'bold', color: '#2c3e50', fontSize: '14px' }}>
-                                  {invitee.name}
+                                <div style={{ 
+                                  width: '32px',
+                                  height: '32px',
+                                  borderRadius: '50%',
+                                  backgroundColor: '#ffc107',
+                                  color: 'white',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '14px',
+                                  fontWeight: 'bold',
+                                  marginRight: '12px'
+                                }}>
+                                  {invitee.name.charAt(0).toUpperCase()}
                                 </div>
-                                <div style={{ color: '#6c757d', fontSize: '12px' }}>
-                                  {invitee.email}
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ fontWeight: 'bold', color: '#2c3e50', fontSize: '14px' }}>
+                                    {invitee.name}
+                                  </div>
+                                  <div style={{ color: '#6c757d', fontSize: '12px' }}>
+                                    {invitee.email}
+                                  </div>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                  {isReady && group.vendor_id && (
+                                    <div style={{
+                                      fontSize: '14px',
+                                      fontWeight: 'bold',
+                                      color: '#856404',
+                                      backgroundColor: '#fff3cd',
+                                      padding: '4px 8px',
+                                      borderRadius: '12px',
+                                      border: '1px solid #ffeaa7'
+                                    }}>
+                                      ${costPerMember.toFixed(2)}
+                                    </div>
+                                  )}
+                                  <div style={{
+                                    fontSize: '11px',
+                                    color: invitee.invitation_sent ? '#28a745' : '#dc3545',
+                                    fontWeight: 'bold',
+                                    textAlign: 'right'
+                                  }}>
+                                    {invitee.invitation_sent ? '✓ Invited' : '⏳ Pending'}
+                                  </div>
                                 </div>
                               </div>
-                              <div style={{
-                                fontSize: '11px',
-                                color: invitee.invitation_sent ? '#28a745' : '#dc3545',
-                                fontWeight: 'bold',
-                                textAlign: 'right'
-                              }}>
-                                {invitee.invitation_sent ? '✓ Invited' : '⏳ Pending'}
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}
@@ -1812,141 +1957,6 @@ const Groups: React.FC = () => {
                   {/* Enhanced Vendor Information */}
                   {group.vendor_id && <VendorDetails vendorId={group.vendor_id} groupId={group.id} />}
 
-                  {/* Cost Breakdown Section - for ready groups */}
-                  {isReady && group.vendor_id && (
-                    <div style={{ marginBottom: '20px' }}>
-                      <div style={{ 
-                        display: 'flex', 
-                        justifyContent: 'space-between', 
-                        alignItems: 'center',
-                        marginBottom: '8px'
-                      }}>
-                        <span style={{ fontWeight: 'bold', color: '#2c3e50' }}>
-                          Cost Breakdown
-                        </span>
-                      </div>
-                      
-                      <div style={{ 
-                        padding: '18px',
-                        backgroundColor: '#f0f8ff',
-                        borderRadius: '12px',
-                        border: '1px solid #bee5eb',
-                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
-                      }}>
-                        {(() => {
-                          // Calculate cost breakdown from available data
-                          const totalMembers = group.current_participants || 0;
-                          // Try to get cost from API breakdown data, fallback to service details, then to default
-                          let totalCost = 0;
-                          if (costBreakdowns[group.id] && costBreakdowns[group.id].length > 0) {
-                            totalCost = costBreakdowns[group.id][0].individual_cost * costBreakdowns[group.id].length;
-                          } else {
-                            // Fallback - we'll get this from the service details shown in the UI
-                            totalCost = 430; // This will be visible once the VendorDetails loads the service details
-                          }
-                          const costPerMember = totalMembers > 0 ? totalCost / totalMembers : 0;
-                          
-                          return (
-                            <>
-                              {/* Total Cost Display */}
-                              <div style={{ 
-                                textAlign: 'center',
-                                marginBottom: '16px',
-                                padding: '16px',
-                                backgroundColor: 'white',
-                                borderRadius: '8px',
-                                border: '1px solid #dee2e6'
-                              }}>
-                                <div style={{ fontSize: '14px', color: '#6c757d', marginBottom: '4px' }}>
-                                  Total Service Cost
-                                </div>
-                                <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#28a745' }}>
-                                  ${totalCost.toFixed(2)}
-                                </div>
-                              </div>
-
-                              {/* Individual Member Breakdown */}
-                              <div style={{ 
-                                display: 'grid',
-                                gap: '8px'
-                              }}>
-                                <div style={{ 
-                                  fontSize: '14px', 
-                                  color: '#495057', 
-                                  fontWeight: '500',
-                                  marginBottom: '8px'
-                                }}>
-                                  Cost per member (split evenly):
-                                </div>
-                                
-                                {group.participants?.map((participant: any, index: number) => (
-                                  <div key={index} style={{ 
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    padding: '12px 16px',
-                                    backgroundColor: 'white',
-                                    borderRadius: '8px',
-                                    border: '1px solid #e2e8f0'
-                                  }}>
-                                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                                      <div style={{ 
-                                        width: '32px',
-                                        height: '32px',
-                                        borderRadius: '50%',
-                                        backgroundColor: '#007bff',
-                                        color: 'white',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        fontSize: '14px',
-                                        fontWeight: 'bold',
-                                        marginRight: '12px'
-                                      }}>
-                                        {participant.name.charAt(0).toUpperCase()}
-                                      </div>
-                                      <div>
-                                        <div style={{ fontWeight: '500', color: '#2d3748', fontSize: '14px' }}>
-                                          {participant.name}
-                                        </div>
-                                        <div style={{ fontSize: '12px', color: '#6c757d' }}>
-                                          {participant.email}
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <div style={{ 
-                                      fontSize: '18px', 
-                                      fontWeight: 'bold', 
-                                      color: '#28a745' 
-                                    }}>
-                                      ${costPerMember.toFixed(2)}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </>
-                          );
-                        })()}
-                        
-                        <div style={{ 
-                          marginTop: '12px',
-                          padding: '12px',
-                          backgroundColor: '#e8f5e8',
-                          borderRadius: '8px',
-                          border: '1px solid #d4edda',
-                          fontSize: '13px',
-                          color: '#155724'
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span>💡</span>
-                            <div>
-                              <strong>Payment Info:</strong> Each member pays their individual amount directly to the group creator using the configured payment method.
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
 
                   {/* Time Slots Section */}
                   {group.time_slots && group.time_slots.length > 0 && (
@@ -2227,11 +2237,8 @@ const Groups: React.FC = () => {
                             <button
                               className="button"
                               onClick={() => {
-                                setShowConfirmation({
-                                  groupId: group.id,
-                                  groupName: group.name,
-                                  groupAddress: group.address
-                                });
+                                setBookedServices(prev => new Set([...prev, group.id]));
+                                window.open('https://ddumpsters.com/', '_blank');
                               }}
                               style={{
                                 backgroundColor: '#007bff',
@@ -2254,34 +2261,68 @@ const Groups: React.FC = () => {
                               }}
                               title="Complete your group and book the service"
                             >
-                              📅 Complete & Book Service
+                              Book Service
                             </button>
                           )}
-                          <button
-                            className="button"
-                            onClick={() => handleDeleteGroup(group.id, group.name)}
-                            style={{
-                              backgroundColor: '#dc3545',
-                              color: 'white',
-                              border: 'none',
-                              padding: '10px 20px',
-                              borderRadius: '25px',
-                              fontWeight: 'bold',
-                              fontSize: '14px',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s ease'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = '#c82333';
-                              e.currentTarget.style.transform = 'translateY(-1px)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = '#dc3545';
-                              e.currentTarget.style.transform = 'translateY(0)';
-                            }}
-                          >
-                            Delete Group
-                          </button>
+                          {bookedServices.has(group.id) ? (
+                            <button
+                              className="button"
+                              onClick={() => {
+                                setShowPaymentModal({
+                                  groupId: group.id,
+                                  groupName: group.name
+                                });
+                                setActualCost('');
+                              }}
+                              style={{
+                                backgroundColor: '#28a745',
+                                color: 'white',
+                                border: 'none',
+                                padding: '10px 20px',
+                                borderRadius: '25px',
+                                fontWeight: 'bold',
+                                fontSize: '14px',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#218838';
+                                e.currentTarget.style.transform = 'translateY(-1px)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = '#28a745';
+                                e.currentTarget.style.transform = 'translateY(0)';
+                              }}
+                            >
+                              Confirm Booking and Request Payment From Group
+                            </button>
+                          ) : (
+                            <button
+                              className="button"
+                              onClick={() => handleDeleteGroup(group.id, group.name)}
+                              style={{
+                                backgroundColor: '#dc3545',
+                                color: 'white',
+                                border: 'none',
+                                padding: '10px 20px',
+                                borderRadius: '25px',
+                                fontWeight: 'bold',
+                                fontSize: '14px',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#c82333';
+                                e.currentTarget.style.transform = 'translateY(-1px)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = '#dc3545';
+                                e.currentTarget.style.transform = 'translateY(0)';
+                              }}
+                            >
+                              Delete Group
+                            </button>
+                          )}
                         </>
                       )}
                     </div>
@@ -2306,6 +2347,328 @@ const Groups: React.FC = () => {
           }}
           onCancel={() => setShowConfirmation(null)}
         />
+      )}
+
+      {showPaymentModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '30px',
+            maxWidth: '500px',
+            width: '90%',
+            maxHeight: '80vh',
+            overflow: 'auto',
+            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)'
+          }}>
+            <h2 style={{ marginTop: 0, color: '#2c3e50', marginBottom: '20px' }}>
+              Request Payment from Group: {showPaymentModal.groupName}
+            </h2>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ 
+                display: 'block', 
+                fontSize: '16px', 
+                fontWeight: 'bold', 
+                marginBottom: '10px',
+                color: '#495057'
+              }}>
+                Actual Total Cost of Service
+              </label>
+              <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
+                Enter the final cost you paid for the dumpster service
+              </p>
+              <div style={{ position: 'relative' }}>
+                <span style={{
+                  position: 'absolute',
+                  left: '15px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  fontSize: '18px',
+                  color: '#495057',
+                  fontWeight: 'bold'
+                }}>$</span>
+                <input
+                  type="number"
+                  value={actualCost}
+                  onChange={(e) => setActualCost(e.target.value)}
+                  placeholder="0.00"
+                  style={{
+                    width: '100%',
+                    padding: '15px 15px 15px 35px',
+                    fontSize: '18px',
+                    border: '2px solid #dee2e6',
+                    borderRadius: '8px',
+                    outline: 'none'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#007bff';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#dee2e6';
+                  }}
+                  step="0.01"
+                  min="0"
+                />
+              </div>
+            </div>
+
+            {actualCost && (
+              <div style={{
+                backgroundColor: '#f8f9fa',
+                border: '1px solid #dee2e6',
+                borderRadius: '8px',
+                padding: '15px',
+                marginBottom: '20px'
+              }}>
+                <h4 style={{ margin: '0 0 10px 0', color: '#495057' }}>Payment Breakdown</h4>
+                <div style={{ fontSize: '14px', color: '#6c757d' }}>
+                  {(() => {
+                    const group = groups.find(g => g.id === showPaymentModal.groupId);
+                    const totalMembers = group?.current_participants || 0;
+                    const costPerMember = totalMembers > 0 ? parseFloat(actualCost) / totalMembers : 0;
+                    
+                    return (
+                      <>
+                        <div style={{ marginBottom: '5px' }}>
+                          Total Cost: <strong>${parseFloat(actualCost).toFixed(2)}</strong>
+                        </div>
+                        <div style={{ marginBottom: '5px' }}>
+                          Group Members: <strong>{totalMembers}</strong>
+                        </div>
+                        <div style={{ 
+                          fontSize: '16px', 
+                          fontWeight: 'bold', 
+                          color: '#28a745',
+                          marginTop: '10px',
+                          padding: '8px',
+                          backgroundColor: '#e8f5e8',
+                          borderRadius: '4px'
+                        }}>
+                          Cost per member: ${costPerMember.toFixed(2)}
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+
+            <div style={{
+              backgroundColor: '#e7f5ff',
+              border: '1px solid #bee5eb',
+              borderRadius: '8px',
+              padding: '15px',
+              marginBottom: '25px'
+            }}>
+              <h4 style={{ margin: '0 0 15px 0', color: '#004085' }}>Payment Method</h4>
+              
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    value="zelle"
+                    checked={modalPaymentMethod === 'zelle'}
+                    onChange={(e) => setModalPaymentMethod(e.target.value)}
+                    style={{ marginRight: '8px' }}
+                  />
+                  <span style={{ fontSize: '14px', fontWeight: 'bold' }}>Zelle</span>
+                </label>
+                
+                <label style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    value="venmo"
+                    checked={modalPaymentMethod === 'venmo'}
+                    onChange={(e) => setModalPaymentMethod(e.target.value)}
+                    style={{ marginRight: '8px' }}
+                  />
+                  <span style={{ fontSize: '14px', fontWeight: 'bold' }}>Venmo</span>
+                </label>
+                
+                <label style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    value="cash"
+                    checked={modalPaymentMethod === 'cash'}
+                    onChange={(e) => setModalPaymentMethod(e.target.value)}
+                    style={{ marginRight: '8px' }}
+                  />
+                  <span style={{ fontSize: '14px', fontWeight: 'bold' }}>Cash</span>
+                </label>
+              </div>
+
+              {modalPaymentMethod === 'zelle' && (
+                <div style={{ marginBottom: '15px' }}>
+                  <h5 style={{ margin: '0 0 8px 0', fontSize: '14px' }}>Zelle Information:</h5>
+                  <input
+                    type="email"
+                    placeholder="Email address for Zelle"
+                    value={modalZelleEmail}
+                    onChange={(e) => setModalZelleEmail(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      fontSize: '14px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      marginBottom: '8px'
+                    }}
+                  />
+                  <input
+                    type="tel"
+                    placeholder="Phone number for Zelle (optional)"
+                    value={modalZellePhone}
+                    onChange={(e) => setModalZellePhone(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      fontSize: '14px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px'
+                    }}
+                  />
+                </div>
+              )}
+
+              {modalPaymentMethod === 'venmo' && (
+                <div style={{ marginBottom: '15px' }}>
+                  <h5 style={{ margin: '0 0 8px 0', fontSize: '14px' }}>Venmo Information:</h5>
+                  <input
+                    type="text"
+                    placeholder="Venmo username (e.g., @username)"
+                    value={modalVenmoUsername}
+                    onChange={(e) => setModalVenmoUsername(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      fontSize: '14px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px'
+                    }}
+                  />
+                </div>
+              )}
+
+              {modalPaymentMethod === 'cash' && (
+                <div style={{ fontSize: '14px', color: '#666', fontStyle: 'italic' }}>
+                  Members will be notified to arrange cash payment with you directly.
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: '15px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => {
+                  setShowPaymentModal(null);
+                  setActualCost('');
+                }}
+                style={{
+                  padding: '12px 24px',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  fontWeight: 'bold'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  console.log('Payment request button clicked!', { actualCost, groupId: showPaymentModal?.groupId });
+                  
+                  if (!actualCost || parseFloat(actualCost) <= 0) {
+                    alert('Please enter a valid cost amount');
+                    return;
+                  }
+
+                  // Validate payment method details
+                  if (modalPaymentMethod === 'zelle' && !modalZelleEmail) {
+                    alert('Please enter your Zelle email address');
+                    return;
+                  }
+                  if (modalPaymentMethod === 'venmo' && !modalVenmoUsername) {
+                    alert('Please enter your Venmo username');
+                    return;
+                  }
+                  
+                  try {
+                    const group = groups.find(g => g.id === showPaymentModal?.groupId);
+                    const totalMembers = group?.current_participants || 0;
+                    const costPerMember = parseFloat(actualCost) / totalMembers;
+                    
+                    // Send payment requests via API
+                    console.log('Sending API request to:', `/groups/${showPaymentModal?.groupId}/generate-payment-requests`);
+                    const response = await axios.post(`/groups/${showPaymentModal?.groupId}/generate-payment-requests`, {
+                      description: "Dumpster rental share",
+                      preferred_method: modalPaymentMethod,
+                      payment_details: JSON.stringify(getModalPaymentDetails())
+                    });
+                    
+                    console.log('API response:', response.data);
+                    
+                    setShowPaymentModal(null);
+                    setActualCost('');
+                    // Reset modal payment method fields
+                    setModalPaymentMethod('zelle');
+                    setModalZelleEmail('');
+                    setModalZellePhone('');
+                    setModalVenmoUsername('');
+                    setMessage(`Payment requests sent to all group members! Each member will pay $${costPerMember.toFixed(2)}`);
+                    setTimeout(() => setMessage(''), 7000);
+                  } catch (error: any) {
+                    console.error('Error sending payment requests:', error);
+                    let errorMessage = 'Error sending payment requests';
+                    
+                    if (error.response?.data) {
+                      if (typeof error.response.data === 'string') {
+                        errorMessage = error.response.data;
+                      } else if (error.response.data.detail) {
+                        errorMessage = typeof error.response.data.detail === 'string' 
+                          ? error.response.data.detail 
+                          : JSON.stringify(error.response.data.detail);
+                      } else if (error.response.data.message) {
+                        errorMessage = error.response.data.message;
+                      }
+                    } else if (error.message) {
+                      errorMessage = error.message;
+                    }
+                    
+                    setMessage(errorMessage);
+                    setTimeout(() => setMessage(''), 5000);
+                  }
+                }}
+                disabled={!actualCost || parseFloat(actualCost) <= 0}
+                style={{
+                  padding: '12px 24px',
+                  backgroundColor: actualCost && parseFloat(actualCost) > 0 ? '#28a745' : '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: actualCost && parseFloat(actualCost) > 0 ? 'pointer' : 'not-allowed',
+                  fontSize: '16px',
+                  fontWeight: 'bold'
+                }}
+              >
+                Send Payment Requests
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
