@@ -160,6 +160,7 @@ class Company(Base):
     email = Column(String)
     phone = Column(String)
     address = Column(String)
+    website = Column(String, nullable=True)
     service_areas = Column(Text)
     dumpster_sizes = Column(Text)  # JSON string of dumpster sizes
     commission_rate = Column(Float, default=0.08)
@@ -425,6 +426,7 @@ class CompanyCreate(BaseModel):
     email: EmailStr
     phone: str
     address: str
+    website: Optional[str] = None
     service_areas: str
     dumpster_sizes: List[DumpsterSize]
 
@@ -434,6 +436,7 @@ class CompanyResponse(BaseModel):
     email: str
     phone: str
     address: str
+    website: Optional[str] = None
     service_areas: str
     dumpster_sizes: List[DumpsterSize]
     rating: float
@@ -1072,6 +1075,7 @@ async def create_company(company: CompanyCreate, db: Session = Depends(get_db)):
         email=company.email,
         phone=company.phone,
         address=company.address,
+        website=company.website,
         service_areas=company.service_areas,
         dumpster_sizes=dumpster_sizes_json
     )
@@ -1086,6 +1090,7 @@ async def create_company(company: CompanyCreate, db: Session = Depends(get_db)):
         "email": db_company.email,
         "phone": db_company.phone,
         "address": db_company.address,
+        "website": db_company.website,
         "service_areas": db_company.service_areas,
         "dumpster_sizes": [DumpsterSize(**size) for size in json.loads(db_company.dumpster_sizes)],
         "rating": db_company.rating
@@ -1103,6 +1108,7 @@ async def get_companies(skip: int = 0, limit: int = 100, db: Session = Depends(g
             "email": company.email,
             "phone": company.phone,
             "address": company.address,
+            "website": company.website,
             "service_areas": company.service_areas,
             "dumpster_sizes": [DumpsterSize(**size) for size in json.loads(company.dumpster_sizes)],
             "rating": company.rating
@@ -1122,11 +1128,47 @@ async def get_company(company_id: int, db: Session = Depends(get_db)):
         "email": company.email,
         "phone": company.phone,
         "address": company.address,
+        "website": company.website,
         "service_areas": company.service_areas,
         "dumpster_sizes": [DumpsterSize(**size) for size in json.loads(company.dumpster_sizes)],
         "rating": company.rating
     }
     return CompanyResponse(**company_data)
+
+@app.put("/companies/{company_id}", response_model=CompanyResponse)
+async def update_company(company_id: int, company: CompanyCreate, db: Session = Depends(get_db)):
+    db_company = db.query(Company).filter(Company.id == company_id).first()
+    if db_company is None:
+        raise HTTPException(status_code=404, detail="Company not found")
+    
+    # Convert dumpster_sizes to JSON string for storage
+    dumpster_sizes_json = json.dumps([size.dict() for size in company.dumpster_sizes])
+    
+    # Update company fields
+    db_company.name = company.name
+    db_company.email = company.email
+    db_company.phone = company.phone
+    db_company.address = company.address
+    db_company.website = company.website
+    db_company.service_areas = company.service_areas
+    db_company.dumpster_sizes = dumpster_sizes_json
+    
+    db.commit()
+    db.refresh(db_company)
+    
+    # Convert back to response format
+    response_data = {
+        "id": db_company.id,
+        "name": db_company.name,
+        "email": db_company.email,
+        "phone": db_company.phone,
+        "address": db_company.address,
+        "website": db_company.website,
+        "service_areas": db_company.service_areas,
+        "dumpster_sizes": [DumpsterSize(**size) for size in json.loads(db_company.dumpster_sizes)],
+        "rating": db_company.rating
+    }
+    return CompanyResponse(**response_data)
 
 class RentalCreate(BaseModel):
     group_id: int

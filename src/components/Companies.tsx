@@ -2,13 +2,24 @@ import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { AuthContext } from '../App.tsx';
 
+interface DumpsterSize {
+  cubic_yards: string;
+  dimensions: string;
+  starting_price: string;
+  starting_tonnage: string;
+  per_ton_overage_price: string;
+  additional_day_price: string;
+}
+
 interface Company {
   id: number;
   name: string;
   email: string;
   phone: string;
   address: string;
+  website?: string;
   service_areas: string;
+  dumpster_sizes: DumpsterSize[];
   rating: number;
 }
 
@@ -16,12 +27,14 @@ const Companies: React.FC = () => {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [message, setMessage] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
     address: '',
+    website: '',
     service_areas: '',
     dumpster_sizes: [{
       cubic_yards: '',
@@ -60,6 +73,7 @@ const Companies: React.FC = () => {
         email: '',
         phone: '',
         address: '',
+        website: '',
         service_areas: '',
         dumpster_sizes: [{
           cubic_yards: '',
@@ -93,6 +107,90 @@ const Companies: React.FC = () => {
       setMessage(errorMessage);
       setTimeout(() => setMessage(''), 3000);
     }
+  };
+
+  const handleUpdateCompany = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCompany) return;
+    
+    try {
+      const response = await axios.put(`/companies/${editingCompany.id}`, formData);
+      setCompanies(companies.map(company => 
+        company.id === editingCompany.id ? response.data : company
+      ));
+      setEditingCompany(null);
+      setFormData({
+        name: '',
+        email: '',
+        phone: '',
+        address: '',
+        website: '',
+        service_areas: '',
+        dumpster_sizes: [{
+          cubic_yards: '',
+          dimensions: '',
+          starting_price: '',
+          starting_tonnage: '',
+          per_ton_overage_price: '',
+          additional_day_price: ''
+        }]
+      });
+      setMessage('Company updated successfully!');
+      setTimeout(() => setMessage(''), 3000);
+    } catch (error: any) {
+      console.error('Full error object:', error);
+      console.error('Error response:', error.response?.data);
+      
+      let errorMessage = 'Error updating company';
+      if (error.response?.data) {
+        if (typeof error.response.data.detail === 'string') {
+          errorMessage = error.response.data.detail;
+        } else if (Array.isArray(error.response.data.detail)) {
+          errorMessage = error.response.data.detail.map((err: any) => {
+            if (typeof err === 'string') return err;
+            if (err.msg) return err.msg;
+            return JSON.stringify(err);
+          }).join(', ');
+        } else if (error.response.data.detail) {
+          errorMessage = JSON.stringify(error.response.data.detail);
+        }
+      }
+      setMessage(errorMessage);
+      setTimeout(() => setMessage(''), 3000);
+    }
+  };
+
+  const startEditing = (company: Company) => {
+    setEditingCompany(company);
+    setFormData({
+      name: company.name,
+      email: company.email,
+      phone: company.phone,
+      address: company.address,
+      website: company.website || '',
+      service_areas: company.service_areas,
+      dumpster_sizes: company.dumpster_sizes
+    });
+    setShowCreateForm(false);
+  };
+
+  const cancelEditing = () => {
+    setEditingCompany(null);
+    setFormData({
+      name: '',
+      email: '',
+      phone: '',
+      address: '',
+      service_areas: '',
+      dumpster_sizes: [{
+        cubic_yards: '',
+        dimensions: '',
+        starting_price: '',
+        starting_tonnage: '',
+        per_ton_overage_price: '',
+        additional_day_price: ''
+      }]
+    });
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -167,10 +265,10 @@ const Companies: React.FC = () => {
         </div>
       )}
 
-      {showCreateForm && (
+      {(showCreateForm || editingCompany) && (
         <div className="card">
-          <h2>Register New Company</h2>
-          <form onSubmit={handleCreateCompany} className="form">
+          <h2>{editingCompany ? 'Edit Company' : 'Register New Company'}</h2>
+          <form onSubmit={editingCompany ? handleUpdateCompany : handleCreateCompany} className="form">
             <input
               type="text"
               name="name"
@@ -202,6 +300,13 @@ const Companies: React.FC = () => {
               value={formData.address}
               onChange={handleChange}
               required
+            />
+            <input
+              type="url"
+              name="website"
+              placeholder="Website (optional)"
+              value={formData.website}
+              onChange={handleChange}
             />
             <textarea
               name="service_areas"
@@ -295,8 +400,10 @@ const Companies: React.FC = () => {
               ))}
             </div>
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button type="submit" className="button">Register Company</button>
-              <button type="button" className="button button-secondary" onClick={() => setShowCreateForm(false)}>
+              <button type="submit" className="button">
+                {editingCompany ? 'Update Company' : 'Register Company'}
+              </button>
+              <button type="button" className="button button-secondary" onClick={editingCompany ? cancelEditing : () => setShowCreateForm(false)}>
                 Cancel
               </button>
             </div>
@@ -316,11 +423,24 @@ const Companies: React.FC = () => {
                 <p><strong>Email:</strong> {company.email}</p>
                 <p><strong>Phone:</strong> {company.phone}</p>
                 <p><strong>Address:</strong> {company.address}</p>
+                {company.website && (
+                  <p><strong>Website:</strong> <a href={company.website} target="_blank" rel="noopener noreferrer">{company.website}</a></p>
+                )}
                 <p><strong>Service Areas:</strong> {company.service_areas}</p>
                 {company.rating > 0 && (
                   <p><strong>Rating:</strong> {company.rating.toFixed(1)}/5.0</p>
                 )}
-                <button className="button">Contact Company</button>
+                <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+                  <button className="button">Contact Company</button>
+                  {user?.user_type === 'company' && (
+                    <button 
+                      className="button button-secondary"
+                      onClick={() => startEditing(company)}
+                    >
+                      Edit Company
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
