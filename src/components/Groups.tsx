@@ -501,9 +501,9 @@ const Groups: React.FC = () => {
         throw new Error('Please select a dumpster size when choosing a vendor.');
       }
       
-      // Create group with payment in single transaction
+      // Create group
       console.log('Sending group data:', JSON.stringify(groupData, null, 2));
-      const response = await axios.post('/groups/create-with-payment', groupData);
+      const response = await axios.post('/groups', groupData);
       setGroups([response.data, ...groups]);
       setShowCreateForm(false);
       setFormData({ name: user ? `${user.name}'s Group Dump` : '', street_address: '', city: '', state: '', zip_code: '', max_participants: 2, vendor_id: '', selected_dumpster_size: '' });
@@ -1736,7 +1736,7 @@ const Groups: React.FC = () => {
                             const totalMembers = group.current_participants || 0;
                             let totalCost = 0;
                             if (costBreakdowns[group.id] && costBreakdowns[group.id].length > 0) {
-                              totalCost = costBreakdowns[group.id][0].individual_cost * costBreakdowns[group.id].length;
+                              totalCost = costBreakdowns[group.id][0].amount * costBreakdowns[group.id].length;
                             } else {
                               totalCost = 430; // Fallback value
                             }
@@ -1766,7 +1766,7 @@ const Groups: React.FC = () => {
                             const totalMembers = group.current_participants || 0;
                             let totalCost = 0;
                             if (costBreakdowns[group.id] && costBreakdowns[group.id].length > 0) {
-                              totalCost = costBreakdowns[group.id][0].individual_cost * costBreakdowns[group.id].length;
+                              totalCost = costBreakdowns[group.id][0].amount * costBreakdowns[group.id].length;
                             } else {
                               totalCost = 430; // Fallback value
                             }
@@ -1855,7 +1855,7 @@ const Groups: React.FC = () => {
                             const totalMembers = group.max_participants;
                             let totalCost = 0;
                             if (costBreakdowns[group.id] && costBreakdowns[group.id].length > 0) {
-                              totalCost = costBreakdowns[group.id][0].individual_cost * costBreakdowns[group.id].length;
+                              totalCost = costBreakdowns[group.id][0].amount * costBreakdowns[group.id].length;
                             } else {
                               totalCost = 430; // Fallback value
                             }
@@ -1885,7 +1885,7 @@ const Groups: React.FC = () => {
                             const totalMembers = group.max_participants;
                             let totalCost = 0;
                             if (costBreakdowns[group.id] && costBreakdowns[group.id].length > 0) {
-                              totalCost = costBreakdowns[group.id][0].individual_cost * costBreakdowns[group.id].length;
+                              totalCost = costBreakdowns[group.id][0].amount * costBreakdowns[group.id].length;
                             } else {
                               totalCost = 430; // Fallback value
                             }

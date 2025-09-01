@@ -365,6 +365,13 @@ class InviteeResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class PaymentMethodSetupRequest(BaseModel):
+    preferred_method: str  # "zelle", "venmo", "cash"
+    payment_details: str   # JSON string with Zelle email/phone or Venmo username
+
+class RentalInfo(BaseModel):
+    dumpster_size: str  # JSON string of selected dumpster size
+
 class GroupCreate(BaseModel):
     name: str
     address: str
@@ -372,6 +379,8 @@ class GroupCreate(BaseModel):
     vendor_id: Optional[int] = None
     time_slots: Optional[List[TimeSlotCreate]] = []
     invitees: Optional[List[InviteeCreate]] = []
+    payment_method_details: Optional[PaymentMethodSetupRequest] = None
+    rental_info: Optional[RentalInfo] = None
 
 class JoinGroupRequest(BaseModel):
     time_slot_ids: List[int]
@@ -436,10 +445,6 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
-class PaymentMethodSetupRequest(BaseModel):
-    preferred_method: str  # "zelle", "venmo", "cash"
-    payment_details: str   # JSON string with Zelle email/phone or Venmo username
-
 class PaymentRequestCreate(BaseModel):
     description: str
     preferred_method: str
@@ -470,19 +475,6 @@ class VendorSubscriptionResponse(BaseModel):
     
     class Config:
         from_attributes = True
-
-class RentalInfo(BaseModel):
-    dumpster_size: str  # JSON string of selected dumpster size
-
-class GroupCreateWithPayment(BaseModel):
-    name: str
-    address: str
-    max_participants: int = 5
-    vendor_id: Optional[int] = None
-    time_slots: Optional[List[TimeSlotCreate]] = []
-    invitees: Optional[List[InviteeCreate]] = []
-    payment_method_details: PaymentMethodSetupRequest
-    rental_info: Optional[RentalInfo] = None
 
 async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
@@ -543,110 +535,8 @@ async def read_users_me(current_user: User = Depends(get_current_user)):
 
 @app.post("/groups", response_model=GroupResponse)
 async def create_group(group: GroupCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    db_group = Group(
-        name=group.name,
-        address=group.address,
-        max_participants=group.max_participants,
-        vendor_id=group.vendor_id,
-        created_by=current_user.id
-    )
-    db.add(db_group)
-    db.commit()
-    db.refresh(db_group)
-    
-    # Create time slots if provided
-    if group.time_slots:
-        for time_slot_data in group.time_slots:
-            time_slot = TimeSlot(
-                group_id=db_group.id,
-                start_date=time_slot_data.start_date,
-                end_date=time_slot_data.end_date
-            )
-            db.add(time_slot)
-        db.commit()
-    
-    # Create invitees if provided
-    if group.invitees:
-        for invitee_data in group.invitees:
-            if invitee_data.name and invitee_data.email:  # Only add if name and email are provided
-                invitee = Invitee(
-                    group_id=db_group.id,
-                    name=invitee_data.name,
-                    email=invitee_data.email,
-                    phone=invitee_data.phone,
-                    join_token=generate_join_token()
-                )
-                db.add(invitee)
-        db.commit()
-        
-        # Send email invitations
-        await send_invitations(db_group, current_user, db)
-    
-    group_member = GroupMember(
-        group_id=db_group.id,
-        user_id=current_user.id
-    )
-    db.add(group_member)
-    db.commit()
-    db.refresh(group_member)
-    
-    # Auto-select all time slots for the group creator
-    if group.time_slots:
-        # Get the created time slots
-        created_time_slots = db.query(TimeSlot).filter(TimeSlot.group_id == db_group.id).all()
-        
-        # Create time slot selections for the creator for all time slots
-        for time_slot in created_time_slots:
-            time_slot_selection = UserTimeSlotSelection(
-                group_member_id=group_member.id,
-                time_slot_id=time_slot.id
-            )
-            db.add(time_slot_selection)
-        
-        db.commit()
-    
-    # Refresh to get time_slots and invitees
-    db.refresh(db_group)
-    
-    # Get group members with user details for response
-    members = db.query(GroupMember).filter(GroupMember.group_id == db_group.id).all()
-    participants = []
-    for member in members:
-        user = db.query(User).filter(User.id == member.user_id).first()
-        if user:
-            participants.append({
-                "id": user.id,
-                "name": user.name,
-                "email": user.email,
-                "joined_at": member.joined_at
-            })
-    
-    # Return properly formatted response
-    return {
-        "id": db_group.id,
-        "name": db_group.name,
-        "address": db_group.address,
-        "max_participants": db_group.max_participants,
-        "current_participants": len(participants),
-        "status": db_group.status,
-        "created_by": db_group.created_by,
-        "vendor_id": db_group.vendor_id,
-        "vendor_name": db_group.vendor.name if db_group.vendor else None,
-        "created_at": db_group.created_at,
-        "time_slots": [{"id": ts.id, "start_date": ts.start_date, "end_date": ts.end_date} for ts in db_group.time_slots],
-        "participants": participants
-    }
-
-@app.post("/groups/create-with-payment", response_model=GroupResponse)
-async def create_group_with_payment(
-    group: GroupCreateWithPayment, 
-    current_user: User = Depends(get_current_user), 
-    db: Session = Depends(get_db)
-):
-    """Create a group with payment method details stored"""
+    """Create a group with optional payment method details and rental info"""
     try:
-        
-        # Create the group
         db_group = Group(
             name=group.name,
             address=group.address,
@@ -680,19 +570,30 @@ async def create_group_with_payment(
         
         # Auto-select all time slots for the group creator
         if group.time_slots:
+            # Get the created time slots
             created_time_slots = db.query(TimeSlot).filter(TimeSlot.group_id == db_group.id).all()
+            
+            # Create time slot selections for the creator for all time slots
             for time_slot in created_time_slots:
-                time_slot_selection = UserTimeSlotSelection(
-                    group_member_id=group_member.id,
-                    time_slot_id=time_slot.id
-                )
-                db.add(time_slot_selection)
+                # Check if selection already exists
+                existing_selection = db.query(UserTimeSlotSelection).filter(
+                    UserTimeSlotSelection.group_member_id == group_member.id,
+                    UserTimeSlotSelection.time_slot_id == time_slot.id
+                ).first()
+                
+                if not existing_selection:
+                    time_slot_selection = UserTimeSlotSelection(
+                        group_member_id=group_member.id,
+                        time_slot_id=time_slot.id
+                    )
+                    db.add(time_slot_selection)
+            
             db.commit()
         
         # Create invitees if provided
         if group.invitees:
             for invitee_data in group.invitees:
-                if invitee_data.name and invitee_data.email:
+                if invitee_data.name and invitee_data.email:  # Only add if name and email are provided
                     invitee = Invitee(
                         group_id=db_group.id,
                         name=invitee_data.name,
@@ -713,7 +614,11 @@ async def create_group_with_payment(
                 dumpster_size_info = json.loads(group.rental_info.dumpster_size)
                 
                 # Calculate total cost (starting price for now - can be updated later with overage)
-                total_cost = float(dumpster_size_info['starting_price'])
+                starting_price_str = dumpster_size_info['starting_price']
+                # Remove dollar sign if present
+                if isinstance(starting_price_str, str) and starting_price_str.startswith('$'):
+                    starting_price_str = starting_price_str[1:]
+                total_cost = float(starting_price_str)
                 
                 # Create rental record with placeholder delivery date (to be set on confirmation screen)
                 placeholder_delivery = datetime.utcnow() + timedelta(days=7)  # 7 days from now as placeholder
@@ -734,7 +639,7 @@ async def create_group_with_payment(
                 # Log the error but don't fail the group creation
                 print(f"Error creating rental: {str(e)}")
         
-        # Refresh to get all related data
+        # Refresh to get time_slots and invitees
         db.refresh(db_group)
         
         # Get group members with user details for response
@@ -750,6 +655,7 @@ async def create_group_with_payment(
                     "joined_at": member.joined_at
                 })
         
+        # Return properly formatted response
         return {
             "id": db_group.id,
             "name": db_group.name,
@@ -982,11 +888,18 @@ async def join_group(group_id: int, join_request: JoinGroupRequest, current_user
     
     # Add user's time slot selections
     for time_slot_id in join_request.time_slot_ids:
-        time_slot_selection = UserTimeSlotSelection(
-            group_member_id=group_member.id,
-            time_slot_id=time_slot_id
-        )
-        db.add(time_slot_selection)
+        # Check if selection already exists
+        existing_selection = db.query(UserTimeSlotSelection).filter(
+            UserTimeSlotSelection.group_member_id == group_member.id,
+            UserTimeSlotSelection.time_slot_id == time_slot_id
+        ).first()
+        
+        if not existing_selection:
+            time_slot_selection = UserTimeSlotSelection(
+                group_member_id=group_member.id,
+                time_slot_id=time_slot_id
+            )
+            db.add(time_slot_selection)
     
     db.commit()
     
@@ -1048,11 +961,18 @@ async def join_group_by_token(token: str, join_request: JoinGroupRequest, curren
     
     # Add user's time slot selections
     for time_slot_id in join_request.time_slot_ids:
-        time_slot_selection = UserTimeSlotSelection(
-            group_member_id=group_member.id,
-            time_slot_id=time_slot_id
-        )
-        db.add(time_slot_selection)
+        # Check if selection already exists
+        existing_selection = db.query(UserTimeSlotSelection).filter(
+            UserTimeSlotSelection.group_member_id == group_member.id,
+            UserTimeSlotSelection.time_slot_id == time_slot_id
+        ).first()
+        
+        if not existing_selection:
+            time_slot_selection = UserTimeSlotSelection(
+                group_member_id=group_member.id,
+                time_slot_id=time_slot_id
+            )
+            db.add(time_slot_selection)
     
     # Remove the invitation token as it's been used
     db.delete(invitee)
@@ -1729,12 +1649,25 @@ async def get_payment_breakdown(
     for member in members:
         user = db.query(User).filter(User.id == member.user_id).first()
         if user:
+            # Check if there's a payment request for this member and its status
+            payment_request = db.query(PaymentRequest).filter(
+                PaymentRequest.group_id == group_id,
+                PaymentRequest.to_member_id == member.id
+            ).first()
+            
+            payment_status = "pending"
+            if payment_request:
+                payment_status = payment_request.status
+            elif member.user_id == group.created_by:
+                # Group creator doesn't need to pay themselves
+                payment_status = "creator"
+            
             result.append({
                 "member_id": member.id,
                 "user_name": user.name,
                 "user_email": user.email,
                 "amount": cost_per_member,
-                "payment_status": member.payment_status or "pending"
+                "payment_status": payment_status
             })
     
     return result
