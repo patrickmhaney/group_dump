@@ -273,6 +273,7 @@ const Groups: React.FC = () => {
   const [showConfirmation, setShowConfirmation] = useState<{groupId: number; groupName: string; groupAddress: string} | null>(null);
   const [comparisonSize, setComparisonSize] = useState<string>('20');
   const [bookedServices, setBookedServices] = useState<Set<number>>(new Set());
+  const [paymentRequestsSent, setPaymentRequestsSent] = useState<Set<number>>(new Set());
   const [showPaymentModal, setShowPaymentModal] = useState<{groupId: number; groupName: string} | null>(null);
   const [actualCost, setActualCost] = useState<string>('');
   
@@ -292,6 +293,17 @@ const Groups: React.FC = () => {
     fetchGroups();
     fetchCompanies();
     fetchRentals();
+    
+    // Load payment requests sent state from localStorage
+    const savedPaymentRequestsSent = localStorage.getItem('paymentRequestsSent');
+    if (savedPaymentRequestsSent) {
+      try {
+        const parsed = JSON.parse(savedPaymentRequestsSent);
+        setPaymentRequestsSent(new Set(parsed));
+      } catch (e) {
+        console.error('Error loading payment requests state:', e);
+      }
+    }
   }, []);
 
   // Auto-load time slot data for all groups with time slots
@@ -1936,8 +1948,8 @@ const Groups: React.FC = () => {
                         <span style={{ fontWeight: 'bold', color: '#2c3e50' }}>Available Time Slots</span>
                       </div>
                       
-                      {/* Always show time slots with interactive features for non-ready groups */}
-                      {!isReady ? (
+                      {/* Always show time slots with interactive features for non-ready groups, but disable if payment requests sent */}
+                      {!isReady && !paymentRequestsSent.has(group.id) ? (
                         <div style={{ 
                           marginLeft: '24px',
                           padding: '16px', 
@@ -1970,10 +1982,13 @@ const Groups: React.FC = () => {
                                     type="checkbox"
                                     checked={isSelected}
                                     onChange={() => handleTimeSlotToggle(group.id, slot.id)}
+                                    disabled={paymentRequestsSent.has(group.id)}
                                     style={{ 
                                       marginTop: '2px',
                                       transform: 'scale(1.2)',
-                                      accentColor: '#007bff'
+                                      accentColor: '#007bff',
+                                      opacity: paymentRequestsSent.has(group.id) ? 0.5 : 1,
+                                      cursor: paymentRequestsSent.has(group.id) ? 'not-allowed' : 'pointer'
                                     }}
                                   />
                                   <div style={{ flex: 1 }}>
@@ -2027,6 +2042,106 @@ const Groups: React.FC = () => {
                                 <strong>Tip:</strong> Green highlighted slots work for all group members. 
                                 Select at least one time slot to stay in the group.
                               </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : paymentRequestsSent.has(group.id) ? (
+                        // Show finalized time slots when payment requests have been sent
+                        <div style={{ 
+                          marginLeft: '24px',
+                          padding: '16px', 
+                          backgroundColor: '#e7f3ff', 
+                          borderRadius: '10px',
+                          border: '1px solid #b3d9ff'
+                        }}>
+                          <div style={{ marginBottom: '12px', fontSize: '14px', color: '#0066cc', fontWeight: 'bold' }}>
+                            🔒 Time slots finalized after payment requests sent
+                          </div>
+                          
+                          <div style={{ display: 'grid', gap: '8px' }}>
+                            {group.time_slots.map((slot) => {
+                              const isSelected = (userTimeSlotSelections[group.id] || []).includes(slot.id);
+                              const analysis = timeSlotAnalyses[group.id]?.find(a => a.time_slot_id === slot.id);
+                              
+                              return (
+                                <div 
+                                  key={slot.id} 
+                                  style={{
+                                    padding: '12px',
+                                    borderRadius: '8px',
+                                    backgroundColor: isSelected ? '#cce5ff' : '#f0f0f0',
+                                    border: `1px solid ${isSelected ? '#80bfff' : '#ddd'}`,
+                                    opacity: 0.8
+                                  }}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                                    <div style={{ 
+                                      width: '20px', 
+                                      height: '20px', 
+                                      marginTop: '2px',
+                                      borderRadius: '4px',
+                                      backgroundColor: isSelected ? '#007bff' : '#ccc',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      color: 'white',
+                                      fontSize: '12px',
+                                      fontWeight: 'bold'
+                                    }}>
+                                      {isSelected ? '✓' : ''}
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                      <div style={{ 
+                                        fontWeight: 'bold', 
+                                        marginBottom: '4px',
+                                        color: isSelected ? '#0066cc' : '#666'
+                                      }}>
+                                        {new Date(slot.start_date).toLocaleDateString()} - {new Date(slot.end_date).toLocaleDateString()}
+                                      </div>
+                                      {analysis && (
+                                        <div style={{ 
+                                          fontSize: '12px', 
+                                          color: '#666',
+                                          display: 'flex',
+                                          flexWrap: 'wrap',
+                                          gap: '4px',
+                                          alignItems: 'center'
+                                        }}>
+                                          <span>Selected by {analysis.selected_by_count} member{analysis.selected_by_count !== 1 ? 's' : ''}:</span>
+                                          {analysis.selected_by_users.map((userName, index) => (
+                                            <span key={userName} style={{
+                                              backgroundColor: '#e9ecef',
+                                              padding: '2px 6px',
+                                              borderRadius: '4px',
+                                              fontSize: '11px'
+                                            }}>
+                                              {userName}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          
+                          <div style={{
+                            marginTop: '12px',
+                            padding: '8px',
+                            backgroundColor: '#fff3cd',
+                            borderRadius: '6px',
+                            border: '1px solid #ffeaa7',
+                            fontSize: '12px',
+                            color: '#856404',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                          }}>
+                            <span>💡</span>
+                            <div>
+                              <strong>Note:</strong> Time slot selections are now locked since payment requests have been sent.
                             </div>
                           </div>
                         </div>
@@ -2242,7 +2357,46 @@ const Groups: React.FC = () => {
                               Book Service
                             </button>
                           )}
-                          {bookedServices.has(group.id) ? (
+                          {paymentRequestsSent.has(group.id) ? (
+                            <button
+                              className="button"
+                              onClick={() => {
+                                // Find the vendor for this group and redirect to their website
+                                const vendor = companies.find(company => company.id === group.vendor_id);
+                                const websiteUrl = vendor?.website;
+                                
+                                if (websiteUrl) {
+                                  // Ensure URL has protocol
+                                  const url = websiteUrl.startsWith('http') ? websiteUrl : `https://${websiteUrl}`;
+                                  window.open(url, '_blank');
+                                } else {
+                                  // Fallback to default URL if no website is configured
+                                  window.open('https://ddumpsters.com/', '_blank');
+                                }
+                              }}
+                              style={{
+                                backgroundColor: '#007bff',
+                                color: 'white',
+                                border: 'none',
+                                padding: '10px 20px',
+                                borderRadius: '25px',
+                                fontWeight: 'bold',
+                                fontSize: '14px',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#0056b3';
+                                e.currentTarget.style.transform = 'translateY(-1px)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = '#007bff';
+                                e.currentTarget.style.transform = 'translateY(0)';
+                              }}
+                            >
+                              Visit {companies.find(company => company.id === group.vendor_id)?.name || 'Vendor'} Website
+                            </button>
+                          ) : bookedServices.has(group.id) ? (
                             <button
                               className="button"
                               onClick={() => {
@@ -2598,6 +2752,14 @@ const Groups: React.FC = () => {
                     });
                     
                     console.log('API response:', response.data);
+                    
+                    // Mark this group as having payment requests sent
+                    const newPaymentRequestsSent = new Set(paymentRequestsSent);
+                    newPaymentRequestsSent.add(showPaymentModal.groupId);
+                    setPaymentRequestsSent(newPaymentRequestsSent);
+                    
+                    // Save to localStorage for persistence
+                    localStorage.setItem('paymentRequestsSent', JSON.stringify(Array.from(newPaymentRequestsSent)));
                     
                     setShowPaymentModal(null);
                     setActualCost('');
