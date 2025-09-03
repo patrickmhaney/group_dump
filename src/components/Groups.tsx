@@ -1497,62 +1497,7 @@ const Groups: React.FC = () => {
                   </div>
                 </div>
 
-                {paymentMethodType === 'zelle' && (
-                  <div style={{ marginBottom: '15px' }}>
-                    <h4>Zelle Information:</h4>
-                    <div style={{ marginBottom: '10px' }}>
-                      <label style={{ display: 'block', marginBottom: '5px' }}>Email (optional):</label>
-                      <input
-                        type="email"
-                        value={zelleEmail}
-                        onChange={(e) => setZelleEmail(e.target.value)}
-                        placeholder="your-email@example.com"
-                        style={{ 
-                          width: '100%', 
-                          padding: '8px', 
-                          border: '1px solid #ccc', 
-                          borderRadius: '4px' 
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '5px' }}>Phone (optional):</label>
-                      <input
-                        type="tel"
-                        value={zellePhone}
-                        onChange={(e) => setZellePhone(e.target.value)}
-                        placeholder="(555) 123-4567"
-                        style={{ 
-                          width: '100%', 
-                          padding: '8px', 
-                          border: '1px solid #ccc', 
-                          borderRadius: '4px' 
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {paymentMethodType === 'venmo' && (
-                  <div style={{ marginBottom: '15px' }}>
-                    <h4>Venmo Information:</h4>
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '5px' }}>Username:</label>
-                      <input
-                        type="text"
-                        value={venmoUsername}
-                        onChange={(e) => setVenmoUsername(e.target.value)}
-                        placeholder="@your-username"
-                        style={{ 
-                          width: '100%', 
-                          padding: '8px', 
-                          border: '1px solid #ccc', 
-                          borderRadius: '4px' 
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
+                
               </div>
 
               <div style={{ 

@@ -1,0 +1,28 @@
+City,Company,Size (yd),Capacity,Price (USD),Days,Overage Rate
+Seattle,Dumpster Solutions NW,10,2000 lbs,595,5,$195/ton:contentReference[oaicite:11]{index=11}
+Seattle,Dumpster Solutions NW,20,3000 lbs,695,5,$195/ton:contentReference[oaicite:12]{index=12}
+Seattle,Dumpster Solutions NW,30,5000 lbs,895,5,$195/ton:contentReference[oaicite:13]{index=13}
+Seattle,Dumpster Solutions NW,40,7000 lbs,1195,5,$195/ton:contentReference[oaicite:14]{index=14}
+Seattle,Royal Dumpster Rentals,15,0 ton,400,4,$0.10/lb:contentReference[oaicite:15]{index=15}
+Seattle,Royal Dumpster Rentals,20,0 ton,480,4,$0.10/lb:contentReference[oaicite:16]{index=16}
+Seattle,Royal Dumpster Rentals,30,0 ton,480,4,$0.10/lb:contentReference[oaicite:17]{index=17}
+Seattle,Royal Dumpster Rentals,40,0 ton,520,4,$0.10/lb:contentReference[oaicite:18]{index=18}
+Denver,Bargain Bins,12,6 truckloads,240,7, (fuel +$30):contentReference[oaicite:19]{index=19}
+Denver,Bargain Bins,15,7.5 truckloads,265,7, (fuel +$30):contentReference[oaicite:20]{index=20}
+Denver,Bargain Bins,20,10 truckloads,295,7, (fuel +$30):contentReference[oaicite:21]{index=21}
+Denver,Humpty Dump,10,2 ton,325,7, (no extra fee):contentReference[oaicite:22]{index=22}
+Denver,Humpty Dump,15,2 ton,350,7, (no extra fee):contentReference[oaicite:23]{index=23}
+Denver,Humpty Dump,20,3 ton,375,7, (no extra fee):contentReference[oaicite:24]{index=24}
+Denver,Humpty Dump,30,3 ton,400,7, (no extra fee):contentReference[oaicite:25]{index=25}
+Denver,Bin There (Denver West),4,0.5 ton,350,, 
+Denver,Bin There (Denver West),6,1 ton,375,, 
+Denver,Bin There (Denver West),10,1.5 ton,400,, 
+Denver,Bin There (Denver West),14,2 ton,450,, 
+Denver,Bin There (Denver West),20,2.5 ton,485,, 
+Denver,HBS Trash,20,3 ton,330,14,$75/ton:contentReference[oaicite:26]{index=26}
+Denver,HBS Trash,30,3 ton,345,14,$75/ton:contentReference[oaicite:27]{index=27}
+Nashville,Red Dog Dumpsters,10,6000 lbs,365,7, (no extra fee):contentReference[oaicite:28]{index=28}
+Nashville,Red Dog Dumpsters,15,6000 lbs,445,7, (no extra fee):contentReference[oaicite:29]{index=29}
+Nashville,Bin There Dump That,10,1.5 ton,350,7, (contact for quote):contentReference[oaicite:30]{index=30}
+Nashville,Bin There Dump That,14,2 ton,425,7, (contact for quote):contentReference[oaicite:31]{index=31}
+Nashville,Bin There Dump That,20,2.5 ton,500,7, (contact for quote):contentReference[oaicite:32]{index=32}

@@ -1,0 +1,42 @@
+City,Company,Size,Capacity,Price,Days Included,Overage Weight,Overage Day
+Jacksonville, FL,CW Dumpster Rentals,12 yard,2 ton,389,7,85/ton,10/day:contentReference[oaicite:19]{index=19}
+Jacksonville, FL,CW Dumpster Rentals,15 yard,2 ton,419,7,85/ton,10/day:contentReference[oaicite:20]{index=20}
+Jacksonville, FL,CW Dumpster Rentals,18 yard,2 ton,449,7,85/ton,10/day:contentReference[oaicite:21]{index=21}
+Jacksonville, FL,Reliant Dumpster Rental,10 yard,,220,2,,20/day:contentReference[oaicite:22]{index=22}
+Jacksonville, FL,Reliant Dumpster Rental,20 yard,,260,3,,20/day:contentReference[oaicite:23]{index=23}
+Jacksonville, FL,Reliant Dumpster Rental,30 yard,,295,4,,20/day:contentReference[oaicite:24]{index=24}
+Fort Worth, TX,Cowtown Dumpsters,18 yard,4 ton,385,7,75/ton,20/day
+Fort Worth, TX,Cowtown Dumpsters,30 yard,4 ton,575,7,75/ton,25/day
+Fort Worth, TX,Dumpster Today,12 yard,1 ton,349,7,100/ton,25/day:contentReference[oaicite:27]{index=27}
+Fort Worth, TX,Dumpster Today,18 yard,2 ton,399,7,100/ton,25/day:contentReference[oaicite:28]{index=28}
+Austin, TX,Dumposaurus 10-yard (Budget),10 yard,0.5 ton,375,3,,:contentReference[oaicite:29]{index=29}
+Austin, TX,Dumposaurus 10-yard (Prof.),10 yard,0.75 ton,425,5,,:contentReference[oaicite:30]{index=30}
+Austin, TX,Dumposaurus 10-yard (Express),10 yard,1.0 ton,475,10,,:contentReference[oaicite:31]{index=31}
+Austin, TX,Dumposaurus 15-yard (Budget),15 yard,0.75 ton,425,3,,:contentReference[oaicite:32]{index=32}
+Austin, TX,Dumposaurus 15-yard (Prof.),15 yard,1.0 ton,475,5,,:contentReference[oaicite:33]{index=33}
+Austin, TX,Dumposaurus 15-yard (Express),15 yard,1.5 ton,525,10,,:contentReference[oaicite:34]{index=34}
+Austin, TX,Dumposaurus 20-yard (Budget),20 yard,1.0 ton,475,3,,:contentReference[oaicite:35]{index=35}
+Austin, TX,Dumposaurus 20-yard (Prof.),20 yard,1.5 ton,525,5,,:contentReference[oaicite:36]{index=36}
+Austin, TX,Dumposaurus 20-yard (Express),20 yard,2.0 ton,575,10,,:contentReference[oaicite:37]{index=37}
+Austin, TX,Dumposaurus 30-yard (Budget),30 yard,2.0 ton,575,3,,:contentReference[oaicite:38]{index=38}
+Austin, TX,Dumposaurus 30-yard (Prof.),30 yard,2.5 ton,625,5,,:contentReference[oaicite:39]{index=39}
+Austin, TX,Dumposaurus 30-yard (Express),30 yard,3.0 ton,675,10,,:contentReference[oaicite:40]{index=40}
+Austin, TX,Dumposaurus 40-yard (Budget),40 yard,3.5 ton,774,3,,:contentReference[oaicite:41]{index=41}
+Austin, TX,Dumposaurus 40-yard (Prof.),40 yard,4.5 ton,829,5,,:contentReference[oaicite:42]{index=42}
+Austin, TX,Dumposaurus 40-yard (Express),40 yard,5.5 ton,874,10,,:contentReference[oaicite:43]{index=43}
+Austin, TX,A-Tex Dumpsters,10 yard,2 ton,425,14,,:contentReference[oaicite:44]{index=44}:contentReference[oaicite:45]{index=45}
+Austin, TX,A-Tex Dumpsters,15 yard,3 ton,475,14,,:contentReference[oaicite:46]{index=46}:contentReference[oaicite:47]{index=47}
+Austin, TX,A-Tex Dumpsters,20 yard,4 ton,495,14,,:contentReference[oaicite:48]{index=48}:contentReference[oaicite:49]{index=49}
+Austin, TX,A-Tex Dumpsters,30 yard,5 ton,595,14,,:contentReference[oaicite:50]{index=50}:contentReference[oaicite:51]{index=51}
+Austin, TX,A-Tex Dumpsters,40 yard,6 ton,695,14,,:contentReference[oaicite:52]{index=52}:contentReference[oaicite:53]{index=53}
+Austin, TX,Rubbish Inc,10 yard,2 ton,395,10,80/ton,:contentReference[oaicite:54]{index=54}:contentReference[oaicite:55]{index=55}
+Austin, TX,Rubbish Inc,20 yard,2 ton,495,10,80/ton,:contentReference[oaicite:56]{index=56}:contentReference[oaicite:57]{index=57}
+Austin, TX,Rubbish Inc,30 yard,3 ton,595,10,80/ton,:contentReference[oaicite:58]{index=58}:contentReference[oaicite:59]{index=59}
+Austin, TX,Rubbish Inc,40 yard,4 ton,695,10,80/ton,:contentReference[oaicite:60]{index=60}:contentReference[oaicite:61]{index=61}
+Austin, TX,Grime Time,10 yard,2 ton,,10,70/ton,10/day:contentReference[oaicite:62]{index=62}
+Austin, TX,Grime Time,20 yard,3 ton,,10,70/ton,10/day:contentReference[oaicite:63]{index=63}
+Austin, TX,Grime Time,30 yard,4 ton,,10,70/ton,10/day:contentReference[oaicite:64]{index=64}
+Austin, TX,Grime Time,40 yard,5 ton,,10,70/ton,10/day:contentReference[oaicite:65]{index=65}
+Columbus, OH,Ohio Dumpsters Experts,14 yard,2 ton,320,3,78/ton,:contentReference[oaicite:66]{index=66}:contentReference[oaicite:67]{index=67}
+Columbus, OH,Ohio Dumpsters Experts,20 yard,2.5 ton,360,3,78/ton,:contentReference[oaicite:68]{index=68}:contentReference[oaicite:69]{index=69}
+Columbus, OH,Ohio Dumpsters Experts,25 yard,3 ton,339,3,78/ton,:contentReference[oaicite:70]{index=70}
