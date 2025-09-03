@@ -43,6 +43,7 @@ interface Company {
   email: string;
   phone: string;
   address: string;
+  website?: string;
   service_areas: string;
   dumpster_sizes: DumpsterSize[];
   rating: number;
@@ -243,7 +244,7 @@ const VendorDetails: React.FC<VendorDetailsProps> = ({ vendorId, groupId }) => {
 };
 
 const Groups: React.FC = () => {
-  const { user, logout } = useContext(AuthContext);
+  const { user, token, logout } = useContext(AuthContext);
   
   const [groups, setGroups] = useState<Group[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -474,6 +475,11 @@ const Groups: React.FC = () => {
     setIsSubmitting(true);
     
     try {
+      // Debug: Log current authentication state
+      console.log('Current user:', user);
+      console.log('Current token:', token ? 'Token present' : 'No token');
+      console.log('Axios Authorization header:', axios.defaults.headers.common['Authorization']);
+      
       // Prepare group data with simplified payment method details
       const groupData: any = {
         ...formData,
@@ -503,6 +509,7 @@ const Groups: React.FC = () => {
       
       // Create group
       console.log('Sending group data:', JSON.stringify(groupData, null, 2));
+      console.log('Making POST request to /groups...');
       const response = await axios.post('/groups', groupData);
       setGroups([response.data, ...groups]);
       setShowCreateForm(false);
@@ -515,10 +522,24 @@ const Groups: React.FC = () => {
       console.error('Full error object:', error);
       console.error('Error response:', error.response);
       console.error('Error response data:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      console.error('Error headers:', error.response?.headers);
+      console.error('Network error?', !error.response);
       
       let errorMessage = 'Error creating group';
       
-      if (error.response?.data) {
+      // Check for network/connection errors
+      if (!error.response) {
+        errorMessage = 'Network error - unable to connect to server. Please check your internet connection.';
+      } else if (error.response.status === 401) {
+        errorMessage = 'Authentication failed - please log in again.';
+        // Auto-logout on authentication failure
+        logout();
+      } else if (error.response.status === 403) {
+        errorMessage = 'Access denied - you don\'t have permission to create groups.';
+      } else if (error.response.status >= 500) {
+        errorMessage = 'Server error - please try again later.';
+      } else if (error.response?.data) {
         const data = error.response.data;
         if (typeof data.detail === 'string') {
           errorMessage = data.detail;
@@ -2183,7 +2204,19 @@ const Groups: React.FC = () => {
                               className="button"
                               onClick={() => {
                                 setBookedServices(prev => new Set([...prev, group.id]));
-                                window.open('https://ddumpsters.com/', '_blank');
+                                
+                                // Find the vendor/company for this group and redirect to their website
+                                const vendor = companies.find(company => company.id === group.vendor_id);
+                                const websiteUrl = vendor?.website;
+                                
+                                if (websiteUrl) {
+                                  // Ensure URL has protocol
+                                  const url = websiteUrl.startsWith('http') ? websiteUrl : `https://${websiteUrl}`;
+                                  window.open(url, '_blank');
+                                } else {
+                                  // Fallback to default URL if no website is configured
+                                  window.open('https://ddumpsters.com/', '_blank');
+                                }
                               }}
                               style={{
                                 backgroundColor: '#007bff',
