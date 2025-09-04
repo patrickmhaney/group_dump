@@ -1,0 +1,28 @@
+{
+  "company": {
+    "name": "Test Dumpster Co",
+    "email": "contact@testdumpster.com",
+    "phone": "(555) 123-TEST",
+    "address": "789 Test Ave, Austin, TX 78701",
+    "website": "https://www.testdumpster.com",
+    "service_areas": "Austin, Round Rock, Cedar Park",
+    "dumpster_sizes": [
+      {
+        "cubic_yards": "15",
+        "dimensions": "14' x 8' x 3.5'",
+        "starting_price": "349",
+        "starting_tonnage": "2",
+        "per_ton_overage_price": "90",
+        "additional_day_price": "18"
+      },
+      {
+        "cubic_yards": "25",
+        "dimensions": "22' x 8' x 5'",
+        "starting_price": "449",
+        "starting_tonnage": "3",
+        "per_ton_overage_price": "90",
+        "additional_day_price": "22"
+      }
+    ]
+  }
+}

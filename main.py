@@ -165,9 +165,11 @@ class Company(Base):
     dumpster_sizes = Column(Text)  # JSON string of dumpster sizes
     commission_rate = Column(Float, default=0.08)
     rating = Column(Float, default=0.0)
+    created_by = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
     
     rentals = relationship("Rental", back_populates="company")
+    creator = relationship("User", foreign_keys=[created_by])
 
 class TimeSlot(Base):
     __tablename__ = "time_slots"
@@ -1066,7 +1068,7 @@ async def get_group_members(group_id: int, db: Session = Depends(get_db)):
     return [{"user_id": member.user_id, "joined_at": member.joined_at} for member in members]
 
 @app.post("/companies", response_model=CompanyResponse)
-async def create_company(company: CompanyCreate, db: Session = Depends(get_db)):
+async def create_company(company: CompanyCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     # Convert dumpster_sizes to JSON string for storage
     dumpster_sizes_json = json.dumps([size.dict() for size in company.dumpster_sizes])
     
@@ -1077,7 +1079,8 @@ async def create_company(company: CompanyCreate, db: Session = Depends(get_db)):
         address=company.address,
         website=company.website,
         service_areas=company.service_areas,
-        dumpster_sizes=dumpster_sizes_json
+        dumpster_sizes=dumpster_sizes_json,
+        created_by=current_user.id
     )
     db.add(db_company)
     db.commit()
@@ -1098,8 +1101,13 @@ async def create_company(company: CompanyCreate, db: Session = Depends(get_db)):
     return CompanyResponse(**response_data)
 
 @app.get("/companies", response_model=list[CompanyResponse])
-async def get_companies(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    companies = db.query(Company).offset(skip).limit(limit).all()
+async def get_companies(current_user: User = Depends(get_current_user), skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    if current_user.user_type == "company":
+        # Company users can only see their own companies
+        companies = db.query(Company).filter(Company.created_by == current_user.id).offset(skip).limit(limit).all()
+    else:
+        # Rental users can see all companies to select services
+        companies = db.query(Company).offset(skip).limit(limit).all()
     result = []
     for company in companies:
         company_data = {
@@ -1136,10 +1144,13 @@ async def get_company(company_id: int, db: Session = Depends(get_db)):
     return CompanyResponse(**company_data)
 
 @app.put("/companies/{company_id}", response_model=CompanyResponse)
-async def update_company(company_id: int, company: CompanyCreate, db: Session = Depends(get_db)):
+async def update_company(company_id: int, company: CompanyCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     db_company = db.query(Company).filter(Company.id == company_id).first()
     if db_company is None:
         raise HTTPException(status_code=404, detail="Company not found")
+    
+    if db_company.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only edit companies you created")
     
     # Convert dumpster_sizes to JSON string for storage
     dumpster_sizes_json = json.dumps([size.dict() for size in company.dumpster_sizes])
@@ -1169,6 +1180,30 @@ async def update_company(company_id: int, company: CompanyCreate, db: Session = 
         "rating": db_company.rating
     }
     return CompanyResponse(**response_data)
+
+@app.delete("/companies/{company_id}")
+async def delete_company(company_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    db_company = db.query(Company).filter(Company.id == company_id).first()
+    if db_company is None:
+        raise HTTPException(status_code=404, detail="Company not found")
+    
+    if db_company.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only delete companies you created")
+    
+    # Check if company has active rentals
+    active_rentals = db.query(Rental).filter(
+        Rental.company_id == company_id,
+        Rental.status.in_(["pending", "scheduled"])
+    ).count()
+    
+    if active_rentals > 0:
+        raise HTTPException(status_code=400, detail="Cannot delete company with active rentals")
+    
+    # Delete the company
+    db.delete(db_company)
+    db.commit()
+    
+    return {"message": "Company deleted successfully"}
 
 class RentalCreate(BaseModel):
     group_id: int

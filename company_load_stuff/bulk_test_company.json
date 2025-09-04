@@ -1,0 +1,44 @@
+{
+  "company": {
+    "name": "Massive Dump",
+    "email": "contact@massivedump.com",
+    "phone": "(555) 123-DUMP",
+    "address": "1234 Industrial Blvd, Austin, TX 78759",
+    "website": "https://www.massivedump.com",
+    "service_areas": "Austin, Round Rock, Cedar Park, Georgetown, Pflugerville, Kyle, Buda, Leander, Lakeway, West Lake Hills",
+    "dumpster_sizes": [
+      {
+        "cubic_yards": "10",
+        "dimensions": "12' x 8' x 3'",
+        "starting_price": "299",
+        "starting_tonnage": "1.5",
+        "per_ton_overage_price": "85",
+        "additional_day_price": "15"
+      },
+      {
+        "cubic_yards": "20",
+        "dimensions": "20' x 8' x 4'",
+        "starting_price": "399",
+        "starting_tonnage": "2.5",
+        "per_ton_overage_price": "85",
+        "additional_day_price": "20"
+      },
+      {
+        "cubic_yards": "30",
+        "dimensions": "20' x 8' x 6'",
+        "starting_price": "499",
+        "starting_tonnage": "4 ton",
+        "per_ton_overage_price": "85",
+        "additional_day_price": "25"
+      }
+    ]
+  },
+  "vendor_service_account": {
+    "email": "patrick.hennessy@groupdump.com",
+    "name": "Patrick Hennessy",
+    "phone": "(555) 000-ADMIN",
+    "address": "GroupDump HQ, 1000 Admin Ave, Austin, TX 78701",
+    "password": "VendorService123!",
+    "user_type": "company"
+  }
+}

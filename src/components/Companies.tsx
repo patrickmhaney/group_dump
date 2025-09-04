@@ -53,7 +53,11 @@ const Companies: React.FC = () => {
 
   const fetchCompanies = async () => {
     try {
-      const response = await axios.get('/companies');
+      const response = await axios.get('/companies', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
       setCompanies(response.data);
     } catch (error) {
       console.error('Error fetching companies:', error);
@@ -65,7 +69,11 @@ const Companies: React.FC = () => {
   const handleCreateCompany = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await axios.post('/companies', formData);
+      const response = await axios.post('/companies', formData, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
       setCompanies([response.data, ...companies]);
       setShowCreateForm(false);
       setFormData({
@@ -114,7 +122,11 @@ const Companies: React.FC = () => {
     if (!editingCompany) return;
     
     try {
-      const response = await axios.put(`/companies/${editingCompany.id}`, formData);
+      const response = await axios.put(`/companies/${editingCompany.id}`, formData, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
       setCompanies(companies.map(company => 
         company.id === editingCompany.id ? response.data : company
       ));
@@ -191,6 +203,31 @@ const Companies: React.FC = () => {
         additional_day_price: ''
       }]
     });
+  };
+
+  const handleDeleteCompany = async (company: Company) => {
+    if (!window.confirm(`Are you sure you want to delete "${company.name}"? This action cannot be undone.`)) {
+      return;
+    }
+    
+    try {
+      await axios.delete(`/companies/${company.id}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      setCompanies(companies.filter(c => c.id !== company.id));
+      setMessage('Company deleted successfully!');
+      setTimeout(() => setMessage(''), 3000);
+    } catch (error: any) {
+      console.error('Delete error:', error);
+      let errorMessage = 'Error deleting company';
+      if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      }
+      setMessage(errorMessage);
+      setTimeout(() => setMessage(''), 3000);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -433,12 +470,21 @@ const Companies: React.FC = () => {
                 <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
                   <button className="button">Contact Company</button>
                   {user?.user_type === 'company' && (
-                    <button 
-                      className="button button-secondary"
-                      onClick={() => startEditing(company)}
-                    >
-                      Edit Company
-                    </button>
+                    <>
+                      <button 
+                        className="button button-secondary"
+                        onClick={() => startEditing(company)}
+                      >
+                        Edit
+                      </button>
+                      <button 
+                        className="button"
+                        style={{ backgroundColor: '#dc3545', borderColor: '#dc3545' }}
+                        onClick={() => handleDeleteCompany(company)}
+                      >
+                        Delete
+                      </button>
+                    </>
                   )}
                 </div>
               </div>

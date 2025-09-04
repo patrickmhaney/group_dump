@@ -1,0 +1,69 @@
+city,state,company_name,cubic_yards,starting_tonnage,starting_price,starting_days_included,per_ton_overage_price,additional_day_price,website
+Jacksonville,FL,CW Dumpster Rentals,12,2,389,7,85,10,https://www.rentcwdumpsters.com/
+Jacksonville,FL,CW Dumpster Rentals,15,2,419,7,85,10,https://www.rentcwdumpsters.com/
+Jacksonville,FL,CW Dumpster Rentals,18,2,449,7,85,10,https://www.rentcwdumpsters.com/
+Jacksonville,FL,Reliant Dumpster Rental,10,,220,2,,20,https://jacksonville.reliantdumpster.com/
+Jacksonville,FL,Reliant Dumpster Rental,20,,260,3,,20,https://jacksonville.reliantdumpster.com/
+Jacksonville,FL,Reliant Dumpster Rental,30,,295,4,,20,https://jacksonville.reliantdumpster.com/
+Fort Worth,TX,Cowtown Dumpsters,18,4,385,7,75,20,https://www.cowtowndumpsters.com/
+Fort Worth,TX,Cowtown Dumpsters,30,4,575,7,75,25,https://www.cowtowndumpsters.com/
+Fort Worth,TX,Dumpster Today,12,1,349,7,100,25,https://dumpstertoday.com/locations/fort-worth-tx/
+Fort Worth,TX,Dumpster Today,18,2,399,7,100,25,https://dumpstertoday.com/locations/fort-worth-tx/
+Austin,TX,Dumposaurus 10-yard (Budget),10,0.5,375,3,,,https://www.dumposaurus.com/
+Austin,TX,Dumposaurus 10-yard (Prof.),10,0.75,425,5,,,https://www.dumposaurus.com/
+Austin,TX,Dumposaurus 10-yard (Express),10,1,475,10,,,https://www.dumposaurus.com/
+Austin,TX,Dumposaurus 15-yard (Budget),15,0.75,425,3,,,https://www.dumposaurus.com/
+Austin,TX,Dumposaurus 15-yard (Prof.),15,1,475,5,,,https://www.dumposaurus.com/
+Austin,TX,Dumposaurus 15-yard (Express),15,1.5,525,10,,,https://www.dumposaurus.com/
+Austin,TX,Dumposaurus 20-yard (Budget),20,1,475,3,,,https://www.dumposaurus.com/
+Austin,TX,Dumposaurus 20-yard (Prof.),20,1.5,525,5,,,https://www.dumposaurus.com/
+Austin,TX,Dumposaurus 20-yard (Express),20,2,575,10,,,https://www.dumposaurus.com/
+Austin,TX,Dumposaurus 30-yard (Budget),30,2,575,3,,,https://www.dumposaurus.com/
+Austin,TX,Dumposaurus 30-yard (Prof.),30,2.5,625,5,,,https://www.dumposaurus.com/
+Austin,TX,Dumposaurus 30-yard (Express),30,3,675,10,,,https://www.dumposaurus.com/
+Austin,TX,Dumposaurus 40-yard (Budget),40,3.5,774,3,,,https://www.dumposaurus.com/
+Austin,TX,Dumposaurus 40-yard (Prof.),40,4.5,829,5,,,https://www.dumposaurus.com/
+Austin,TX,Dumposaurus 40-yard (Express),40,5.5,874,10,,,https://www.dumposaurus.com/
+Austin,TX,A-Tex Dumpsters,10,2,425,14,,,https://atexdumpsters.com/
+Austin,TX,A-Tex Dumpsters,15,3,475,14,,,https://atexdumpsters.com/
+Austin,TX,A-Tex Dumpsters,20,4,495,14,,,https://atexdumpsters.com/
+Austin,TX,A-Tex Dumpsters,30,5,595,14,,,https://atexdumpsters.com/
+Austin,TX,A-Tex Dumpsters,40,6,695,14,,,https://atexdumpsters.com/
+Austin,TX,Rubbish Inc,10,2,395,10,80,,https://rubbish-inc.com/
+Austin,TX,Rubbish Inc,20,2,495,10,80,,https://rubbish-inc.com/
+Austin,TX,Rubbish Inc,30,3,595,10,80,,https://rubbish-inc.com/
+Austin,TX,Rubbish Inc,40,4,695,10,80,,https://rubbish-inc.com/
+Austin,TX,Grime Time,10,2,,10,70,10,https://www.grimetime.com/
+Austin,TX,Grime Time,20,3,,10,70,10,https://www.grimetime.com/
+Austin,TX,Grime Time,30,4,,10,70,10,https://www.grimetime.com/
+Austin,TX,Grime Time,40,5,,10,70,10,https://www.grimetime.com/
+Columbus,OH,Ohio Dumpsters Experts,14,2,320,3,78,,https://dumpsterrentalcolumbusohio.net/
+Columbus,OH,Ohio Dumpsters Experts,20,2.5,360,3,78,,https://dumpsterrentalcolumbusohio.net/
+Columbus,OH,Ohio Dumpsters Experts,25,3,339,3,78,,https://dumpsterrentalcolumbusohio.net/
+Seattle,WA,Dumpster Solutions NW,10,1,595,5,195,,https://dumpstersolutionsnw.com/
+Seattle,WA,Dumpster Solutions NW,20,1.5,695,5,195,,https://dumpstersolutionsnw.com/
+Seattle,WA,Dumpster Solutions NW,30,2.5,895,5,195,,https://dumpstersolutionsnw.com/
+Seattle,WA,Dumpster Solutions NW,40,3.5,1195,5,195,,https://dumpstersolutionsnw.com/
+Seattle,WA,Royal Dumpster Rentals,15,0,400,4,$0.10/lb,,https://www.royaldumpsterrentalsllc.com/
+Seattle,WA,Royal Dumpster Rentals,20,0,480,4,$0.10/lb,,https://www.royaldumpsterrentalsllc.com/
+Seattle,WA,Royal Dumpster Rentals,30,0,480,4,$0.10/lb,,https://www.royaldumpsterrentalsllc.com/
+Seattle,WA,Royal Dumpster Rentals,40,0,520,4,$0.10/lb,,https://www.royaldumpsterrentalsllc.com/
+Denver,CO,Bargain Bins,12,,240,7, (fuel +$30),,https://www.bargainbins.com/
+Denver,CO,Bargain Bins,15,,265,7, (fuel +$30),,https://www.bargainbins.com/
+Denver,CO,Bargain Bins,20,,295,7, (fuel +$30),,https://www.bargainbins.com/
+Denver,CO,Humpty Dump,10,2,325,7, (no extra fee),,https://humptydumpco.com/
+Denver,CO,Humpty Dump,15,2,350,7, (no extra fee),,https://humptydumpco.com/
+Denver,CO,Humpty Dump,20,3,375,7, (no extra fee),,https://humptydumpco.com/
+Denver,CO,Humpty Dump,30,3,400,7, (no extra fee),,https://humptydumpco.com/
+Denver,CO,Bin There (Denver West),4,0.5,350,,,,https://denverwest.bintheredumpthatusa.com/
+Denver,CO,Bin There (Denver West),6,1,375,,,,https://denverwest.bintheredumpthatusa.com/
+Denver,CO,Bin There (Denver West),10,1.5,400,,,,https://denverwest.bintheredumpthatusa.com/
+Denver,CO,Bin There (Denver West),14,2,450,,,,https://denverwest.bintheredumpthatusa.com/
+Denver,CO,Bin There (Denver West),20,2.5,485,,,,https://denverwest.bintheredumpthatusa.com/
+Denver,CO,HBS Trash,20,3,330,14,$75,,https://www.hbstrash.com/
+Denver,CO,HBS Trash,30,3,345,14,$75,,https://www.hbstrash.com/
+Nashville,TN,Red Dog Dumpsters,10,3,365,7, (no extra fee),,https://reddogdumpsters.com/
+Nashville,TN,Red Dog Dumpsters,15,3,445,7, (no extra fee),,https://reddogdumpsters.com/
+Nashville,TN,Bin There Dump That,10,1.5,350,7, (contact for quote),,https://www.bintheredumpthat.com/nashville-dumpster-rentals/
+Nashville,TN,Bin There Dump That,14,2,425,7, (contact for quote),,https://www.bintheredumpthat.com/nashville-dumpster-rentals/
+Nashville,TN,Bin There Dump That,20,2.5,500,7, (contact for quote),,https://www.bintheredumpthat.com/nashville-dumpster-rentals/

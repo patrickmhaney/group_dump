@@ -391,7 +391,11 @@ const Groups: React.FC = () => {
 
   const fetchCompanies = async () => {
     try {
-      const response = await axios.get('/companies');
+      const response = await axios.get('/companies', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
       setCompanies(response.data);
     } catch (error) {
       console.error('Error fetching companies:', error);
