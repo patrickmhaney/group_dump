@@ -157,11 +157,13 @@ class Company(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String)
-    email = Column(String)
-    phone = Column(String)
-    address = Column(String)
+    email = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
+    address = Column(String, nullable=True)
+    city = Column(String)
+    state = Column(String)
     website = Column(String, nullable=True)
-    service_areas = Column(Text)
+    service_areas = Column(Text, nullable=True)
     dumpster_sizes = Column(Text)  # JSON string of dumpster sizes
     commission_rate = Column(Float, default=0.08)
     rating = Column(Float, default=0.0)
@@ -425,21 +427,25 @@ class DumpsterSize(BaseModel):
 
 class CompanyCreate(BaseModel):
     name: str
-    email: EmailStr
-    phone: str
-    address: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    city: str
+    state: str
     website: Optional[str] = None
-    service_areas: str
+    service_areas: Optional[str] = None
     dumpster_sizes: List[DumpsterSize]
 
 class CompanyResponse(BaseModel):
     id: int
     name: str
-    email: str
-    phone: str
-    address: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    city: str
+    state: str
     website: Optional[str] = None
-    service_areas: str
+    service_areas: Optional[str] = None
     dumpster_sizes: List[DumpsterSize]
     rating: float
     
@@ -1077,6 +1083,8 @@ async def create_company(company: CompanyCreate, current_user: User = Depends(ge
         email=company.email,
         phone=company.phone,
         address=company.address,
+        city=company.city,
+        state=company.state,
         website=company.website,
         service_areas=company.service_areas,
         dumpster_sizes=dumpster_sizes_json,
@@ -1093,6 +1101,8 @@ async def create_company(company: CompanyCreate, current_user: User = Depends(ge
         "email": db_company.email,
         "phone": db_company.phone,
         "address": db_company.address,
+        "city": db_company.city,
+        "state": db_company.state,
         "website": db_company.website,
         "service_areas": db_company.service_areas,
         "dumpster_sizes": [DumpsterSize(**size) for size in json.loads(db_company.dumpster_sizes)],
@@ -1116,6 +1126,8 @@ async def get_companies(current_user: User = Depends(get_current_user), skip: in
             "email": company.email,
             "phone": company.phone,
             "address": company.address,
+            "city": company.city,
+            "state": company.state,
             "website": company.website,
             "service_areas": company.service_areas,
             "dumpster_sizes": [DumpsterSize(**size) for size in json.loads(company.dumpster_sizes)],
@@ -1136,6 +1148,8 @@ async def get_company(company_id: int, db: Session = Depends(get_db)):
         "email": company.email,
         "phone": company.phone,
         "address": company.address,
+        "city": company.city,
+        "state": company.state,
         "website": company.website,
         "service_areas": company.service_areas,
         "dumpster_sizes": [DumpsterSize(**size) for size in json.loads(company.dumpster_sizes)],
@@ -1160,6 +1174,8 @@ async def update_company(company_id: int, company: CompanyCreate, current_user: 
     db_company.email = company.email
     db_company.phone = company.phone
     db_company.address = company.address
+    db_company.city = company.city
+    db_company.state = company.state
     db_company.website = company.website
     db_company.service_areas = company.service_areas
     db_company.dumpster_sizes = dumpster_sizes_json
@@ -1174,6 +1190,8 @@ async def update_company(company_id: int, company: CompanyCreate, current_user: 
         "email": db_company.email,
         "phone": db_company.phone,
         "address": db_company.address,
+        "city": db_company.city,
+        "state": db_company.state,
         "website": db_company.website,
         "service_areas": db_company.service_areas,
         "dumpster_sizes": [DumpsterSize(**size) for size in json.loads(db_company.dumpster_sizes)],

@@ -92,25 +92,47 @@ class CompanyLoader:
         
         url = f"{self.api_url}/companies"
         
-        # The API expects the dumpster_sizes as a list of DumpsterSize objects
+        # The API expects the dumpster_sizes as strings
+        dumpster_sizes = []
+        for size in company_data["dumpster_sizes"]:
+            converted_size = {
+                "cubic_yards": str(size["cubic_yards"]),
+                "dimensions": size["dimensions"],
+                "starting_price": str(size["starting_price"]),
+                "starting_tonnage": str(size["starting_tonnage"]).replace(" ton", "") if isinstance(size["starting_tonnage"], str) else str(size["starting_tonnage"]),
+                "per_ton_overage_price": str(size["per_ton_overage_price"]),
+                "additional_day_price": str(size["additional_day_price"])
+            }
+            dumpster_sizes.append(converted_size)
+        
         payload = {
             "name": company_data["name"],
-            "email": company_data["email"],
-            "phone": company_data["phone"],
-            "address": company_data["address"],
-            "website": company_data.get("website"),
-            "service_areas": company_data["service_areas"],
-            "dumpster_sizes": company_data["dumpster_sizes"]
+            "city": company_data["city"],
+            "state": company_data["state"],
+            "dumpster_sizes": dumpster_sizes
         }
+        
+        # Only add optional fields if they have values
+        if company_data.get("email"):
+            payload["email"] = company_data["email"]
+        if company_data.get("phone"):
+            payload["phone"] = company_data["phone"]
+        if company_data.get("address"):
+            payload["address"] = company_data["address"]
+        if company_data.get("website"):
+            payload["website"] = company_data["website"]
+        if company_data.get("service_areas"):
+            payload["service_areas"] = company_data["service_areas"]
         
         response = self.session.post(url, json=payload)
         
-        if response.status_code == 200:
+        if response.status_code in [200, 201]:
             created_company = response.json()
             print("✅ Company created successfully!")
             print(f"   📍 Company ID: {created_company['id']}")
-            print(f"   📧 Email: {created_company['email']}")
-            print(f"   📞 Phone: {created_company['phone']}")
+            print(f"   🏙️  Location: {created_company['city']}, {created_company['state']}")
+            print(f"   📧 Email: {created_company.get('email', 'N/A')}")
+            print(f"   📞 Phone: {created_company.get('phone', 'N/A')}")
             print(f"   🌐 Website: {created_company.get('website', 'N/A')}")
             print(f"   📊 Dumpster sizes: {len(created_company['dumpster_sizes'])} options")
             return True
@@ -191,12 +213,24 @@ Examples:
     print(f"📄 Loading data from: {args.data_file}")
     data = loader.load_data(args.data_file)
     
-    # Validate required data
-    if 'company' not in data:
-        print("❌ Error: JSON file must contain 'company' section")
+    # Validate and normalize data structure
+    companies_to_process = []
+    
+    if isinstance(data, list):
+        # Handle array of company objects
+        for item in data:
+            if 'company' not in item:
+                print("❌ Error: Each item in array must contain 'company' section")
+                sys.exit(1)
+            companies_to_process.append(item['company'])
+    elif 'company' in data:
+        # Handle single company object
+        companies_to_process.append(data['company'])
+    else:
+        print("❌ Error: JSON file must contain 'company' section or be an array of company objects")
         sys.exit(1)
     
-    company_data = data['company']
+    print(f"📊 Found {len(companies_to_process)} company(ies) to process")
     
     # Authenticate with service account
     if not loader.authenticate(loader.service_email, loader.service_password):
@@ -204,15 +238,32 @@ Examples:
         print("ℹ️  Make sure the service account exists and credentials are correct")
         sys.exit(1)
     
-    # Create company
-    if not loader.create_company(company_data):
+    # Create companies
+    successful_count = 0
+    failed_count = 0
+    
+    for i, company_data in enumerate(companies_to_process, 1):
+        print(f"\n📦 Processing company {i}/{len(companies_to_process)}")
+        if loader.create_company(company_data):
+            successful_count += 1
+        else:
+            failed_count += 1
+    
+    print(f"\n📈 Results: {successful_count} successful, {failed_count} failed")
+    
+    if failed_count == 0:
+        print("\n🎉 Bulk load completed successfully!")
+    elif successful_count > 0:
+        print("\n⚠️  Bulk load completed with some failures")
+    else:
+        print("\n❌ Bulk load failed - no companies were created")
         sys.exit(1)
     
-    print("\n🎉 Bulk load completed successfully!")
-    print("\nNext steps:")
-    print("- Check the API at /companies to verify the company was created")
-    print("- Use the company in group creation workflows")
-    print("- Test with real users creating groups and selecting this vendor")
+    if successful_count > 0:
+        print("\nNext steps:")
+        print("- Check the API at /companies to verify the companies were created")
+        print("- Use the companies in group creation workflows")
+        print("- Test with real users creating groups and selecting these vendors")
 
 
 if __name__ == "__main__":

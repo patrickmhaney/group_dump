@@ -17,6 +17,8 @@ interface Company {
   email: string;
   phone: string;
   address: string;
+  city: string;
+  state: string;
   website?: string;
   service_areas: string;
   dumpster_sizes: DumpsterSize[];
@@ -34,6 +36,8 @@ const Companies: React.FC = () => {
     email: '',
     phone: '',
     address: '',
+    city: '',
+    state: '',
     website: '',
     service_areas: '',
     dumpster_sizes: [{
@@ -81,6 +85,8 @@ const Companies: React.FC = () => {
         email: '',
         phone: '',
         address: '',
+        city: '',
+        state: '',
         website: '',
         service_areas: '',
         dumpster_sizes: [{
@@ -136,6 +142,8 @@ const Companies: React.FC = () => {
         email: '',
         phone: '',
         address: '',
+        city: '',
+        state: '',
         website: '',
         service_areas: '',
         dumpster_sizes: [{
@@ -179,6 +187,8 @@ const Companies: React.FC = () => {
       email: company.email,
       phone: company.phone,
       address: company.address,
+      city: company.city,
+      state: company.state,
       website: company.website || '',
       service_areas: company.service_areas,
       dumpster_sizes: company.dumpster_sizes
@@ -193,6 +203,9 @@ const Companies: React.FC = () => {
       email: '',
       phone: '',
       address: '',
+      city: '',
+      state: '',
+      website: '',
       service_areas: '',
       dumpster_sizes: [{
         cubic_yards: '',
@@ -339,6 +352,22 @@ const Companies: React.FC = () => {
               required
             />
             <input
+              type="text"
+              name="city"
+              placeholder="City"
+              value={formData.city}
+              onChange={handleChange}
+              required
+            />
+            <input
+              type="text"
+              name="state"
+              placeholder="State"
+              value={formData.state}
+              onChange={handleChange}
+              required
+            />
+            <input
               type="url"
               name="website"
               placeholder="Website (optional)"
@@ -460,6 +489,8 @@ const Companies: React.FC = () => {
                 <p><strong>Email:</strong> {company.email}</p>
                 <p><strong>Phone:</strong> {company.phone}</p>
                 <p><strong>Address:</strong> {company.address}</p>
+                <p><strong>City:</strong> {company.city}</p>
+                <p><strong>State:</strong> {company.state}</p>
                 {company.website && (
                   <p><strong>Website:</strong> <a href={company.website} target="_blank" rel="noopener noreferrer">{company.website}</a></p>
                 )}
