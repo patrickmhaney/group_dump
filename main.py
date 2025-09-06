@@ -162,7 +162,8 @@ class Company(Base):
     address = Column(String, nullable=True)
     city = Column(String)
     state = Column(String)
-    website = Column(String, nullable=True)
+    zip_code = Column(String, nullable=False)  # Required field for location-based filtering
+    website = Column(String, nullable=False)
     service_areas = Column(Text, nullable=True)
     dumpster_sizes = Column(Text)  # JSON string of dumpster sizes
     commission_rate = Column(Float, default=0.08)
@@ -432,7 +433,8 @@ class CompanyCreate(BaseModel):
     address: Optional[str] = None
     city: str
     state: str
-    website: Optional[str] = None
+    zip_code: str
+    website: str
     service_areas: Optional[str] = None
     dumpster_sizes: List[DumpsterSize]
 
@@ -444,7 +446,8 @@ class CompanyResponse(BaseModel):
     address: Optional[str] = None
     city: str
     state: str
-    website: Optional[str] = None
+    zip_code: str
+    website: str
     service_areas: Optional[str] = None
     dumpster_sizes: List[DumpsterSize]
     rating: float
@@ -1085,6 +1088,7 @@ async def create_company(company: CompanyCreate, current_user: User = Depends(ge
         address=company.address,
         city=company.city,
         state=company.state,
+        zip_code=company.zip_code,
         website=company.website,
         service_areas=company.service_areas,
         dumpster_sizes=dumpster_sizes_json,
@@ -1103,6 +1107,7 @@ async def create_company(company: CompanyCreate, current_user: User = Depends(ge
         "address": db_company.address,
         "city": db_company.city,
         "state": db_company.state,
+        "zip_code": db_company.zip_code,
         "website": db_company.website,
         "service_areas": db_company.service_areas,
         "dumpster_sizes": [DumpsterSize(**size) for size in json.loads(db_company.dumpster_sizes)],
@@ -1128,6 +1133,7 @@ async def get_companies(current_user: User = Depends(get_current_user), skip: in
             "address": company.address,
             "city": company.city,
             "state": company.state,
+            "zip_code": company.zip_code,
             "website": company.website,
             "service_areas": company.service_areas,
             "dumpster_sizes": [DumpsterSize(**size) for size in json.loads(company.dumpster_sizes)],
@@ -1176,6 +1182,7 @@ async def update_company(company_id: int, company: CompanyCreate, current_user: 
     db_company.address = company.address
     db_company.city = company.city
     db_company.state = company.state
+    db_company.zip_code = company.zip_code
     db_company.website = company.website
     db_company.service_areas = company.service_areas
     db_company.dumpster_sizes = dumpster_sizes_json
@@ -1192,6 +1199,7 @@ async def update_company(company_id: int, company: CompanyCreate, current_user: 
         "address": db_company.address,
         "city": db_company.city,
         "state": db_company.state,
+        "zip_code": db_company.zip_code,
         "website": db_company.website,
         "service_areas": db_company.service_areas,
         "dumpster_sizes": [DumpsterSize(**size) for size in json.loads(db_company.dumpster_sizes)],

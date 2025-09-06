@@ -19,6 +19,7 @@ interface Company {
   address: string;
   city: string;
   state: string;
+  zip_code: string;
   website?: string;
   service_areas: string;
   dumpster_sizes: DumpsterSize[];
@@ -38,6 +39,7 @@ const Companies: React.FC = () => {
     address: '',
     city: '',
     state: '',
+    zip_code: '',
     website: '',
     service_areas: '',
     dumpster_sizes: [{
@@ -87,6 +89,7 @@ const Companies: React.FC = () => {
         address: '',
         city: '',
         state: '',
+        zip_code: '',
         website: '',
         service_areas: '',
         dumpster_sizes: [{
@@ -144,6 +147,7 @@ const Companies: React.FC = () => {
         address: '',
         city: '',
         state: '',
+        zip_code: '',
         website: '',
         service_areas: '',
         dumpster_sizes: [{
@@ -189,6 +193,7 @@ const Companies: React.FC = () => {
       address: company.address,
       city: company.city,
       state: company.state,
+      zip_code: company.zip_code,
       website: company.website || '',
       service_areas: company.service_areas,
       dumpster_sizes: company.dumpster_sizes
@@ -368,6 +373,14 @@ const Companies: React.FC = () => {
               required
             />
             <input
+              type="text"
+              name="zip_code"
+              placeholder="Zip Code"
+              value={formData.zip_code}
+              onChange={handleChange}
+              required
+            />
+            <input
               type="url"
               name="website"
               placeholder="Website (optional)"
@@ -491,6 +504,7 @@ const Companies: React.FC = () => {
                 <p><strong>Address:</strong> {company.address}</p>
                 <p><strong>City:</strong> {company.city}</p>
                 <p><strong>State:</strong> {company.state}</p>
+                <p><strong>Zip Code:</strong> {company.zip_code}</p>
                 {company.website && (
                   <p><strong>Website:</strong> <a href={company.website} target="_blank" rel="noopener noreferrer">{company.website}</a></p>
                 )}

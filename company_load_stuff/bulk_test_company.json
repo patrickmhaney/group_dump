@@ -1,9 +1,11 @@
 [
   {
     "company": {
-      "name": "Massive Dump 4",
+      "name": "Massive Dump 3",
       "city": "Austin",
       "state": "TX",
+      "zip_code": "78701",
+      "website": "https://drivewaydumpsters.com",
       "dumpster_sizes": [
         {
           "cubic_yards": "10",
@@ -34,9 +36,11 @@
   },
   {
     "company": {
-      "name": "Quick Haul Dumpsters",
+      "name": "Massive Dump 4",
       "city": "Dallas",
       "state": "TX",
+      "zip_code": "75201",
+      "website": "https://quickhauldumpsters.com",
       "dumpster_sizes": [
         {
           "cubic_yards": "15",

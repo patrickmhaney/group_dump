@@ -109,6 +109,8 @@ class CompanyLoader:
             "name": company_data["name"],
             "city": company_data["city"],
             "state": company_data["state"],
+            "zip_code": company_data["zip_code"],
+            "website": company_data["website"],
             "dumpster_sizes": dumpster_sizes
         }
         
@@ -119,8 +121,6 @@ class CompanyLoader:
             payload["phone"] = company_data["phone"]
         if company_data.get("address"):
             payload["address"] = company_data["address"]
-        if company_data.get("website"):
-            payload["website"] = company_data["website"]
         if company_data.get("service_areas"):
             payload["service_areas"] = company_data["service_areas"]
         
