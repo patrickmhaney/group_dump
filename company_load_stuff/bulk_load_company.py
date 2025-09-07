@@ -9,7 +9,7 @@ Usage:
     python bulk_load_company.py [data_file] [--api-url URL]
 
 Arguments:
-    data_file: Path to JSON file containing company data (default: bulk_test_company.json)
+    data_file: Path to JSON file containing company data (default: bulk_test_company_more.json)
     --api-url: Base URL for the API (default: http://localhost:8000)
 
 Usage Instructions
@@ -187,8 +187,8 @@ Examples:
     parser.add_argument(
         'data_file',
         nargs='?',
-        default='bulk_test_company.json',
-        help='Path to JSON file containing company data (default: bulk_test_company.json)'
+        default='bulk_test_company_more.json',
+        help='Path to JSON file containing company data (default: bulk_test_company_more.json)'
     )
     
     parser.add_argument(

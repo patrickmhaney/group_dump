@@ -9,6 +9,7 @@ const Register: React.FC = () => {
     name: '',
     phone: '',
     address: '',
+    zip_code: '',
     password: '',
     confirmPassword: '',
     user_type: 'renter'
@@ -43,6 +44,7 @@ const Register: React.FC = () => {
         name: formData.name,
         phone: formData.phone,
         address: formData.address,
+        zip_code: formData.zip_code,
         password: formData.password,
         user_type: formData.user_type
       };
@@ -123,6 +125,16 @@ const Register: React.FC = () => {
           placeholder="Address"
           value={formData.address}
           onChange={handleChange}
+          required
+        />
+        <input
+          type="text"
+          name="zip_code"
+          placeholder="Zip Code"
+          value={formData.zip_code}
+          onChange={handleChange}
+          pattern="[0-9]{5}"
+          title="Please enter a 5-digit zip code"
           required
         />
         <div style={{ marginBottom: '15px' }}>

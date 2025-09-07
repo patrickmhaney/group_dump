@@ -394,6 +394,9 @@ const Groups: React.FC = () => {
       const response = await axios.get('/companies', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        params: {
+          proximity_filter: true
         }
       });
       setCompanies(response.data);

@@ -32,6 +32,7 @@ const Companies: React.FC = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [message, setMessage] = useState('');
+  const [proximityFilter, setProximityFilter] = useState(true);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -55,13 +56,16 @@ const Companies: React.FC = () => {
 
   useEffect(() => {
     fetchCompanies();
-  }, []);
+  }, [proximityFilter]);
 
   const fetchCompanies = async () => {
     try {
       const response = await axios.get('/companies', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        params: {
+          proximity_filter: proximityFilter
         }
       });
       setCompanies(response.data);
@@ -299,12 +303,22 @@ const Companies: React.FC = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1>Welcome, {user?.name}!</h1>
         <div style={{ display: 'flex', gap: '10px' }}>
-          <button
-            className="button"
-            onClick={() => setShowCreateForm(!showCreateForm)}
-          >
-            {showCreateForm ? 'Cancel' : 'Register Company'}
-          </button>
+          {user?.user_type === 'renter' && (
+            <button
+              className={`button ${proximityFilter ? '' : 'button-secondary'}`}
+              onClick={() => setProximityFilter(!proximityFilter)}
+            >
+              {proximityFilter ? 'Show All Companies' : 'Show Nearby Only'}
+            </button>
+          )}
+          {user?.user_type === 'company' && (
+            <button
+              className="button"
+              onClick={() => setShowCreateForm(!showCreateForm)}
+            >
+              {showCreateForm ? 'Cancel' : 'Register Company'}
+            </button>
+          )}
           <button
             className="button button-secondary"
             onClick={logout}

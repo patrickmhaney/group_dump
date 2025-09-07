@@ -5,7 +5,7 @@ from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session, relationship
 from pydantic import BaseModel, EmailStr
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
@@ -17,6 +17,10 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import stripe
 import json
+import math
+import requests
+import aiohttp
+import asyncio
 
 load_dotenv()
 
@@ -116,6 +120,12 @@ class User(Base):
     name = Column(String)
     phone = Column(String)
     address = Column(String)
+    city = Column(String)
+    state = Column(String)
+    zip_code = Column(String)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    geocoded_at = Column(DateTime, nullable=True)
     hashed_password = Column(String)
     user_type = Column(String, default="renter")  # "renter" or "company"
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -163,6 +173,9 @@ class Company(Base):
     city = Column(String)
     state = Column(String)
     zip_code = Column(String, nullable=False)  # Required field for location-based filtering
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    geocoded_at = Column(DateTime, nullable=True)
     website = Column(String, nullable=False)
     service_areas = Column(Text, nullable=True)
     dumpster_sizes = Column(Text)  # JSON string of dumpster sizes
@@ -323,11 +336,124 @@ async def send_invitations(group: Group, creator: User, db: Session):
     
     db.commit()
 
+def calculate_zip_distance_approximation(zip1: str, zip2: str) -> float:
+    """
+    Approximate distance between two US zip codes using first 3 digits.
+    This is a simplified calculation for proximity filtering.
+    Returns distance in miles (approximate).
+    """
+    if not zip1 or not zip2 or len(zip1) < 5 or len(zip2) < 5:
+        return float('inf')
+    
+    # Simple approximation based on zip code prefixes
+    # This is not accurate but provides reasonable proximity filtering
+    prefix1 = int(zip1[:3])
+    prefix2 = int(zip2[:3])
+    
+    # Rough approximation: each zip prefix difference = ~50 miles
+    # This is very approximate but works for basic proximity filtering
+    prefix_diff = abs(prefix1 - prefix2)
+    
+    if prefix_diff == 0:
+        return 0  # Same area
+    elif prefix_diff <= 1:
+        return 25  # Adjacent areas
+    elif prefix_diff <= 3:
+        return prefix_diff * 30  # Nearby areas
+    else:
+        return prefix_diff * 50  # Farther areas
+
+def filter_companies_by_proximity(companies: list, user_zip: str, max_distance: int = 50) -> list:
+    """Filter companies within max_distance miles of user zip code"""
+    if not user_zip:
+        return companies
+    
+    nearby_companies = []
+    for company in companies:
+        if hasattr(company, 'zip_code') and company.zip_code:
+            distance = calculate_zip_distance_approximation(user_zip, company.zip_code)
+            if distance <= max_distance:
+                nearby_companies.append(company)
+    
+    return nearby_companies
+
+async def geocode_address(address: str, city: str, state: str, zip_code: str) -> Optional[Tuple[float, float]]:
+    """
+    Geocode an address using OpenStreetMap Nominatim API
+    Returns (latitude, longitude) tuple or None if geocoding fails
+    """
+    try:
+        # Format address for geocoding
+        full_address = f"{address}, {city}, {state} {zip_code}, USA" if address else f"{city}, {state} {zip_code}, USA"
+        
+        # OpenStreetMap Nominatim API (free, no API key required)
+        url = "https://nominatim.openstreetmap.org/search"
+        params = {
+            'q': full_address,
+            'format': 'json',
+            'limit': 1,
+            'countrycodes': 'us'
+        }
+        headers = {
+            'User-Agent': 'DumpsterSharingApp/1.0'  # Required by Nominatim
+        }
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, params=params, headers=headers) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    if data:
+                        lat = float(data[0]['lat'])
+                        lon = float(data[0]['lon'])
+                        return (lat, lon)
+        
+        return None
+        
+    except Exception as e:
+        print(f"Geocoding error for '{full_address}': {str(e)}")
+        return None
+
+def calculate_haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """
+    Calculate the great circle distance between two points on Earth
+    using the Haversine formula. Returns distance in miles.
+    """
+    # Convert latitude and longitude from degrees to radians
+    lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
+    
+    # Haversine formula
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+    c = 2 * math.asin(math.sqrt(a))
+    
+    # Radius of Earth in miles
+    r = 3959
+    
+    return c * r
+
+async def filter_companies_by_actual_distance(companies: list, user_lat: float, user_lon: float, max_distance: float = 50.0) -> list:
+    """Filter companies within max_distance miles of user coordinates using actual geographic distance"""
+    if not user_lat or not user_lon:
+        return companies
+    
+    nearby_companies = []
+    for company in companies:
+        if hasattr(company, 'latitude') and hasattr(company, 'longitude') and company.latitude and company.longitude:
+            distance = calculate_haversine_distance(user_lat, user_lon, company.latitude, company.longitude)
+            if distance <= max_distance:
+                nearby_companies.append(company)
+    
+    return nearby_companies
+
 class UserCreate(BaseModel):
     email: EmailStr
     name: str
     phone: str
     address: str
+    city: str
+    state: str
+    zip_code: str
     password: str
     user_type: str = "renter"
 
@@ -337,6 +463,9 @@ class UserResponse(BaseModel):
     name: str
     phone: str
     address: str
+    city: str
+    state: str
+    zip_code: str
     user_type: str
     created_at: datetime
     
@@ -514,12 +643,21 @@ async def register(user: UserCreate, db: Session = Depends(get_db)):
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     
+    # Geocode the user's address
+    coordinates = await geocode_address(user.address, user.city, user.state, user.zip_code)
+    
     hashed_password = get_password_hash(user.password)
     db_user = User(
         email=user.email,
         name=user.name,
         phone=user.phone,
         address=user.address,
+        city=user.city,
+        state=user.state,
+        zip_code=user.zip_code,
+        latitude=coordinates[0] if coordinates else None,
+        longitude=coordinates[1] if coordinates else None,
+        geocoded_at=datetime.utcnow() if coordinates else None,
         hashed_password=hashed_password,
         user_type=user.user_type
     )
@@ -1081,6 +1219,9 @@ async def create_company(company: CompanyCreate, current_user: User = Depends(ge
     # Convert dumpster_sizes to JSON string for storage
     dumpster_sizes_json = json.dumps([size.dict() for size in company.dumpster_sizes])
     
+    # Geocode the company's address
+    coordinates = await geocode_address(company.address, company.city, company.state, company.zip_code)
+    
     db_company = Company(
         name=company.name,
         email=company.email,
@@ -1089,6 +1230,9 @@ async def create_company(company: CompanyCreate, current_user: User = Depends(ge
         city=company.city,
         state=company.state,
         zip_code=company.zip_code,
+        latitude=coordinates[0] if coordinates else None,
+        longitude=coordinates[1] if coordinates else None,
+        geocoded_at=datetime.utcnow() if coordinates else None,
         website=company.website,
         service_areas=company.service_areas,
         dumpster_sizes=dumpster_sizes_json,
@@ -1116,13 +1260,22 @@ async def create_company(company: CompanyCreate, current_user: User = Depends(ge
     return CompanyResponse(**response_data)
 
 @app.get("/companies", response_model=list[CompanyResponse])
-async def get_companies(current_user: User = Depends(get_current_user), skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+async def get_companies(current_user: User = Depends(get_current_user), skip: int = 0, limit: int = 100, proximity_filter: bool = True, db: Session = Depends(get_db)):
     if current_user.user_type == "company":
         # Company users can only see their own companies
         companies = db.query(Company).filter(Company.created_by == current_user.id).offset(skip).limit(limit).all()
     else:
         # Rental users can see all companies to select services
         companies = db.query(Company).offset(skip).limit(limit).all()
+        
+        # Filter by proximity for rental users using geographic distance if coordinates available
+        if proximity_filter:
+            if current_user.latitude and current_user.longitude:
+                # Use accurate geographic distance
+                companies = await filter_companies_by_actual_distance(companies, current_user.latitude, current_user.longitude)
+            elif current_user.zip_code:
+                # Fallback to zip code approximation
+                companies = filter_companies_by_proximity(companies, current_user.zip_code)
     result = []
     for company in companies:
         company_data = {
