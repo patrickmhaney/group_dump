@@ -14,7 +14,7 @@ interface Group {
   status: string;
   created_by: number;
   created_at: string;
-  time_slots?: TimeSlot[];
+  dropoff_dates?: DropoffDate[];
   vendor_id?: number;
   vendor_name?: string;
   invitees?: GroupInvitee[];
@@ -58,10 +58,9 @@ interface DumpsterSize {
   additional_day_price: string;
 }
 
-interface TimeSlot {
+interface DropoffDate {
   id: number;
-  start_date: string;
-  end_date: string;
+  date: string;
 }
 
 interface Invitee {
@@ -81,16 +80,14 @@ interface Rental {
   status: string;
 }
 
-interface UserTimeSlotSelection {
-  time_slot_id: number;
-  start_date: string;
-  end_date: string;
+interface UserDropoffDateSelection {
+  dropoff_date_id: number;
+  date: string;
 }
 
-interface TimeSlotAnalysis {
-  time_slot_id: number;
-  start_date: string;
-  end_date: string;
+interface DropoffDateAnalysis {
+  dropoff_date_id: number;
+  date: string;
   selected_by_count: number;
   selected_by_users: string[];
   is_universal: boolean;
@@ -262,12 +259,12 @@ const Groups: React.FC = () => {
     vendor_id: '',
     selected_dumpster_size: ''
   });
-  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
+  const [dropoffDates, setDropoffDates] = useState<DropoffDate[]>([]);
   const [invitees, setInvitees] = useState<Invitee[]>([]);
-  const [userTimeSlotSelections, setUserTimeSlotSelections] = useState<{[groupId: number]: number[]}>({});
-  const [timeSlotAnalyses, setTimeSlotAnalyses] = useState<{[groupId: number]: TimeSlotAnalysis[]}>({});
+  const [userDropoffDateSelections, setUserDropoffDateSelections] = useState<{[groupId: number]: number[]}>({});
+  const [dropoffDateAnalyses, setDropoffDateAnalyses] = useState<{[groupId: number]: DropoffDateAnalysis[]}>({});
   const [paymentStatuses, setPaymentStatuses] = useState<{[groupId: number]: GroupPaymentStatus[]}>({});
-  const [selectedFinalTimeSlots, setSelectedFinalTimeSlots] = useState<{[groupId: number]: number}>({});
+  const [selectedFinalDropoffDates, setSelectedFinalDropoffDates] = useState<{[groupId: number]: number}>({});
   const [costBreakdowns, setCostBreakdowns] = useState<{[groupId: number]: any}>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState<{groupId: number; groupName: string; groupAddress: string} | null>(null);
@@ -306,14 +303,14 @@ const Groups: React.FC = () => {
     }
   }, []);
 
-  // Auto-load time slot data for all groups with time slots
+  // Auto-load drop off date data for all groups with drop off dates
   useEffect(() => {
     groups.forEach(group => {
-      if (group.time_slots && group.time_slots.length > 0 && 
+      if (group.dropoff_dates && group.dropoff_dates.length > 0 && 
           (group.current_participants || 0) < group.max_participants) {
-        // Load time slot data for groups that are still forming
-        fetchUserTimeSlotSelections(group.id);
-        fetchTimeSlotAnalysis(group.id);
+        // Load dropoff date data for groups that are still forming
+        fetchUserDropoffDateSelections(group.id);
+        fetchDropoffDateAnalysis(group.id);
       }
     });
   }, [groups]);
@@ -414,28 +411,28 @@ const Groups: React.FC = () => {
     }
   };
 
-  const fetchUserTimeSlotSelections = async (groupId: number) => {
+  const fetchUserDropoffDateSelections = async (groupId: number) => {
     try {
-      const response = await axios.get(`/groups/${groupId}/user-time-slots`);
-      const timeSlotIds = response.data.map((selection: UserTimeSlotSelection) => selection.time_slot_id);
-      setUserTimeSlotSelections(prev => ({
+      const response = await axios.get(`/groups/${groupId}/user-dropoff-dates`);
+      const dropoffDateIds = response.data.map((selection: UserDropoffDateSelection) => selection.dropoff_date_id);
+      setUserDropoffDateSelections(prev => ({
         ...prev,
-        [groupId]: timeSlotIds
+        [groupId]: dropoffDateIds
       }));
     } catch (error) {
-      console.error('Error fetching user time slot selections:', error);
+      console.error('Error fetching user dropoff date selections:', error);
     }
   };
 
-  const fetchTimeSlotAnalysis = async (groupId: number) => {
+  const fetchDropoffDateAnalysis = async (groupId: number) => {
     try {
-      const response = await axios.get(`/groups/${groupId}/time-slot-analysis`);
-      setTimeSlotAnalyses(prev => ({
+      const response = await axios.get(`/groups/${groupId}/dropoff-date-analysis`);
+      setDropoffDateAnalyses(prev => ({
         ...prev,
         [groupId]: response.data
       }));
     } catch (error) {
-      console.error('Error fetching time slot analysis:', error);
+      console.error('Error fetching dropoff date analysis:', error);
     }
   };
 
@@ -463,26 +460,26 @@ const Groups: React.FC = () => {
     }
   };
 
-  const updateUserTimeSlotSelections = async (groupId: number, timeSlotIds: number[]) => {
+  const updateUserDropoffDateSelections = async (groupId: number, dropoffDateIds: number[]) => {
     try {
-      await axios.put(`/groups/${groupId}/user-time-slots`, {
-        time_slot_ids: timeSlotIds
+      await axios.put(`/groups/${groupId}/user-dropoff-dates`, {
+        dropoff_date_ids: dropoffDateIds
       });
       
-      setUserTimeSlotSelections(prev => ({
+      setUserDropoffDateSelections(prev => ({
         ...prev,
-        [groupId]: timeSlotIds
+        [groupId]: dropoffDateIds
       }));
       
       // Refresh the analysis to show updated counts
-      await fetchTimeSlotAnalysis(groupId);
+      await fetchDropoffDateAnalysis(groupId);
       
-      setMessage('Time slot selections updated successfully!');
+      setMessage('Drop off date selections updated successfully!');
       setTimeout(() => setMessage(''), 3000);
     } catch (error: any) {
       const errorMessage = typeof error.response?.data?.detail === 'string' 
         ? error.response.data.detail
-        : 'Error updating time slot selections';
+        : 'Error updating drop off date selections';
       setMessage(errorMessage);
       setTimeout(() => setMessage(''), 3000);
     }
@@ -503,7 +500,7 @@ const Groups: React.FC = () => {
       const groupData: any = {
         ...formData,
         address: `${formData.street_address}, ${formData.city}, ${formData.state} ${formData.zip_code}`,
-        time_slots: timeSlots,
+        dropoff_dates: dropoffDates,
         invitees: invitees,
         payment_method_details: {
           preferred_method: paymentMethodType,
@@ -533,7 +530,7 @@ const Groups: React.FC = () => {
       setGroups([response.data, ...groups]);
       setShowCreateForm(false);
       setFormData({ name: user ? `${user.name}'s Group Dump` : '', street_address: '', city: '', state: '', zip_code: '', max_participants: 2, vendor_id: '', selected_dumpster_size: '' });
-      setTimeSlots([]);
+      setDropoffDates([]);
       setInvitees([]);
       setMessage('Group created successfully with payment setup! Invitations have been sent.');
       setTimeout(() => setMessage(''), 5000);
@@ -584,17 +581,17 @@ const Groups: React.FC = () => {
   };
 
   const handleJoinGroup = async (groupId: number) => {
-    // Find the group to check if it has time slots
+    // Find the group to check if it has drop off dates
     const group = groups.find(g => g.id === groupId);
-    if (group && group.time_slots && group.time_slots.length > 0) {
-      setMessage('This group has time slots that require selection. Please use the invitation link sent to your email to join and select your available time slots.');
+    if (group && group.dropoff_dates && group.dropoff_dates.length > 0) {
+      setMessage('This group has drop off dates that require selection. Please use the invitation link sent to your email to join and select your available drop off dates.');
       setTimeout(() => setMessage(''), 5000);
       return;
     }
 
     try {
       await axios.post(`/groups/${groupId}/join`, {
-        time_slot_ids: []
+        dropoff_date_ids: []
       });
       setMessage('Successfully joined group!');
       setTimeout(() => setMessage(''), 3000);
@@ -650,42 +647,31 @@ const Groups: React.FC = () => {
     });
   };
 
-  const addTimeSlot = () => {
-    if (timeSlots.length < 5) {
+  const addDropoffDate = () => {
+    if (dropoffDates.length < 5) {
       const today = new Date();
-      const startDate = new Date(today);
-      startDate.setDate(today.getDate() + 1);
-      const endDate = new Date(startDate);
-      endDate.setDate(startDate.getDate() + 6);
-
-      const newSlot: TimeSlot = {
-        id: Date.now(), // Temporary ID for new slots
-        start_date: startDate.toISOString().split('T')[0],
-        end_date: endDate.toISOString().split('T')[0]
+      const dropoffDate = new Date(today);
+      dropoffDate.setDate(today.getDate() + 1);
+      const newDate: DropoffDate = {
+        id: Date.now(), // Temporary ID for new dates
+        date: dropoffDate.toISOString().split('T')[0]
       };
-      setTimeSlots([...timeSlots, newSlot]);
+      setDropoffDates([...dropoffDates, newDate]);
     }
   };
 
-  const removeTimeSlot = (index: number) => {
-    setTimeSlots(timeSlots.filter((_, i) => i !== index));
+  const removeDropoffDate = (index: number) => {
+    setDropoffDates(dropoffDates.filter((_, i) => i !== index));
   };
 
-  const updateTimeSlot = (index: number, field: keyof TimeSlot, value: string) => {
-    const updatedSlots = timeSlots.map((slot, i) => {
+  const updateDropoffDate = (index: number, field: keyof DropoffDate, value: string) => {
+    const updatedDates = dropoffDates.map((date, i) => {
       if (i === index) {
-        const updatedSlot = { ...slot, [field]: value };
-        if (field === 'start_date') {
-          const startDate = new Date(value);
-          const endDate = new Date(startDate);
-          endDate.setDate(startDate.getDate() + 6);
-          updatedSlot.end_date = endDate.toISOString().split('T')[0];
-        }
-        return updatedSlot;
+        return { ...date, [field]: value };
       }
-      return slot;
+      return date;
     });
-    setTimeSlots(updatedSlots);
+    setDropoffDates(updatedDates);
   };
 
   const addInvitee = () => {
@@ -706,19 +692,19 @@ const Groups: React.FC = () => {
     setInvitees(updatedInvitees);
   };
 
-  const handleTimeSlotToggle = (groupId: number, timeSlotId: number) => {
-    const currentSelections = userTimeSlotSelections[groupId] || [];
-    const newSelections = currentSelections.includes(timeSlotId)
-      ? currentSelections.filter(id => id !== timeSlotId)
-      : [...currentSelections, timeSlotId];
+  const handleDropoffDateToggle = (groupId: number, dropoffDateId: number) => {
+    const currentSelections = userDropoffDateSelections[groupId] || [];
+    const newSelections = currentSelections.includes(dropoffDateId)
+      ? currentSelections.filter(id => id !== dropoffDateId)
+      : [...currentSelections, dropoffDateId];
     
-    updateUserTimeSlotSelections(groupId, newSelections);
+    updateUserDropoffDateSelections(groupId, newSelections);
   };
 
-  const handleFinalTimeSlotSelection = (groupId: number, timeSlotId: number) => {
-    setSelectedFinalTimeSlots(prev => ({
+  const handleFinalDropoffDateSelection = (groupId: number, dropoffDateId: number) => {
+    setSelectedFinalDropoffDates(prev => ({
       ...prev,
-      [groupId]: timeSlotId
+      [groupId]: dropoffDateId
     }));
   };
 
@@ -821,10 +807,10 @@ const Groups: React.FC = () => {
             </div>
             <div style={{ marginBottom: '15px' }}>
               <label style={{ display: 'block', fontSize: '16px', marginBottom: '10px', fontWeight: 'bold', color: '#333' }}>
-                Maximum Group Members
+                Group Members
               </label>
               <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
-                Choose how many people can join your group (including yourself)
+                Total number of people in your group (including yourself). When this number is reached, the group will be ready to proceed with booking.
               </p>
               <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
                 {[2, 3, 4].map(num => (
@@ -1308,15 +1294,15 @@ const Groups: React.FC = () => {
             <div className="time-slots-section" style={{ marginBottom: '20px' }}>
               <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', fontSize: '16px', marginBottom: '10px', fontWeight: 'bold', color: '#333' }}>
-                  Add Potential Service Dates
+                  Add Potential Drop Off Dates
                 </label>
                 <p style={{ color: '#666', fontSize: '14px', marginBottom: '15px' }}>
-                  Choose up to 5 different 7-day periods when your group could rent the dumpster. 
+                  Choose up to 5 different dates when your group could have the dumpster dropped off. 
                   This helps coordinate everyone's schedule.
                 </p>
               </div>
               
-              {timeSlots.length === 0 ? (
+              {dropoffDates.length === 0 ? (
                 <div style={{ 
                   textAlign: 'center', 
                   padding: '40px 20px', 
@@ -1326,16 +1312,16 @@ const Groups: React.FC = () => {
                   <button
                     type="button"
                     className="button"
-                    onClick={addTimeSlot}
+                    onClick={addDropoffDate}
                     style={{ fontSize: '16px', padding: '12px 24px' }}
                   >
-                    Add Your First Time Slot
+                    Add Your First Drop Off Date
                   </button>
                 </div>
               ) : (
                 <>
-                  <div className="time-slots-list" style={{ marginBottom: '20px' }}>
-                    {timeSlots.map((slot, index) => (
+                  <div className="dropoff-dates-list" style={{ marginBottom: '20px' }}>
+                    {dropoffDates.map((date, index) => (
                       <div 
                         key={index} 
                         style={{ 
@@ -1356,12 +1342,12 @@ const Groups: React.FC = () => {
                               marginBottom: '8px',
                               color: '#495057'
                             }}>
-                              Start Date
+                              Drop Off Date
                             </label>
                             <input
                               type="date"
-                              value={slot.start_date}
-                              onChange={(e) => updateTimeSlot(index, 'start_date', e.target.value)}
+                              value={date.date}
+                              onChange={(e) => updateDropoffDate(index, 'date', e.target.value)}
                               style={{ 
                                 width: '100%',
                                 padding: '12px',
@@ -1372,46 +1358,11 @@ const Groups: React.FC = () => {
                             />
                           </div>
                           
-                          <div style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            color: '#6c757d',
-                            fontSize: '24px',
-                            margin: '20px 0 0 0'
-                          }}>
-                            →
-                          </div>
-                          
-                          <div style={{ flex: '1 1 200px' }}>
-                            <label style={{ 
-                              display: 'block', 
-                              fontSize: '14px', 
-                              fontWeight: 'bold',
-                              marginBottom: '8px',
-                              color: '#495057'
-                            }}>
-                              End Date (Auto-calculated)
-                            </label>
-                            <input
-                              type="date"
-                              value={slot.end_date}
-                              readOnly
-                              style={{ 
-                                width: '100%',
-                                padding: '12px',
-                                border: '2px solid #e9ecef',
-                                borderRadius: '8px',
-                                backgroundColor: '#f8f9fa',
-                                color: '#6c757d',
-                                fontSize: '16px'
-                              }}
-                            />
-                          </div>
                           
                           <div style={{ flex: '0 0 auto', marginTop: '20px' }}>
                             <button
                               type="button"
-                              onClick={() => removeTimeSlot(index)}
+                              onClick={() => removeDropoffDate(index)}
                               style={{
                                 padding: '10px 15px',
                                 backgroundColor: '#dc3545',
@@ -1445,7 +1396,7 @@ const Groups: React.FC = () => {
                           border: '1px solid #d4edda'
                         }}>
                           <div style={{ fontSize: '14px', color: '#155724', fontWeight: 'bold' }}>
-                            7-Day Rental Period: {new Date(slot.start_date).toLocaleDateString()} - {new Date(slot.end_date).toLocaleDateString()}
+                            Drop Off Date: {new Date(date.date).toLocaleDateString()}
                           </div>
                         </div>
                       </div>
@@ -1456,20 +1407,20 @@ const Groups: React.FC = () => {
                     <button
                       type="button"
                       className="button button-secondary"
-                      onClick={addTimeSlot}
-                      disabled={timeSlots.length >= 5}
+                      onClick={addDropoffDate}
+                      disabled={dropoffDates.length >= 5}
                       style={{
                         padding: '12px 24px',
                         fontSize: '16px',
-                        opacity: timeSlots.length >= 5 ? 0.6 : 1,
-                        cursor: timeSlots.length >= 5 ? 'not-allowed' : 'pointer'
+                        opacity: dropoffDates.length >= 5 ? 0.6 : 1,
+                        cursor: dropoffDates.length >= 5 ? 'not-allowed' : 'pointer'
                       }}
                     >
-                      Add Another Time Slot ({timeSlots.length}/5)
+                      Add Another Drop Off Date ({dropoffDates.length}/5)
                     </button>
-                    {timeSlots.length >= 5 && (
+                    {dropoffDates.length >= 5 && (
                       <p style={{ color: '#dc3545', fontSize: '14px', marginTop: '8px', fontStyle: 'italic' }}>
-                        Maximum of 5 time slots reached
+                        Maximum of 5 drop off dates reached
                       </p>
                     )}
                   </div>
@@ -1595,6 +1546,18 @@ const Groups: React.FC = () => {
             {groups.map((group) => {
               const isReady = (group.current_participants || 0) >= group.max_participants;
               const isCreator = group.created_by === user?.id;
+              
+              // Debug logging for creator view issues
+              if (isCreator) {
+                console.log(`Group ${group.id} (${group.name}):`, {
+                  isReady,
+                  vendor_id: group.vendor_id,
+                  selectedFinalDropoffDate: selectedFinalDropoffDates[group.id],
+                  current_participants: group.current_participants,
+                  max_participants: group.max_participants,
+                  dropoff_dates: group.dropoff_dates
+                });
+              }
               
               return (
                 <div key={group.id} style={{
@@ -1940,11 +1903,31 @@ const Groups: React.FC = () => {
                   </div>
 
                   {/* Enhanced Vendor Information */}
-                  {group.vendor_id && <VendorDetails vendorId={group.vendor_id} groupId={group.id} />}
+                  {group.vendor_id && (
+                    <>
+                      <div style={{ marginBottom: '10px', fontSize: '14px', color: '#666' }}>
+                        Debug: Showing vendor details for vendor_id: {group.vendor_id}
+                      </div>
+                      <VendorDetails vendorId={group.vendor_id} groupId={group.id} />
+                    </>
+                  )}
+                  {!group.vendor_id && isCreator && (
+                    <div style={{ 
+                      marginBottom: '20px',
+                      padding: '12px',
+                      backgroundColor: '#fff3cd',
+                      borderRadius: '8px',
+                      border: '1px solid #ffeaa7',
+                      fontSize: '14px',
+                      color: '#856404'
+                    }}>
+                      ⚠️ No vendor selected for this group. Vendor selection should have been done during group creation.
+                    </div>
+                  )}
 
 
-                  {/* Time Slots Section */}
-                  {group.time_slots && group.time_slots.length > 0 && (
+                  {/* Drop Off Dates Section */}
+                  {group.dropoff_dates && group.dropoff_dates.length > 0 && (
                     <div style={{ marginBottom: '20px' }}>
                       <div style={{ 
                         display: 'flex', 
@@ -1965,16 +1948,16 @@ const Groups: React.FC = () => {
                           border: '1px solid #dee2e6'
                         }}>
                           <div style={{ marginBottom: '12px', fontSize: '14px', color: '#495057' }}>
-                            Select your available time slots to help coordinate the group:
+                            Select your available drop off dates to help coordinate the group:
                           </div>
                           
-                          {group.time_slots.map((slot) => {
-                            const isSelected = (userTimeSlotSelections[group.id] || []).includes(slot.id);
-                            const analysis = timeSlotAnalyses[group.id]?.find(a => a.time_slot_id === slot.id);
+                          {group.dropoff_dates.map((date) => {
+                            const isSelected = (userDropoffDateSelections[group.id] || []).includes(date.id);
+                            const analysis = dropoffDateAnalyses[group.id]?.find(a => a.dropoff_date_id === date.id);
                             
                             return (
                               <div 
-                                key={slot.id} 
+                                key={date.id} 
                                 style={{ 
                                   marginBottom: '12px',
                                   padding: '12px',
@@ -1988,7 +1971,7 @@ const Groups: React.FC = () => {
                                   <input
                                     type="checkbox"
                                     checked={isSelected}
-                                    onChange={() => handleTimeSlotToggle(group.id, slot.id)}
+                                    onChange={() => handleDropoffDateToggle(group.id, date.id)}
                                     disabled={paymentRequestsSent.has(group.id)}
                                     style={{ 
                                       marginTop: '2px',
@@ -2004,7 +1987,7 @@ const Groups: React.FC = () => {
                                       marginBottom: '4px',
                                       color: '#2c3e50'
                                     }}>
-                                      {new Date(slot.start_date).toLocaleDateString()} - {new Date(slot.end_date).toLocaleDateString()}
+                                      {new Date(date.date).toLocaleDateString()}
                                     </div>
                                     {analysis && (
                                       <div style={{ fontSize: '13px', color: '#6c757d' }}>
@@ -2062,17 +2045,17 @@ const Groups: React.FC = () => {
                           border: '1px solid #b3d9ff'
                         }}>
                           <div style={{ marginBottom: '12px', fontSize: '14px', color: '#0066cc', fontWeight: 'bold' }}>
-                            🔒 Time slots finalized after payment requests sent
+                            🔒 Drop off dates finalized after payment requests sent
                           </div>
                           
                           <div style={{ display: 'grid', gap: '8px' }}>
-                            {group.time_slots.map((slot) => {
-                              const isSelected = (userTimeSlotSelections[group.id] || []).includes(slot.id);
-                              const analysis = timeSlotAnalyses[group.id]?.find(a => a.time_slot_id === slot.id);
+                            {group.dropoff_dates.map((date) => {
+                              const isSelected = (userDropoffDateSelections[group.id] || []).includes(date.id);
+                              const analysis = dropoffDateAnalyses[group.id]?.find(a => a.dropoff_date_id === date.id);
                               
                               return (
                                 <div 
-                                  key={slot.id} 
+                                  key={date.id} 
                                   style={{
                                     padding: '12px',
                                     borderRadius: '8px',
@@ -2103,7 +2086,7 @@ const Groups: React.FC = () => {
                                         marginBottom: '4px',
                                         color: isSelected ? '#0066cc' : '#666'
                                       }}>
-                                        {new Date(slot.start_date).toLocaleDateString()} - {new Date(slot.end_date).toLocaleDateString()}
+                                        {new Date(date.date).toLocaleDateString()}
                                       </div>
                                       {analysis && (
                                         <div style={{ 
@@ -2166,17 +2149,17 @@ const Groups: React.FC = () => {
                                 borderRadius: '8px',
                                 border: '1px solid #bee5eb'
                               }}>
-                                <strong>Final Step:</strong> Your group is ready! Select one time slot to finalize booking.
+                                <strong>Final Step:</strong> Your group is ready! Select one drop off date to finalize booking.
                               </div>
                               <div style={{ display: 'grid', gap: '8px' }}>
-                                {group.time_slots.map((slot) => {
-                                  const analysis = timeSlotAnalyses[group.id]?.find(a => a.time_slot_id === slot.id);
-                                  const isSelected = selectedFinalTimeSlots[group.id] === slot.id;
+                                {group.dropoff_dates.map((date) => {
+                                  const analysis = dropoffDateAnalyses[group.id]?.find(a => a.dropoff_date_id === date.id);
+                                  const isSelected = selectedFinalDropoffDates[group.id] === date.id;
                                   
                                   return (
                                     <div 
-                                      key={slot.id} 
-                                      onClick={() => handleFinalTimeSlotSelection(group.id, slot.id)}
+                                      key={date.id} 
+                                      onClick={() => handleFinalDropoffDateSelection(group.id, date.id)}
                                       style={{ 
                                         padding: '12px',
                                         backgroundColor: isSelected ? '#d4edda' : '#f8f9fa',
@@ -2203,7 +2186,7 @@ const Groups: React.FC = () => {
                                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <div>
                                           <div style={{ fontWeight: '500' }}>
-                                            {new Date(slot.start_date).toLocaleDateString()} - {new Date(slot.end_date).toLocaleDateString()}
+                                            {new Date(date.date).toLocaleDateString()}
                                           </div>
                                           {analysis && (
                                             <div style={{ fontSize: '12px', color: '#6c757d', marginTop: '4px' }}>
@@ -2221,9 +2204,9 @@ const Groups: React.FC = () => {
                               </div>
                             </>
                           ) : (
-                            // For non-creators, show the final selected time slot or pending selection
+                            // For non-creators, show the final selected drop off date or pending selection
                             <div style={{ display: 'grid', gap: '8px' }}>
-                              {selectedFinalTimeSlots[group.id] ? (
+                              {selectedFinalDropoffDates[group.id] ? (
                                 <div style={{ 
                                   padding: '12px',
                                   backgroundColor: '#d4edda',
@@ -2233,12 +2216,12 @@ const Groups: React.FC = () => {
                                   color: '#495057'
                                 }}>
                                   <div style={{ fontWeight: 'bold', color: '#28a745', marginBottom: '4px' }}>
-                                    ✓ Final Time Slot Selected
+                                    ✓ Final Drop Off Date Selected
                                   </div>
                                   <div>
                                     {(() => {
-                                      const selectedSlot = group.time_slots?.find(s => s.id === selectedFinalTimeSlots[group.id]);
-                                      return selectedSlot ? `${new Date(selectedSlot.start_date).toLocaleDateString()} - ${new Date(selectedSlot.end_date).toLocaleDateString()}` : '';
+                                      const selectedDate = group.dropoff_dates?.find(d => d.id === selectedFinalDropoffDates[group.id]);
+                                      return selectedDate ? `${new Date(selectedDate.start_date).toLocaleDateString()}` : '';
                                     })()}
                                   </div>
                                 </div>
@@ -2251,7 +2234,7 @@ const Groups: React.FC = () => {
                                   fontSize: '14px',
                                   color: '#856404'
                                 }}>
-                                  ⏳ Waiting for group creator to select final time slot...
+                                  ⏳ Waiting for group creator to select final drop off date...
                                 </div>
                               )}
                             </div>
@@ -2321,7 +2304,33 @@ const Groups: React.FC = () => {
                       ) : (
                         // Creator actions
                         <>
-                          {isReady && selectedFinalTimeSlots[group.id] && (
+                          {/* Debug info for creators */}
+                          {isCreator && (
+                            <div style={{ 
+                              fontSize: '12px', 
+                              color: '#666', 
+                              marginBottom: '8px',
+                              padding: '8px',
+                              backgroundColor: '#f8f9fa',
+                              borderRadius: '4px'
+                            }}>
+                              Debug: isReady={isReady.toString()}, vendor_id={group.vendor_id || 'none'}, selectedFinalDropoffDate={selectedFinalDropoffDates[group.id] || 'none'}
+                            </div>
+                          )}
+                          {isReady && !selectedFinalDropoffDates[group.id] && isCreator && (
+                            <div style={{ 
+                              padding: '12px',
+                              backgroundColor: '#d4edda',
+                              borderRadius: '8px',
+                              border: '1px solid #c3e6cb',
+                              fontSize: '14px',
+                              color: '#155724',
+                              marginBottom: '10px'
+                            }}>
+                              🎉 Your group is ready! Please select a final dropoff date above to proceed with booking.
+                            </div>
+                          )}
+                          {isReady && selectedFinalDropoffDates[group.id] && (
                             <button
                               className="button"
                               onClick={() => {

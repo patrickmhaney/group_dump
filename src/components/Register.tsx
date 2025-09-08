@@ -9,6 +9,8 @@ const Register: React.FC = () => {
     name: '',
     phone: '',
     address: '',
+    city: '',
+    state: '',
     zip_code: '',
     password: '',
     confirmPassword: '',
@@ -44,6 +46,8 @@ const Register: React.FC = () => {
         name: formData.name,
         phone: formData.phone,
         address: formData.address,
+        city: formData.city,
+        state: formData.state,
         zip_code: formData.zip_code,
         password: formData.password,
         user_type: formData.user_type
@@ -124,6 +128,22 @@ const Register: React.FC = () => {
           name="address"
           placeholder="Address"
           value={formData.address}
+          onChange={handleChange}
+          required
+        />
+        <input
+          type="text"
+          name="city"
+          placeholder="City"
+          value={formData.city}
+          onChange={handleChange}
+          required
+        />
+        <input
+          type="text"
+          name="state"
+          placeholder="State"
+          value={formData.state}
           onChange={handleChange}
           required
         />

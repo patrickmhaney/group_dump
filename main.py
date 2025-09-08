@@ -146,7 +146,7 @@ class Group(Base):
     
     members = relationship("GroupMember", back_populates="group")
     rentals = relationship("Rental", back_populates="group")
-    time_slots = relationship("TimeSlot", back_populates="group")
+    dropoff_dates = relationship("DropoffDate", back_populates="group")
     invitees = relationship("Invitee", back_populates="group")
     vendor = relationship("Company", foreign_keys=[vendor_id])
 
@@ -187,15 +187,14 @@ class Company(Base):
     rentals = relationship("Rental", back_populates="company")
     creator = relationship("User", foreign_keys=[created_by])
 
-class TimeSlot(Base):
-    __tablename__ = "time_slots"
+class DropoffDate(Base):
+    __tablename__ = "dropoff_dates"
     
     id = Column(Integer, primary_key=True, index=True)
     group_id = Column(Integer, ForeignKey("groups.id"))
-    start_date = Column(String)
-    end_date = Column(String)
+    date = Column(String)
     
-    group = relationship("Group", back_populates="time_slots")
+    group = relationship("Group", back_populates="dropoff_dates")
 
 class Invitee(Base):
     __tablename__ = "invitees"
@@ -211,17 +210,17 @@ class Invitee(Base):
     
     group = relationship("Group", back_populates="invitees")
 
-class UserTimeSlotSelection(Base):
-    __tablename__ = "user_time_slot_selections"
-    __table_args__ = (UniqueConstraint('time_slot_id', 'group_member_id'),)
+class UserDropoffDateSelection(Base):
+    __tablename__ = "user_dropoff_date_selections"
+    __table_args__ = (UniqueConstraint('dropoff_date_id', 'group_member_id'),)
     
     id = Column(Integer, primary_key=True, index=True)
     group_member_id = Column(Integer, ForeignKey("group_members.id"))
-    time_slot_id = Column(Integer, ForeignKey("time_slots.id"))
+    dropoff_date_id = Column(Integer, ForeignKey("dropoff_dates.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
     
     member = relationship("GroupMember", foreign_keys=[group_member_id])
-    time_slot = relationship("TimeSlot", foreign_keys=[time_slot_id])
+    dropoff_date = relationship("DropoffDate", foreign_keys=[dropoff_date_id])
 
 class Rental(Base):
     __tablename__ = "rentals"
@@ -472,14 +471,12 @@ class UserResponse(BaseModel):
     class Config:
         from_attributes = True
 
-class TimeSlotCreate(BaseModel):
-    start_date: str
-    end_date: str
+class DropoffDateCreate(BaseModel):
+    date: str
 
-class TimeSlotResponse(BaseModel):
+class DropoffDateResponse(BaseModel):
     id: int
-    start_date: str
-    end_date: str
+    date: str
     
     class Config:
         from_attributes = True
@@ -512,13 +509,13 @@ class GroupCreate(BaseModel):
     address: str
     max_participants: int = 5
     vendor_id: Optional[int] = None
-    time_slots: Optional[List[TimeSlotCreate]] = []
+    dropoff_dates: Optional[List[DropoffDateCreate]] = []
     invitees: Optional[List[InviteeCreate]] = []
     payment_method_details: Optional[PaymentMethodSetupRequest] = None
     rental_info: Optional[RentalInfo] = None
 
 class JoinGroupRequest(BaseModel):
-    time_slot_ids: List[int]
+    dropoff_date_ids: List[int]
 
 class ParticipantResponse(BaseModel):
     id: int
@@ -540,7 +537,7 @@ class GroupResponse(BaseModel):
     vendor_id: Optional[int] = None
     vendor_name: Optional[str] = None
     created_at: datetime
-    time_slots: Optional[List[TimeSlotResponse]] = []
+    dropoff_dates: Optional[List[DropoffDateResponse]] = []
     participants: Optional[List[ParticipantResponse]] = []
     invitees: Optional[List[InviteeResponse]] = []
     
@@ -701,14 +698,13 @@ async def create_group(group: GroupCreate, current_user: User = Depends(get_curr
         db.refresh(db_group)
         
         # Create time slots if provided
-        if group.time_slots:
-            for time_slot_data in group.time_slots:
-                time_slot = TimeSlot(
+        if group.dropoff_dates:
+            for dropoff_date_data in group.dropoff_dates:
+                dropoff_date = DropoffDate(
                     group_id=db_group.id,
-                    start_date=time_slot_data.start_date,
-                    end_date=time_slot_data.end_date
+                    date=dropoff_date_data.date
                 )
-                db.add(time_slot)
+                db.add(dropoff_date)
             db.commit()
         
         # Create group member (creator)
@@ -721,24 +717,24 @@ async def create_group(group: GroupCreate, current_user: User = Depends(get_curr
         db.refresh(group_member)
         
         # Auto-select all time slots for the group creator
-        if group.time_slots:
+        if group.dropoff_dates:
             # Get the created time slots
-            created_time_slots = db.query(TimeSlot).filter(TimeSlot.group_id == db_group.id).all()
+            created_dropoff_dates = db.query(DropoffDate).filter(DropoffDate.group_id == db_group.id).all()
             
             # Create time slot selections for the creator for all time slots
-            for time_slot in created_time_slots:
+            for dropoff_date in created_dropoff_dates:
                 # Check if selection already exists
-                existing_selection = db.query(UserTimeSlotSelection).filter(
-                    UserTimeSlotSelection.group_member_id == group_member.id,
-                    UserTimeSlotSelection.time_slot_id == time_slot.id
+                existing_selection = db.query(UserDropoffDateSelection).filter(
+                    UserDropoffDateSelection.group_member_id == group_member.id,
+                    UserDropoffDateSelection.dropoff_date_id == dropoff_date.id
                 ).first()
                 
                 if not existing_selection:
-                    time_slot_selection = UserTimeSlotSelection(
+                    dropoff_date_selection = UserDropoffDateSelection(
                         group_member_id=group_member.id,
-                        time_slot_id=time_slot.id
+                        dropoff_date_id=dropoff_date.id
                     )
-                    db.add(time_slot_selection)
+                    db.add(dropoff_date_selection)
             
             db.commit()
         
@@ -791,7 +787,7 @@ async def create_group(group: GroupCreate, current_user: User = Depends(get_curr
                 # Log the error but don't fail the group creation
                 print(f"Error creating rental: {str(e)}")
         
-        # Refresh to get time_slots and invitees
+        # Refresh to get dropoff_dates and invitees
         db.refresh(db_group)
         
         # Get group members with user details for response
@@ -819,7 +815,7 @@ async def create_group(group: GroupCreate, current_user: User = Depends(get_curr
             "vendor_id": db_group.vendor_id,
             "vendor_name": db_group.vendor.name if db_group.vendor else None,
             "created_at": db_group.created_at,
-            "time_slots": [{"id": ts.id, "start_date": ts.start_date, "end_date": ts.end_date} for ts in db_group.time_slots],
+            "dropoff_dates": [{"id": ts.id, "date": ts.date} for ts in db.query(DropoffDate).filter(DropoffDate.group_id == db_group.id).all()],
             "participants": participants
         }
         
@@ -872,7 +868,7 @@ async def get_groups(skip: int = 0, limit: int = 100, db: Session = Depends(get_
             "vendor_id": group.vendor_id,
             "vendor_name": group.vendor.name if group.vendor else None,
             "created_at": group.created_at,
-            "time_slots": [{"id": ts.id, "start_date": ts.start_date, "end_date": ts.end_date} for ts in group.time_slots],
+            "dropoff_dates": [{"id": ts.id, "date": ts.date} for ts in db.query(DropoffDate).filter(DropoffDate.group_id == group.id).all()],
             "participants": participants,
             "invitees": invitees
         }
@@ -942,7 +938,7 @@ async def get_invited_groups(current_user: User = Depends(get_current_user), db:
             "vendor_id": group.vendor_id,
             "vendor_name": group.vendor.name if group.vendor else None,
             "created_at": group.created_at,
-            "time_slots": [{"id": ts.id, "start_date": ts.start_date, "end_date": ts.end_date} for ts in group.time_slots],
+            "dropoff_dates": [{"id": ts.id, "date": ts.date} for ts in db.query(DropoffDate).filter(DropoffDate.group_id == group.id).all()],
             "participants": participants,
             "invitees": invitees
         }
@@ -993,7 +989,7 @@ async def get_group(group_id: int, db: Session = Depends(get_db)):
         "vendor_id": group.vendor_id,
         "vendor_name": group.vendor.name if group.vendor else None,
         "created_at": group.created_at,
-        "time_slots": [{"id": ts.id, "start_date": ts.start_date, "end_date": ts.end_date} for ts in group.time_slots],
+        "dropoff_dates": [{"id": ts.id, "date": ts.date} for ts in db.query(DropoffDate).filter(DropoffDate.group_id == group.id).all()],
         "participants": participants,
         "invitees": invitees
     }
@@ -1017,18 +1013,18 @@ async def join_group(group_id: int, join_request: JoinGroupRequest, current_user
         raise HTTPException(status_code=400, detail="Group is full")
     
     # Get group time slots
-    group_time_slots = db.query(TimeSlot).filter(TimeSlot.group_id == group_id).all()
+    group_dropoff_dates = db.query(DropoffDate).filter(DropoffDate.group_id == group_id).all()
     
     # Validate time slot selection - only required if group has time slots
-    if group_time_slots and not join_request.time_slot_ids:
+    if group_dropoff_dates and not join_request.dropoff_date_ids:
         raise HTTPException(status_code=400, detail="You must select at least one available time slot")
     
     # Verify that all selected time slots belong to this group
-    if join_request.time_slot_ids:
-        group_time_slot_ids = [ts.id for ts in group_time_slots]
-        for time_slot_id in join_request.time_slot_ids:
-            if time_slot_id not in group_time_slot_ids:
-                raise HTTPException(status_code=400, detail=f"Time slot {time_slot_id} does not belong to this group")
+    if join_request.dropoff_date_ids:
+        group_dropoff_date_ids = [ts.id for ts in group_dropoff_dates]
+        for dropoff_date_id in join_request.dropoff_date_ids:
+            if dropoff_date_id not in group_dropoff_date_ids:
+                raise HTTPException(status_code=400, detail=f"Time slot {dropoff_date_id} does not belong to this group")
     
     group_member = GroupMember(
         group_id=group_id,
@@ -1039,19 +1035,19 @@ async def join_group(group_id: int, join_request: JoinGroupRequest, current_user
     db.refresh(group_member)
     
     # Add user's time slot selections
-    for time_slot_id in join_request.time_slot_ids:
+    for dropoff_date_id in join_request.dropoff_date_ids:
         # Check if selection already exists
-        existing_selection = db.query(UserTimeSlotSelection).filter(
-            UserTimeSlotSelection.group_member_id == group_member.id,
-            UserTimeSlotSelection.time_slot_id == time_slot_id
+        existing_selection = db.query(UserDropoffDateSelection).filter(
+            UserDropoffDateSelection.group_member_id == group_member.id,
+            UserDropoffDateSelection.dropoff_date_id == dropoff_date_id
         ).first()
         
         if not existing_selection:
-            time_slot_selection = UserTimeSlotSelection(
+            dropoff_date_selection = UserDropoffDateSelection(
                 group_member_id=group_member.id,
-                time_slot_id=time_slot_id
+                dropoff_date_id=dropoff_date_id
             )
-            db.add(time_slot_selection)
+            db.add(dropoff_date_selection)
     
     db.commit()
     
@@ -1089,18 +1085,18 @@ async def join_group_by_token(token: str, join_request: JoinGroupRequest, curren
         raise HTTPException(status_code=400, detail="Group is full")
     
     # Get group time slots
-    group_time_slots = db.query(TimeSlot).filter(TimeSlot.group_id == group.id).all()
+    group_dropoff_dates = db.query(DropoffDate).filter(DropoffDate.group_id == group.id).all()
     
     # Validate time slot selection - only required if group has time slots
-    if group_time_slots and not join_request.time_slot_ids:
+    if group_dropoff_dates and not join_request.dropoff_date_ids:
         raise HTTPException(status_code=400, detail="You must select at least one available time slot")
     
     # Verify that all selected time slots belong to this group
-    if join_request.time_slot_ids:
-        group_time_slot_ids = [ts.id for ts in group_time_slots]
-        for time_slot_id in join_request.time_slot_ids:
-            if time_slot_id not in group_time_slot_ids:
-                raise HTTPException(status_code=400, detail=f"Time slot {time_slot_id} does not belong to this group")
+    if join_request.dropoff_date_ids:
+        group_dropoff_date_ids = [ts.id for ts in group_dropoff_dates]
+        for dropoff_date_id in join_request.dropoff_date_ids:
+            if dropoff_date_id not in group_dropoff_date_ids:
+                raise HTTPException(status_code=400, detail=f"Time slot {dropoff_date_id} does not belong to this group")
     
     # Add user to group (no payment info needed)
     group_member = GroupMember(
@@ -1112,19 +1108,19 @@ async def join_group_by_token(token: str, join_request: JoinGroupRequest, curren
     db.refresh(group_member)
     
     # Add user's time slot selections
-    for time_slot_id in join_request.time_slot_ids:
+    for dropoff_date_id in join_request.dropoff_date_ids:
         # Check if selection already exists
-        existing_selection = db.query(UserTimeSlotSelection).filter(
-            UserTimeSlotSelection.group_member_id == group_member.id,
-            UserTimeSlotSelection.time_slot_id == time_slot_id
+        existing_selection = db.query(UserDropoffDateSelection).filter(
+            UserDropoffDateSelection.group_member_id == group_member.id,
+            UserDropoffDateSelection.dropoff_date_id == dropoff_date_id
         ).first()
         
         if not existing_selection:
-            time_slot_selection = UserTimeSlotSelection(
+            dropoff_date_selection = UserDropoffDateSelection(
                 group_member_id=group_member.id,
-                time_slot_id=time_slot_id
+                dropoff_date_id=dropoff_date_id
             )
-            db.add(time_slot_selection)
+            db.add(dropoff_date_selection)
     
     # Remove the invitation token as it's been used
     db.delete(invitee)
@@ -1157,7 +1153,7 @@ async def get_group_by_token(token: str, db: Session = Depends(get_db)):
     member_count = db.query(GroupMember).filter(GroupMember.group_id == group.id).count()
     
     # Get time slots with IDs
-    time_slots = db.query(TimeSlot).filter(TimeSlot.group_id == group.id).all()
+    dropoff_dates = db.query(DropoffDate).filter(DropoffDate.group_id == group.id).all()
     
     return {
         "group": {
@@ -1172,7 +1168,7 @@ async def get_group_by_token(token: str, db: Session = Depends(get_db)):
                 "name": creator.name,
                 "email": creator.email
             } if creator else None,
-            "time_slots": [{"id": ts.id, "start_date": ts.start_date, "end_date": ts.end_date} for ts in time_slots]
+            "dropoff_dates": [{"id": ts.id, "date": ts.date} for ts in dropoff_dates]
         },
         "invitee": {
             "name": invitee.name,
@@ -1195,7 +1191,7 @@ async def delete_group(group_id: int, current_user: User = Depends(get_current_u
     db.query(GroupMember).filter(GroupMember.group_id == group_id).delete()
     
     # Delete time slots
-    db.query(TimeSlot).filter(TimeSlot.group_id == group_id).delete()
+    db.query(DropoffDate).filter(DropoffDate.group_id == group_id).delete()
     
     # Delete invitees
     db.query(Invitee).filter(Invitee.group_id == group_id).delete()
@@ -1309,6 +1305,7 @@ async def get_company(company_id: int, db: Session = Depends(get_db)):
         "address": company.address,
         "city": company.city,
         "state": company.state,
+        "zip_code": company.zip_code,
         "website": company.website,
         "service_areas": company.service_areas,
         "dumpster_sizes": [DumpsterSize(**size) for size in json.loads(company.dumpster_sizes)],
@@ -1444,27 +1441,27 @@ async def get_rentals(current_user: User = Depends(get_current_user), db: Sessio
     rentals = db.query(Rental).filter(Rental.group_id.in_(group_ids)).all()
     return rentals
 
-class UserTimeSlotSelectionResponse(BaseModel):
-    time_slot_id: int
+class UserDropoffDateSelectionResponse(BaseModel):
+    dropoff_date_id: int
     start_date: str
     end_date: str
     
     class Config:
         from_attributes = True
 
-class UpdateTimeSlotSelectionsRequest(BaseModel):
-    time_slot_ids: List[int]
+class UpdateDropoffDateSelectionsRequest(BaseModel):
+    dropoff_date_ids: List[int]
 
-class TimeSlotAnalysis(BaseModel):
-    time_slot_id: int
+class DropoffDateAnalysis(BaseModel):
+    dropoff_date_id: int
     start_date: str
     end_date: str
     selected_by_count: int
     selected_by_users: List[str]
     is_universal: bool  # True if ALL group members selected this slot
 
-@app.get("/groups/{group_id}/user-time-slots", response_model=List[UserTimeSlotSelectionResponse])
-async def get_user_time_slot_selections(group_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+@app.get("/groups/{group_id}/user-time-slots", response_model=List[UserDropoffDateSelectionResponse])
+async def get_user_dropoff_date_selections(group_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Get current user's time slot selections for a specific group"""
     # Check if user is a member of the group
     member = db.query(GroupMember).filter(
@@ -1476,26 +1473,26 @@ async def get_user_time_slot_selections(group_id: int, current_user: User = Depe
         raise HTTPException(status_code=403, detail="You are not a member of this group")
     
     # Get user's time slot selections
-    selections = db.query(UserTimeSlotSelection).filter(
-        UserTimeSlotSelection.group_member_id == member.id
+    selections = db.query(UserDropoffDateSelection).filter(
+        UserDropoffDateSelection.group_member_id == member.id
     ).all()
     
     result = []
     for selection in selections:
-        time_slot = db.query(TimeSlot).filter(TimeSlot.id == selection.time_slot_id).first()
-        if time_slot:
+        dropoff_date = db.query(DropoffDate).filter(DropoffDate.id == selection.dropoff_date_id).first()
+        if dropoff_date:
             result.append({
-                "time_slot_id": time_slot.id,
-                "start_date": time_slot.start_date,
-                "end_date": time_slot.end_date
+                "dropoff_date_id": dropoff_date.id,
+                "start_date": dropoff_date.start_date,
+                "end_date": dropoff_date.end_date
             })
     
     return result
 
 @app.put("/groups/{group_id}/user-time-slots")
-async def update_user_time_slot_selections(
+async def update_user_dropoff_date_selections(
     group_id: int, 
-    request: UpdateTimeSlotSelectionsRequest,
+    request: UpdateDropoffDateSelectionsRequest,
     current_user: User = Depends(get_current_user), 
     db: Session = Depends(get_db)
 ):
@@ -1510,38 +1507,38 @@ async def update_user_time_slot_selections(
         raise HTTPException(status_code=403, detail="You are not a member of this group")
     
     # Get group time slots
-    group_time_slots = db.query(TimeSlot).filter(TimeSlot.group_id == group_id).all()
+    group_dropoff_dates = db.query(DropoffDate).filter(DropoffDate.group_id == group_id).all()
     
     # Validate that time slots exist and belong to this group if any are provided
-    if request.time_slot_ids:
-        group_time_slot_ids = [ts.id for ts in group_time_slots]
-        for time_slot_id in request.time_slot_ids:
-            if time_slot_id not in group_time_slot_ids:
-                raise HTTPException(status_code=400, detail=f"Time slot {time_slot_id} does not belong to this group")
+    if request.dropoff_date_ids:
+        group_dropoff_date_ids = [ts.id for ts in group_dropoff_dates]
+        for dropoff_date_id in request.dropoff_date_ids:
+            if dropoff_date_id not in group_dropoff_date_ids:
+                raise HTTPException(status_code=400, detail=f"Time slot {dropoff_date_id} does not belong to this group")
     
     # Validate that at least one time slot is selected if group has time slots
-    if group_time_slots and not request.time_slot_ids:
+    if group_dropoff_dates and not request.dropoff_date_ids:
         raise HTTPException(status_code=400, detail="You must select at least one available time slot")
     
     # Remove existing selections
-    db.query(UserTimeSlotSelection).filter(
-        UserTimeSlotSelection.group_member_id == member.id
+    db.query(UserDropoffDateSelection).filter(
+        UserDropoffDateSelection.group_member_id == member.id
     ).delete()
     
     # Add new selections
-    for time_slot_id in request.time_slot_ids:
-        time_slot_selection = UserTimeSlotSelection(
+    for dropoff_date_id in request.dropoff_date_ids:
+        dropoff_date_selection = UserDropoffDateSelection(
             group_member_id=member.id,
-            time_slot_id=time_slot_id
+            dropoff_date_id=dropoff_date_id
         )
-        db.add(time_slot_selection)
+        db.add(dropoff_date_selection)
     
     db.commit()
     
     return {"message": "Time slot selections updated successfully"}
 
-@app.get("/groups/{group_id}/time-slot-analysis", response_model=List[TimeSlotAnalysis])
-async def get_time_slot_analysis(group_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+@app.get("/groups/{group_id}/time-slot-analysis", response_model=List[DropoffDateAnalysis])
+async def get_dropoff_date_analysis(group_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Get analysis of time slot selections for all group members"""
     # Check if user is a member of the group
     member = db.query(GroupMember).filter(
@@ -1553,17 +1550,17 @@ async def get_time_slot_analysis(group_id: int, current_user: User = Depends(get
         raise HTTPException(status_code=403, detail="You are not a member of this group")
     
     # Get all time slots for the group
-    time_slots = db.query(TimeSlot).filter(TimeSlot.group_id == group_id).all()
+    dropoff_dates = db.query(DropoffDate).filter(DropoffDate.group_id == group_id).all()
     
     # Get all group members
     members = db.query(GroupMember).filter(GroupMember.group_id == group_id).all()
     total_members = len(members)
     
     result = []
-    for time_slot in time_slots:
+    for dropoff_date in dropoff_dates:
         # Get all selections for this time slot
-        selections = db.query(UserTimeSlotSelection).filter(
-            UserTimeSlotSelection.time_slot_id == time_slot.id
+        selections = db.query(UserDropoffDateSelection).filter(
+            UserDropoffDateSelection.dropoff_date_id == dropoff_date.id
         ).all()
         
         # Get member IDs who selected this slot
@@ -1580,9 +1577,9 @@ async def get_time_slot_analysis(group_id: int, current_user: User = Depends(get
                     selected_users.append(user.name)
         
         result.append({
-            "time_slot_id": time_slot.id,
-            "start_date": time_slot.start_date,
-            "end_date": time_slot.end_date,
+            "dropoff_date_id": dropoff_date.id,
+            "start_date": dropoff_date.start_date,
+            "end_date": dropoff_date.end_date,
             "selected_by_count": len(selected_users),
             "selected_by_users": selected_users,
             "is_universal": len(selected_users) == total_members and total_members > 0

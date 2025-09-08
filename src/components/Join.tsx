@@ -4,10 +4,9 @@ import axios from 'axios';
 import { AuthContext } from '../App.tsx';
 import InviteePaymentSetup from './InviteePaymentSetup.tsx';
 
-interface TimeSlot {
+interface DropoffDate {
   id: number;
-  start_date: string;
-  end_date: string;
+  date: string;
 }
 
 interface Group {
@@ -18,7 +17,7 @@ interface Group {
   current_participants: number;
   status: string;
   created_at: string;
-  time_slots?: TimeSlot[];
+  dropoff_dates?: DropoffDate[];
   creator: {
     name: string;
     email: string;
@@ -43,7 +42,7 @@ const Join: React.FC = () => {
   const [error, setError] = useState('');
   const [joining, setJoining] = useState(false);
   const [joined, setJoined] = useState(false);
-  const [selectedTimeSlots, setSelectedTimeSlots] = useState<number[]>([]);
+  const [selectedDropoffDates, setSelectedDropoffDates] = useState<number[]>([]);
   const [showPaymentSetup, setShowPaymentSetup] = useState(false);
   const [paymentSetupComplete, setPaymentSetupComplete] = useState(false);
 
@@ -64,15 +63,15 @@ const Join: React.FC = () => {
     }
   }, [token]);
 
-  const handleTimeSlotToggle = (timeSlotId: number) => {
-    setSelectedTimeSlots(prev => {
+  const handleDropoffDateToggle = (timeSlotId: number) => {
+    setSelectedDropoffDates(prev => {
       if (prev.includes(timeSlotId)) {
         return prev.filter(id => id !== timeSlotId);
       } else {
         return [...prev, timeSlotId];
       }
     });
-    // Clear any previous error when user selects time slots
+    // Clear any previous error when user selects time dates
     if (error) {
       setError('');
     }
@@ -81,10 +80,10 @@ const Join: React.FC = () => {
   const handleProceedToPayment = () => {
     if (!user || !token) return;
     
-    // Only require time slot selection if the group has time slots
-    const hasTimeSlots = joinInfo?.group.time_slots && joinInfo.group.time_slots.length > 0;
-    if (hasTimeSlots && selectedTimeSlots.length === 0) {
-      setError('You must select at least one available time slot');
+    // Only require dropoff date selection if the group has dropoff dates
+    const hasDropoffDates = joinInfo?.group.dropoff_dates && joinInfo.group.dropoff_dates.length > 0;
+    if (hasDropoffDates && selectedDropoffDates.length === 0) {
+      setError('You must select at least one available dropoff date');
       return;
     }
 
@@ -107,7 +106,7 @@ const Join: React.FC = () => {
     setJoining(true);
     try {
       await axios.post(`/join/${token}`, {
-        time_slot_ids: selectedTimeSlots
+        dropoff_date_ids: selectedDropoffDates
       });
       setJoined(true);
     } catch (error: any) {
@@ -201,22 +200,22 @@ const Join: React.FC = () => {
             <p><strong>Participants:</strong> {joinInfo.group.current_participants}/{joinInfo.group.max_participants}</p>
             <p><strong>Status:</strong> {joinInfo.group.status}</p>
             
-            {joinInfo.group.time_slots && joinInfo.group.time_slots.length > 0 && (
+            {joinInfo.group.dropoff_dates && joinInfo.group.dropoff_dates.length > 0 && (
               <div className="form-group" style={{ marginTop: '20px' }}>
-                <h4>Available Time Slots</h4>
-                <p>Please select at least one time slot that works for you:</p>
+                <h4>Available Dropoff Dates</h4>
+                <p>Please select at least one dropoff date that works for you:</p>
                 <div style={{ marginBottom: '15px' }}>
-                  {joinInfo.group.time_slots.map((slot) => (
-                    <div key={slot.id} style={{ marginBottom: '10px' }}>
+                  {joinInfo.group.dropoff_dates.map((date) => (
+                    <div key={date.id} style={{ marginBottom: '10px' }}>
                       <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
                         <input
                           type="checkbox"
-                          checked={selectedTimeSlots.includes(slot.id)}
-                          onChange={() => handleTimeSlotToggle(slot.id)}
+                          checked={selectedDropoffDates.includes(date.id)}
+                          onChange={() => handleDropoffDateToggle(date.id)}
                           style={{ marginRight: '10px' }}
                         />
                         <span>
-                          {new Date(slot.start_date).toLocaleDateString()} - {new Date(slot.end_date).toLocaleDateString()}
+                          {new Date(date.date).toLocaleDateString()}
                         </span>
                       </label>
                     </div>
@@ -234,15 +233,15 @@ const Join: React.FC = () => {
             ) : !paymentSetupComplete ? (
               <div className="form-group">
                 <p>You've been invited to join this dumpster sharing group!</p>
-                {joinInfo.group.time_slots && joinInfo.group.time_slots.length > 0 && selectedTimeSlots.length === 0 && (
+                {joinInfo.group.dropoff_dates && joinInfo.group.dropoff_dates.length > 0 && selectedDropoffDates.length === 0 && (
                   <p style={{ color: '#dc3545', fontSize: '14px', marginBottom: '10px' }}>
-                    Please select at least one time slot before proceeding.
+                    Please select at least one dropoff date before proceeding.
                   </p>
                 )}
                 <button 
                   className="button" 
                   onClick={handleProceedToPayment}
-                  disabled={joinInfo.group.time_slots && joinInfo.group.time_slots.length > 0 && selectedTimeSlots.length === 0}
+                  disabled={joinInfo.group.dropoff_dates && joinInfo.group.dropoff_dates.length > 0 && selectedDropoffDates.length === 0}
                 >
                   Continue to Payment Setup
                 </button>
