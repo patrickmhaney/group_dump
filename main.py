@@ -42,7 +42,7 @@ STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
 stripe.api_key = STRIPE_SECRET_KEY
 
 # App configuration
-BASE_URL = os.getenv("BASE_URL", "http://localhost:8080")
+BASE_URL = os.getenv("BASE_URL", "http://localhost:3000")
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -286,9 +286,8 @@ async def send_invitations(group: Group, creator: User, db: Session):
         if not invitee.invitation_sent:
             subject = f"You're invited to join '{group.name}' dumpster sharing group!"
             
-            # Get the base URL from environment or use default
-            base_url = os.getenv("BASE_URL", "http://localhost:8080")
-            join_url = f"{base_url}/join/{invitee.join_token}"
+            # Use the configured BASE_URL
+            join_url = f"{BASE_URL}/join/{invitee.join_token}"
             
             # Create email body with group details and join link
             body = f"""

@@ -250,11 +250,11 @@ const Groups: React.FC = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [message, setMessage] = useState('');
   const [formData, setFormData] = useState({
-    name: '',
-    street_address: '',
-    city: '',
-    state: '',
-    zip_code: '',
+    name: user ? `${user.name}'s Group Dump` : '',
+    street_address: user?.address || '',
+    city: user?.city || '',
+    state: user?.state || '',
+    zip_code: user?.zip_code || '',
     max_participants: 2,
     vendor_id: '',
     selected_dumpster_size: ''
@@ -302,6 +302,20 @@ const Groups: React.FC = () => {
       }
     }
   }, []);
+
+  // Update form data when user information becomes available
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        name: user.name ? `${user.name}'s Group Dump` : prev.name,
+        street_address: user.address || prev.street_address,
+        city: user.city || prev.city,
+        state: user.state || prev.state,
+        zip_code: user.zip_code || prev.zip_code
+      }));
+    }
+  }, [user]);
 
   // Auto-load drop off date data for all groups with drop off dates
   useEffect(() => {
@@ -529,7 +543,16 @@ const Groups: React.FC = () => {
       const response = await axios.post('/groups', groupData);
       setGroups([response.data, ...groups]);
       setShowCreateForm(false);
-      setFormData({ name: user ? `${user.name}'s Group Dump` : '', street_address: '', city: '', state: '', zip_code: '', max_participants: 2, vendor_id: '', selected_dumpster_size: '' });
+      setFormData({ 
+        name: user ? `${user.name}'s Group Dump` : '', 
+        street_address: user?.address || '', 
+        city: user?.city || '', 
+        state: user?.state || '', 
+        zip_code: user?.zip_code || '', 
+        max_participants: 2, 
+        vendor_id: '', 
+        selected_dumpster_size: '' 
+      });
       setDropoffDates([]);
       setInvitees([]);
       setMessage('Group created successfully with payment setup! Invitations have been sent.');
@@ -674,6 +697,12 @@ const Groups: React.FC = () => {
     setDropoffDates(updatedDates);
   };
 
+  const formatDateDisplay = (dateString: string) => {
+    const [year, month, day] = dateString.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    return date.toLocaleDateString();
+  };
+
   const addInvitee = () => {
     setInvitees([...invitees, { name: '', email: '', phone: '' }]);
   };
@@ -810,10 +839,10 @@ const Groups: React.FC = () => {
                 Group Members
               </label>
               <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
-                Total number of people in your group (including yourself). When this number is reached, the group will be ready to proceed with booking.
+                Select the total number of people in your group (including yourself). When this number is reached, the group will be ready to proceed with booking. Only choose "1 Member" if you want to dump alone. 
               </p>
               <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
-                {[2, 3, 4].map(num => (
+                {[1, 2, 3, 4].map(num => (
                   <label
                     key={num}
                     style={{
@@ -851,7 +880,7 @@ const Groups: React.FC = () => {
                       style={{ display: 'none' }}
                     />
                     <span style={{ fontSize: '14px', color: formData.max_participants === num ? '#007bff' : '#666' }}>
-                      {num} {num === 1 ? 'Member' : 'Members'}
+                      {num === 1 ? '1 Member' : `${num} Members`}
                     </span>
                   </label>
                 ))}
@@ -862,10 +891,10 @@ const Groups: React.FC = () => {
             {companies.length > 0 && (
               <div style={{ marginBottom: '20px' }}>
                 <label style={{ display: 'block', fontSize: '16px', marginBottom: '10px', fontWeight: 'bold', color: '#333' }}>
-                  Compare Vendor Services
+                  Compare and Select Dumpster Provider Services
                 </label>
                 <p style={{ color: '#666', fontSize: '14px', marginBottom: '15px' }}>
-                  Select a dumpster size to compare services across all vendors
+                  Select a dumpster size to compare services across multiple providers in your area.
                 </p>
                 
                 {/* Size Selector for Comparison */}
@@ -906,9 +935,9 @@ const Groups: React.FC = () => {
                   </div>
                 </div>
                 
-                <label style={{ display: 'block', fontSize: '16px', marginBottom: '10px', fontWeight: 'bold', color: '#333' }}>
-                  Select Dumpster Service Provider
-                </label>
+                <p style={{ color: '#666', fontSize: '14px', marginBottom: '15px' }}>
+                  Select a provider and finalize dumpser size. 
+                </p>
                 
                 {/* Services Comparison Grid */}
                 <div style={{ 
@@ -1125,6 +1154,7 @@ const Groups: React.FC = () => {
               </div>
             )}
             
+            {formData.max_participants !== 1 && (
             <div className="invitees-section" style={{ marginBottom: '20px' }}>
               <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', fontSize: '16px', marginBottom: '10px', fontWeight: 'bold', color: '#333' }}>
@@ -1290,6 +1320,7 @@ const Groups: React.FC = () => {
                 </>
               )}
             </div>
+            )}
 
             <div className="time-slots-section" style={{ marginBottom: '20px' }}>
               <div style={{ marginBottom: '15px' }}>
@@ -1325,12 +1356,19 @@ const Groups: React.FC = () => {
                       <div 
                         key={index} 
                         style={{ 
-                          marginBottom: '15px', 
+                          marginBottom: '16px', 
                           padding: '20px', 
-                          border: '2px solid #e9ecef', 
-                          borderRadius: '12px',
+                          border: '1px solid #e1e5e9', 
+                          borderRadius: '8px',
                           backgroundColor: '#ffffff',
-                          boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                          transition: 'box-shadow 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
@@ -1350,10 +1388,20 @@ const Groups: React.FC = () => {
                               onChange={(e) => updateDropoffDate(index, 'date', e.target.value)}
                               style={{ 
                                 width: '100%',
-                                padding: '12px',
-                                border: '2px solid #dee2e6',
-                                borderRadius: '8px',
-                                fontSize: '16px'
+                                padding: '12px 16px',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '6px',
+                                fontSize: '16px',
+                                backgroundColor: '#ffffff',
+                                transition: 'border-color 0.2s ease, box-shadow 0.2s ease'
+                              }}
+                              onFocus={(e) => {
+                                e.target.style.borderColor = '#3b82f6';
+                                e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+                              }}
+                              onBlur={(e) => {
+                                e.target.style.borderColor = '#d1d5db';
+                                e.target.style.boxShadow = 'none';
                               }}
                             />
                           </div>
@@ -1364,39 +1412,30 @@ const Groups: React.FC = () => {
                               type="button"
                               onClick={() => removeDropoffDate(index)}
                               style={{
-                                padding: '10px 15px',
-                                backgroundColor: '#dc3545',
+                                padding: '8px 16px',
+                                backgroundColor: '#ef4444',
                                 color: 'white',
                                 border: 'none',
-                                borderRadius: '8px',
+                                borderRadius: '6px',
                                 cursor: 'pointer',
                                 fontSize: '14px',
-                                fontWeight: 'bold',
-                                transition: 'all 0.3s ease'
+                                fontWeight: '500',
+                                transition: 'all 0.2s ease',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px'
                               }}
                               onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = '#c82333';
+                                e.currentTarget.style.backgroundColor = '#dc2626';
                                 e.currentTarget.style.transform = 'translateY(-1px)';
                               }}
                               onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = '#dc3545';
+                                e.currentTarget.style.backgroundColor = '#ef4444';
                                 e.currentTarget.style.transform = 'translateY(0)';
                               }}
                             >
-                              Remove
+                              ✕ Remove
                             </button>
-                          </div>
-                        </div>
-                        
-                        <div style={{ 
-                          marginTop: '15px',
-                          padding: '12px',
-                          backgroundColor: '#e8f5e8',
-                          borderRadius: '8px',
-                          border: '1px solid #d4edda'
-                        }}>
-                          <div style={{ fontSize: '14px', color: '#155724', fontWeight: 'bold' }}>
-                            Drop Off Date: {new Date(date.date).toLocaleDateString()}
                           </div>
                         </div>
                       </div>
@@ -1416,7 +1455,7 @@ const Groups: React.FC = () => {
                         cursor: dropoffDates.length >= 5 ? 'not-allowed' : 'pointer'
                       }}
                     >
-                      Add Another Drop Off Date ({dropoffDates.length}/5)
+                      + Add Date ({dropoffDates.length}/5)
                     </button>
                     {dropoffDates.length >= 5 && (
                       <p style={{ color: '#dc3545', fontSize: '14px', marginTop: '8px', fontStyle: 'italic' }}>
@@ -1905,9 +1944,6 @@ const Groups: React.FC = () => {
                   {/* Enhanced Vendor Information */}
                   {group.vendor_id && (
                     <>
-                      <div style={{ marginBottom: '10px', fontSize: '14px', color: '#666' }}>
-                        Debug: Showing vendor details for vendor_id: {group.vendor_id}
-                      </div>
                       <VendorDetails vendorId={group.vendor_id} groupId={group.id} />
                     </>
                   )}
@@ -1987,7 +2023,7 @@ const Groups: React.FC = () => {
                                       marginBottom: '4px',
                                       color: '#2c3e50'
                                     }}>
-                                      {new Date(date.date).toLocaleDateString()}
+                                      {formatDateDisplay(date.date)}
                                     </div>
                                     {analysis && (
                                       <div style={{ fontSize: '13px', color: '#6c757d' }}>
@@ -2086,7 +2122,7 @@ const Groups: React.FC = () => {
                                         marginBottom: '4px',
                                         color: isSelected ? '#0066cc' : '#666'
                                       }}>
-                                        {new Date(date.date).toLocaleDateString()}
+                                        {formatDateDisplay(date.date)}
                                       </div>
                                       {analysis && (
                                         <div style={{ 
@@ -2186,7 +2222,7 @@ const Groups: React.FC = () => {
                                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <div>
                                           <div style={{ fontWeight: '500' }}>
-                                            {new Date(date.date).toLocaleDateString()}
+                                            {formatDateDisplay(date.date)}
                                           </div>
                                           {analysis && (
                                             <div style={{ fontSize: '12px', color: '#6c757d', marginTop: '4px' }}>
@@ -2221,7 +2257,7 @@ const Groups: React.FC = () => {
                                   <div>
                                     {(() => {
                                       const selectedDate = group.dropoff_dates?.find(d => d.id === selectedFinalDropoffDates[group.id]);
-                                      return selectedDate ? `${new Date(selectedDate.start_date).toLocaleDateString()}` : '';
+                                      return selectedDate ? formatDateDisplay(selectedDate.date) : '';
                                     })()}
                                   </div>
                                 </div>
@@ -2304,19 +2340,6 @@ const Groups: React.FC = () => {
                       ) : (
                         // Creator actions
                         <>
-                          {/* Debug info for creators */}
-                          {isCreator && (
-                            <div style={{ 
-                              fontSize: '12px', 
-                              color: '#666', 
-                              marginBottom: '8px',
-                              padding: '8px',
-                              backgroundColor: '#f8f9fa',
-                              borderRadius: '4px'
-                            }}>
-                              Debug: isReady={isReady.toString()}, vendor_id={group.vendor_id || 'none'}, selectedFinalDropoffDate={selectedFinalDropoffDates[group.id] || 'none'}
-                            </div>
-                          )}
                           {isReady && !selectedFinalDropoffDates[group.id] && isCreator && (
                             <div style={{ 
                               padding: '12px',

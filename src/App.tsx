@@ -14,6 +14,9 @@ interface User {
   name: string;
   phone: string;
   address: string;
+  city?: string;
+  state?: string;
+  zip_code?: string;
   user_type: string;
 }
 
