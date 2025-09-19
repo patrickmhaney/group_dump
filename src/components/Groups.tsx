@@ -742,9 +742,9 @@ const Groups: React.FC = () => {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '20px' }}>
         <h1>Welcome, {user?.name}!</h1>
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <button
             className="button"
             onClick={() => setShowCreateForm(!showCreateForm)}
@@ -760,20 +760,15 @@ const Groups: React.FC = () => {
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom: '20px' }}>
-        <h2>Quick Stats</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+      <div className="card" style={{ marginBottom: '20px', padding: '15px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '12px' }}>
           <div style={{ textAlign: 'center' }}>
-            <h3>{groups.length}</h3>
-            <p>Your Groups</p>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '4px' }}>{groups.length}</div>
+            <div style={{ fontSize: '14px', color: '#666' }}>Your Groups</div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <h3>{rentals.length}</h3>
-            <p>Your Rentals</p>
-          </div>
-          <div style={{ textAlign: 'center' }}>
-            <h3>{groups.filter(g => (g.current_participants || 0) >= g.max_participants).length}</h3>
-            <p>Ready Groups</p>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '4px' }}>{groups.filter(g => (g.current_participants || 0) >= g.max_participants).length}</div>
+            <div style={{ fontSize: '14px', color: '#666' }}>Ready Groups</div>
           </div>
         </div>
       </div>
@@ -804,7 +799,7 @@ const Groups: React.FC = () => {
               onChange={handleChange}
               required
             />
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '10px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px' }}>
               <input
                 type="text"
                 name="city"
@@ -841,7 +836,7 @@ const Groups: React.FC = () => {
               <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
                 Select the total number of people in your group (including yourself). When this number is reached, the group will be ready to proceed with booking. Only choose "1 Member" if you want to dump alone. 
               </p>
-              <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '12px' }}>
                 {[1, 2, 3, 4].map(num => (
                   <label
                     key={num}
@@ -940,9 +935,9 @@ const Groups: React.FC = () => {
                 </p>
                 
                 {/* Services Comparison Grid */}
-                <div style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
                   gap: '12px',
                   marginBottom: '20px'
                 }}>
@@ -1105,10 +1100,10 @@ const Groups: React.FC = () => {
                                   </div>
                                 </div>
                                 
-                                <div style={{ 
-                                  display: 'grid', 
-                                  gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', 
-                                  gap: '12px',
+                                <div style={{
+                                  display: 'grid',
+                                  gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+                                  gap: '10px',
                                   marginTop: '15px',
                                   paddingTop: '15px',
                                   borderTop: '1px solid #e9ecef'
@@ -1197,8 +1192,8 @@ const Groups: React.FC = () => {
                           boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '15px', flexWrap: 'wrap' }}>
-                          <div style={{ flex: '1 1 180px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
+                          <div>
                             <label style={{ 
                               display: 'block', 
                               fontSize: '14px', 
@@ -1223,7 +1218,7 @@ const Groups: React.FC = () => {
                               required
                             />
                           </div>
-                          <div style={{ flex: '1 1 200px' }}>
+                          <div>
                             <label style={{ 
                               display: 'block', 
                               fontSize: '14px', 
@@ -1248,7 +1243,7 @@ const Groups: React.FC = () => {
                               required
                             />
                           </div>
-                          <div style={{ flex: '1 1 160px' }}>
+                          <div>
                             <label style={{ 
                               display: 'block', 
                               fontSize: '14px', 
@@ -1272,7 +1267,7 @@ const Groups: React.FC = () => {
                               }}
                             />
                           </div>
-                          <div style={{ flex: '0 0 auto', marginTop: '28px' }}>
+                          <div style={{ display: 'flex', alignItems: 'end', justifyContent: 'center' }}>
                             <button
                               type="button"
                               onClick={() => removeInvitee(index)}
@@ -1371,8 +1366,8 @@ const Groups: React.FC = () => {
                           e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
-                          <div style={{ flex: '1 1 200px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '12px', alignItems: 'end' }}>
+                          <div>
                             <label style={{ 
                               display: 'block', 
                               fontSize: '14px', 
@@ -1407,7 +1402,7 @@ const Groups: React.FC = () => {
                           </div>
                           
                           
-                          <div style={{ flex: '0 0 auto', marginTop: '20px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'center' }}>
                             <button
                               type="button"
                               onClick={() => removeDropoffDate(index)}
@@ -1608,49 +1603,47 @@ const Groups: React.FC = () => {
                   transition: 'all 0.3s ease'
                 }}>
                   {/* Header Section */}
-                  <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'flex-start',
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: window.innerWidth <= 768 ? 'column' : 'row',
+                    justifyContent: 'space-between',
+                    alignItems: window.innerWidth <= 768 ? 'stretch' : 'flex-start',
                     marginBottom: '20px',
                     paddingBottom: '16px',
-                    borderBottom: '1px solid #f0f0f0'
+                    borderBottom: '1px solid #f0f0f0',
+                    gap: window.innerWidth <= 768 ? '12px' : '0'
                   }}>
                     <div style={{ flex: 1 }}>
-                      <h3 style={{ 
-                        margin: '0 0 8px 0', 
+                      <h3 style={{
+                        margin: '0 0 8px 0',
                         color: '#2c3e50',
-                        fontSize: '22px',
-                        fontWeight: 'bold'
+                        fontSize: window.innerWidth <= 768 ? '18px' : '22px',
+                        fontWeight: 'bold',
+                        wordWrap: 'break-word',
+                        lineHeight: '1.3'
                       }}>
                         {group.name}
                       </h3>
-                      <div style={{ 
-                        display: 'flex', 
-                        alignItems: 'center',
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
                         color: '#7f8c8d',
                         fontSize: '14px',
-                        marginBottom: '8px'
+                        marginBottom: '8px',
+                        flexWrap: 'wrap'
                       }}>
-                        <span style={{ marginRight: '8px' }}>📍</span>
-                        {group.address}
-                      </div>
-                      {isCreator && (
-                        <div style={{
-                          display: 'inline-block',
-                          backgroundColor: '#3498db',
-                          color: 'white',
-                          padding: '4px 12px',
-                          borderRadius: '20px',
-                          fontSize: '12px',
-                          fontWeight: 'bold',
-                          marginTop: '4px'
+                        <span style={{ marginRight: '8px', flexShrink: 0 }}>📍</span>
+                        <span style={{
+                          wordWrap: 'break-word',
+                          lineHeight: '1.4',
+                          flex: 1,
+                          minWidth: 0
                         }}>
-                          Your Group
-                        </div>
-                      )}
+                          {group.address}
+                        </span>
+                      </div>
                     </div>
-                    
+
                     {/* Status Badge */}
                     <div style={{
                       backgroundColor: isReady ? '#d4f8d4' : '#fff3cd',
@@ -1661,7 +1654,9 @@ const Groups: React.FC = () => {
                       fontSize: '14px',
                       border: `2px solid ${isReady ? '#28a745' : '#ffc107'}`,
                       textAlign: 'center',
-                      minWidth: '120px'
+                      minWidth: window.innerWidth <= 768 ? 'auto' : '120px',
+                      alignSelf: window.innerWidth <= 768 ? 'center' : 'auto',
+                      flexShrink: 0
                     }}>
                       {isReady ? '✅ Ready!' : '⏳ Forming'}
                     </div>
@@ -1704,19 +1699,23 @@ const Groups: React.FC = () => {
                   </div>
 
                   {/* Members Section - both current and invited with cost breakdown */}
-                  <div style={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: group.participants && group.participants.length > 0 && group.invitees && group.invitees.length > 0 ? '1fr 1fr' : '1fr',
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: group.participants && group.participants.length > 0 && group.invitees && group.invitees.length > 0
+                      ? (window.innerWidth <= 768 ? '1fr' : '1fr 1fr')
+                      : '1fr',
                     gap: '20px',
                     marginBottom: '20px'
                   }}>
                     {/* Current Members Section */}
                     {group.participants && group.participants.length > 0 && (
                       <div>
-                        <div style={{ 
-                          display: 'flex', 
-                          alignItems: 'center',
-                          marginBottom: '12px'
+                        <div style={{
+                          display: 'flex',
+                          flexDirection: window.innerWidth <= 768 ? 'column' : 'row',
+                          alignItems: window.innerWidth <= 768 ? 'flex-start' : 'center',
+                          marginBottom: '12px',
+                          gap: window.innerWidth <= 768 ? '8px' : '0'
                         }}>
                           <span style={{ fontWeight: 'bold', color: '#2c3e50' }}>Current Members</span>
                           {isReady && group.vendor_id && (() => {
@@ -1728,17 +1727,18 @@ const Groups: React.FC = () => {
                               totalCost = 430; // Fallback value
                             }
                             const costPerMember = totalMembers > 0 ? totalCost / totalMembers : 0;
-                            
+
                             return (
                               <div style={{
-                                marginLeft: 'auto',
+                                marginLeft: window.innerWidth <= 768 ? '0' : 'auto',
                                 fontSize: '12px',
                                 color: '#28a745',
                                 fontWeight: 'bold',
                                 backgroundColor: '#f0f8ff',
                                 padding: '4px 8px',
                                 borderRadius: '12px',
-                                border: '1px solid #bee5eb'
+                                border: '1px solid #bee5eb',
+                                alignSelf: window.innerWidth <= 768 ? 'flex-start' : 'auto'
                               }}>
                                 ${costPerMember.toFixed(2)} each
                               </div>
@@ -1760,35 +1760,56 @@ const Groups: React.FC = () => {
                             const costPerMember = totalMembers > 0 ? totalCost / totalMembers : 0;
                             
                             return (
-                              <div key={participant.id} style={{ 
+                              <div key={participant.id} style={{
                                 display: 'flex',
-                                alignItems: 'center',
-                                padding: '12px',
+                                flexDirection: window.innerWidth <= 768 ? 'column' : 'row',
+                                alignItems: window.innerWidth <= 768 ? 'flex-start' : 'center',
+                                padding: window.innerWidth <= 768 ? '16px 12px' : '12px',
                                 backgroundColor: '#f8f9fa',
                                 borderRadius: '8px',
-                                border: '1px solid #e9ecef'
+                                border: '1px solid #e9ecef',
+                                gap: window.innerWidth <= 768 ? '12px' : '0'
                               }}>
-                                <div style={{ 
-                                  width: '32px',
-                                  height: '32px',
-                                  borderRadius: '50%',
-                                  backgroundColor: '#28a745',
-                                  color: 'white',
+                                <div style={{
                                   display: 'flex',
                                   alignItems: 'center',
-                                  justifyContent: 'center',
-                                  fontSize: '14px',
-                                  fontWeight: 'bold',
-                                  marginRight: '12px'
+                                  width: '100%',
+                                  minWidth: 0
                                 }}>
-                                  {participant.name.charAt(0).toUpperCase()}
-                                </div>
-                                <div style={{ flex: 1 }}>
-                                  <div style={{ fontWeight: 'bold', color: '#2c3e50', fontSize: '14px' }}>
-                                    {participant.name}
+                                  <div style={{
+                                    width: '32px',
+                                    height: '32px',
+                                    borderRadius: '50%',
+                                    backgroundColor: '#28a745',
+                                    color: 'white',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '14px',
+                                    fontWeight: 'bold',
+                                    marginRight: '12px',
+                                    flexShrink: 0
+                                  }}>
+                                    {participant.name.charAt(0).toUpperCase()}
                                   </div>
-                                  <div style={{ color: '#6c757d', fontSize: '12px' }}>
-                                    {participant.email}
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{
+                                      fontWeight: 'bold',
+                                      color: '#2c3e50',
+                                      fontSize: '14px',
+                                      wordWrap: 'break-word'
+                                    }}>
+                                      {participant.name}
+                                    </div>
+                                    <div style={{
+                                      color: '#6c757d',
+                                      fontSize: '12px',
+                                      wordWrap: 'break-word',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis'
+                                    }}>
+                                      {participant.email}
+                                    </div>
                                   </div>
                                 </div>
                                 {isReady && group.vendor_id && (
@@ -1799,7 +1820,9 @@ const Groups: React.FC = () => {
                                     backgroundColor: '#e8f5e8',
                                     padding: '6px 12px',
                                     borderRadius: '20px',
-                                    border: '1px solid #d4edda'
+                                    border: '1px solid #d4edda',
+                                    alignSelf: window.innerWidth <= 768 ? 'center' : 'auto',
+                                    flexShrink: 0
                                   }}>
                                     ${costPerMember.toFixed(2)}
                                   </div>

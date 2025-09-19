@@ -42,7 +42,7 @@ STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
 stripe.api_key = STRIPE_SECRET_KEY
 
 # App configuration
-BASE_URL = os.getenv("BASE_URL", "http://localhost:3000")
+BASE_URL = os.getenv("BASE_URL", "https://groupdump.com")
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

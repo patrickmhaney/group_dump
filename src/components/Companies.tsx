@@ -300,9 +300,9 @@ const Companies: React.FC = () => {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '20px' }}>
         <h1>Welcome, {user?.name}!</h1>
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           {user?.user_type === 'renter' && (
             <button
               className={`button ${proximityFilter ? '' : 'button-secondary'}`}
@@ -445,7 +445,7 @@ const Companies: React.FC = () => {
                     )}
                   </div>
                   
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px' }}>
                     <input
                       type="text"
                       placeholder="Cubic Yards"
@@ -526,7 +526,7 @@ const Companies: React.FC = () => {
                 {company.rating > 0 && (
                   <p><strong>Rating:</strong> {company.rating.toFixed(1)}/5.0</p>
                 )}
-                <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '15px', flexWrap: 'wrap' }}>
                   <button className="button">Contact Company</button>
                   {user?.user_type === 'company' && (
                     <>

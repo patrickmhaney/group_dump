@@ -15,15 +15,30 @@ code {
 .container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 16px;
+}
+
+/* Mobile-first responsive padding */
+@media (min-width: 768px) {
+  .container {
+    padding: 20px;
+  }
 }
 
 .card {
   background: white;
   border-radius: 8px;
-  padding: 20px;
-  margin: 20px 0;
+  padding: 16px;
+  margin: 16px 0;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Larger padding on desktop */
+@media (min-width: 768px) {
+  .card {
+    padding: 20px;
+    margin: 20px 0;
+  }
 }
 
 .form {
@@ -43,10 +58,21 @@ code {
   background: #007bff;
   color: white;
   border: none;
-  padding: 12px 24px;
+  padding: 14px 20px;
   border-radius: 4px;
   cursor: pointer;
   font-size: 16px;
+  min-height: 44px; /* Better touch target */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Larger padding on desktop */
+@media (min-width: 768px) {
+  .button {
+    padding: 12px 24px;
+  }
 }
 
 .button:hover {
@@ -63,29 +89,58 @@ code {
 
 .nav {
   background: #343a40;
-  padding: 1rem;
-  margin-bottom: 20px;
+  padding: 0.75rem;
+  margin-bottom: 16px;
 }
 
 .nav a {
   color: white;
   text-decoration: none;
-  margin-right: 20px;
+  margin-right: 16px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
 }
 
 .nav a:hover {
-  text-decoration: underline;
+  background: rgba(255,255,255,0.1);
+  text-decoration: none;
+}
+
+@media (min-width: 768px) {
+  .nav {
+    padding: 1rem;
+    margin-bottom: 20px;
+  }
+
+  .nav a {
+    margin-right: 20px;
+  }
 }
 
 .group-list, .company-list {
   display: grid;
-  gap: 20px;
+  gap: 16px;
+}
+
+@media (min-width: 768px) {
+  .group-list, .company-list {
+    gap: 20px;
+  }
 }
 
 .group-item, .company-item {
   border: 1px solid #ddd;
-  padding: 15px;
+  padding: 12px;
   border-radius: 8px;
+}
+
+@media (min-width: 768px) {
+  .group-item, .company-item {
+    padding: 15px;
+  }
 }
 
 .error {
@@ -142,4 +197,81 @@ code {
 .time-slot-item:hover {
   border-color: #007bff;
   box-shadow: 0 2px 8px rgba(0,123,255,0.1);
+}
+
+/* Mobile Responsive Utility Classes */
+.mobile-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (min-width: 768px) {
+  .mobile-stack {
+    flex-direction: row;
+    gap: 16px;
+  }
+}
+
+.mobile-grid-1 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 640px) {
+  .mobile-grid-1 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 768px) {
+  .mobile-grid-1 {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+}
+
+.mobile-text-center {
+  text-align: center;
+}
+
+@media (min-width: 768px) {
+  .mobile-text-center {
+    text-align: left;
+  }
+}
+
+/* Touch-friendly improvements */
+@media (max-width: 767px) {
+  /* Larger tap targets on mobile */
+  .button {
+    padding: 16px 20px;
+    font-size: 16px;
+  }
+
+  /* Better spacing for forms on mobile */
+  .form input, .form select, .form textarea {
+    padding: 14px;
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+
+  /* Better modal/card spacing on mobile */
+  .card {
+    margin: 8px;
+    border-radius: 12px;
+  }
+
+  /* Responsive typography */
+  h1 {
+    font-size: 1.75rem;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+  }
+
+  h3 {
+    font-size: 1.25rem;
+  }
 }
