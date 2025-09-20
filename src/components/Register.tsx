@@ -97,7 +97,7 @@ const Register: React.FC = () => {
 
   return (
     <div className="card">
-      <h2>Register for Dumpster Share</h2>
+      <h2>Register for Group Dump</h2>
       <form onSubmit={handleSubmit} className="form">
         <input
           type="email"
