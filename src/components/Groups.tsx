@@ -1728,21 +1728,6 @@ const Groups: React.FC = () => {
                             }
                             const costPerMember = totalMembers > 0 ? totalCost / totalMembers : 0;
 
-                            return (
-                              <div style={{
-                                marginLeft: window.innerWidth <= 768 ? '0' : 'auto',
-                                fontSize: '12px',
-                                color: '#28a745',
-                                fontWeight: 'bold',
-                                backgroundColor: '#f0f8ff',
-                                padding: '4px 8px',
-                                borderRadius: '12px',
-                                border: '1px solid #bee5eb',
-                                alignSelf: window.innerWidth <= 768 ? 'flex-start' : 'auto'
-                              }}>
-                                ${costPerMember.toFixed(2)} each
-                              </div>
-                            );
                           })()}
                         </div>
                         <div style={{ 
@@ -1814,17 +1799,61 @@ const Groups: React.FC = () => {
                                 </div>
                                 {isReady && group.vendor_id && (
                                   <div style={{
-                                    fontSize: '16px',
-                                    fontWeight: 'bold',
-                                    color: '#28a745',
-                                    backgroundColor: '#e8f5e8',
-                                    padding: '6px 12px',
-                                    borderRadius: '20px',
-                                    border: '1px solid #d4edda',
                                     alignSelf: window.innerWidth <= 768 ? 'center' : 'auto',
-                                    flexShrink: 0
+                                    flexShrink: 0,
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '4px'
                                   }}>
-                                    ${costPerMember.toFixed(2)}
+                                    {(() => {
+                                      const hasBookedPrice = costBreakdowns[group.id] && costBreakdowns[group.id].length > 0;
+                                      const bookedPrice = hasBookedPrice ? costBreakdowns[group.id][0].amount : null;
+                                      const hasOverageFees = false; // Will be populated later
+
+                                      return (
+                                        <>
+                                          <div style={{
+                                            fontSize: '12px',
+                                            fontWeight: 'bold',
+                                            color: hasBookedPrice ? '#6c757d' : '#28a745',
+                                            backgroundColor: hasBookedPrice ? '#f8f9fa' : '#e8f5e8',
+                                            padding: '6px 12px',
+                                            borderRadius: '20px',
+                                            border: hasBookedPrice ? '1px solid #dee2e6' : '1px solid #d4edda',
+                                            textAlign: 'center',
+                                            minWidth: '140px'
+                                          }}>
+                                            Listed Price: ${costPerMember.toFixed(2)}
+                                          </div>
+                                          <div style={{
+                                            fontSize: '12px',
+                                            fontWeight: 'bold',
+                                            color: hasBookedPrice ? '#28a745' : '#6c757d',
+                                            backgroundColor: hasBookedPrice ? '#e8f5e8' : '#f8f9fa',
+                                            padding: '6px 12px',
+                                            borderRadius: '20px',
+                                            border: hasBookedPrice ? '1px solid #d4edda' : '1px solid #dee2e6',
+                                            textAlign: 'center',
+                                            minWidth: '140px'
+                                          }}>
+                                            Actual Booked Price: {hasBookedPrice ? `$${bookedPrice.toFixed(2)}` : '--'}
+                                          </div>
+                                          <div style={{
+                                            fontSize: '12px',
+                                            fontWeight: 'bold',
+                                            color: hasOverageFees ? '#28a745' : '#6c757d',
+                                            backgroundColor: hasOverageFees ? '#e8f5e8' : '#f8f9fa',
+                                            padding: '6px 12px',
+                                            borderRadius: '20px',
+                                            border: hasOverageFees ? '1px solid #d4edda' : '1px solid #dee2e6',
+                                            textAlign: 'center',
+                                            minWidth: '140px'
+                                          }}>
+                                            Overage Fees: --
+                                          </div>
+                                        </>
+                                      );
+                                    })()}
                                   </div>
                                 )}
                               </div>
@@ -1882,7 +1911,7 @@ const Groups: React.FC = () => {
                                 borderRadius: '12px',
                                 border: '1px solid #ffeaa7'
                               }}>
-                                ${costPerMember.toFixed(2)} each when joined
+                                ~${costPerMember.toFixed(2)} each when joined (estimate)
                               </div>
                             );
                           })()}
@@ -1944,7 +1973,7 @@ const Groups: React.FC = () => {
                                       borderRadius: '12px',
                                       border: '1px solid #ffeaa7'
                                     }}>
-                                      ${costPerMember.toFixed(2)}
+                                      ~${costPerMember.toFixed(2)} (estimate)
                                     </div>
                                   )}
                                   <div style={{

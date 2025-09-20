@@ -233,6 +233,16 @@ const Join: React.FC = () => {
             ) : !paymentSetupComplete ? (
               <div className="form-group">
                 <p>You've been invited to join this dumpster sharing group!</p>
+                <div style={{
+                  padding: '12px',
+                  backgroundColor: '#fff3cd',
+                  border: '1px solid #ffeaa7',
+                  borderRadius: '6px',
+                  marginBottom: '15px',
+                  fontSize: '14px'
+                }}>
+                  <strong>💡 About pricing:</strong> The costs shown are estimates based on the vendor's listed prices. The final amount may vary due to weight overages, additional days, or vendor price changes.
+                </div>
                 {joinInfo.group.dropoff_dates && joinInfo.group.dropoff_dates.length > 0 && selectedDropoffDates.length === 0 && (
                   <p style={{ color: '#dc3545', fontSize: '14px', marginBottom: '10px' }}>
                     Please select at least one dropoff date before proceeding.
