@@ -3,6 +3,7 @@ import { useParams, Navigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../App.tsx';
 import InviteePaymentSetup from './InviteePaymentSetup.tsx';
+import { formatDateDisplay } from '../utils/dateUtils.ts';
 
 interface DropoffDate {
   id: number;
@@ -215,7 +216,7 @@ const Join: React.FC = () => {
                           style={{ marginRight: '10px' }}
                         />
                         <span>
-                          {new Date(date.date).toLocaleDateString()}
+                          {formatDateDisplay(date.date)}
                         </span>
                       </label>
                     </div>

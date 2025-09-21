@@ -3,6 +3,7 @@ import axios from 'axios';
 import { AuthContext } from '../App.tsx';
 import ServiceConfirmation from './ServiceConfirmation.tsx';
 import ServiceOrderSummary from './ServiceOrderSummary.tsx';
+import { formatDateDisplay } from '../utils/dateUtils.ts';
 
 interface Group {
   id: number;
@@ -273,7 +274,11 @@ const Groups: React.FC = () => {
   const [paymentRequestsSent, setPaymentRequestsSent] = useState<Set<number>>(new Set());
   const [showPaymentModal, setShowPaymentModal] = useState<{groupId: number; groupName: string} | null>(null);
   const [actualCost, setActualCost] = useState<string>('');
-  
+
+  // Group management states
+  const [showAddInviteesModal, setShowAddInviteesModal] = useState<{groupId: number; groupName: string} | null>(null);
+  const [newInvitees, setNewInvitees] = useState<Invitee[]>([]);
+
   // Payment request modal states
   const [modalPaymentMethod, setModalPaymentMethod] = useState('zelle');
   const [modalZelleEmail, setModalZelleEmail] = useState('');
@@ -320,9 +325,8 @@ const Groups: React.FC = () => {
   // Auto-load drop off date data for all groups with drop off dates
   useEffect(() => {
     groups.forEach(group => {
-      if (group.dropoff_dates && group.dropoff_dates.length > 0 && 
-          (group.current_participants || 0) < group.max_participants) {
-        // Load dropoff date data for groups that are still forming
+      if (group.dropoff_dates && group.dropoff_dates.length > 0) {
+        // Load dropoff date data for all groups with dropoff dates
         fetchUserDropoffDateSelections(group.id);
         fetchDropoffDateAnalysis(group.id);
       }
@@ -427,7 +431,7 @@ const Groups: React.FC = () => {
 
   const fetchUserDropoffDateSelections = async (groupId: number) => {
     try {
-      const response = await axios.get(`/groups/${groupId}/user-dropoff-dates`);
+      const response = await axios.get(`/groups/${groupId}/user-time-slots`);
       const dropoffDateIds = response.data.map((selection: UserDropoffDateSelection) => selection.dropoff_date_id);
       setUserDropoffDateSelections(prev => ({
         ...prev,
@@ -440,7 +444,7 @@ const Groups: React.FC = () => {
 
   const fetchDropoffDateAnalysis = async (groupId: number) => {
     try {
-      const response = await axios.get(`/groups/${groupId}/dropoff-date-analysis`);
+      const response = await axios.get(`/groups/${groupId}/time-slot-analysis`);
       setDropoffDateAnalyses(prev => ({
         ...prev,
         [groupId]: response.data
@@ -476,7 +480,7 @@ const Groups: React.FC = () => {
 
   const updateUserDropoffDateSelections = async (groupId: number, dropoffDateIds: number[]) => {
     try {
-      await axios.put(`/groups/${groupId}/user-dropoff-dates`, {
+      await axios.put(`/groups/${groupId}/user-time-slots`, {
         dropoff_date_ids: dropoffDateIds
       });
       
@@ -501,10 +505,20 @@ const Groups: React.FC = () => {
 
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     setIsSubmitting(true);
-    
+
     try {
+      // Validate that invitees + creator matches selected group size
+      const totalMembers = invitees.length + 1; // +1 for the creator
+      if (totalMembers < formData.max_participants) {
+        const shortfall = formData.max_participants - totalMembers;
+        setMessage(`Error: You need to invite at least ${shortfall} more ${shortfall === 1 ? 'person' : 'people'} to reach your selected group size of ${formData.max_participants} members. Currently you have ${totalMembers} ${totalMembers === 1 ? 'member' : 'members'} (including yourself).`);
+        setIsSubmitting(false);
+        setTimeout(() => setMessage(''), 5000);
+        return;
+      }
+
       // Debug: Log current authentication state
       console.log('Current user:', user);
       console.log('Current token:', token ? 'Token present' : 'No token');
@@ -651,6 +665,49 @@ const Groups: React.FC = () => {
     }
   };
 
+
+  const handleAddNewInvitees = async (groupId: number) => {
+    if (newInvitees.length === 0 || !newInvitees.some(inv => inv.name && inv.email)) {
+      setMessage('Please add at least one invitee with name and email');
+      setTimeout(() => setMessage(''), 3000);
+      return;
+    }
+
+    try {
+      const validInvitees = newInvitees.filter(inv => inv.name && inv.email);
+      await axios.post(`/groups/${groupId}/add-invitees`, validInvitees);
+      setMessage(`Added ${validInvitees.length} new invitees and sent invitations!`);
+      setTimeout(() => setMessage(''), 5000);
+      setShowAddInviteesModal(null);
+      setNewInvitees([]);
+      fetchGroups(); // Refresh to show new invitees
+    } catch (error: any) {
+      const errorMessage = typeof error.response?.data?.detail === 'string'
+        ? error.response.data.detail
+        : 'Error adding new invitees';
+      setMessage(errorMessage);
+      setTimeout(() => setMessage(''), 3000);
+    }
+  };
+
+  const addNewInvitee = () => {
+    setNewInvitees([...newInvitees, { name: '', email: '', phone: '' }]);
+  };
+
+  const removeNewInvitee = (index: number) => {
+    setNewInvitees(newInvitees.filter((_, i) => i !== index));
+  };
+
+  const updateNewInvitee = (index: number, field: keyof Invitee, value: string) => {
+    const updatedInvitees = newInvitees.map((invitee, i) => {
+      if (i === index) {
+        return { ...invitee, [field]: value };
+      }
+      return invitee;
+    });
+    setNewInvitees(updatedInvitees);
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     let processedValue = value;
@@ -697,11 +754,6 @@ const Groups: React.FC = () => {
     setDropoffDates(updatedDates);
   };
 
-  const formatDateDisplay = (dateString: string) => {
-    const [year, month, day] = dateString.split('-');
-    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-    return date.toLocaleDateString();
-  };
 
   const addInvitee = () => {
     setInvitees([...invitees, { name: '', email: '', phone: '' }]);
@@ -2238,34 +2290,69 @@ const Groups: React.FC = () => {
                                 border: '1px solid #bee5eb'
                               }}>
                                 <strong>Final Step:</strong> Your group is ready! Select one drop off date to finalize booking.
+                                <div style={{ fontSize: '12px', color: '#6c757d', marginTop: '8px' }}>
+                                  💡 You can only select dates where ALL group members are available.
+                                </div>
                               </div>
+
+                              {(() => {
+                                const universalDates = group.dropoff_dates.filter(date => {
+                                  const analysis = dropoffDateAnalyses[group.id]?.find(a => a.dropoff_date_id === date.id);
+                                  return analysis?.is_universal;
+                                });
+
+                                if (universalDates.length === 0 && dropoffDateAnalyses[group.id]) {
+                                  return (
+                                    <div style={{
+                                      marginBottom: '12px',
+                                      padding: '12px',
+                                      backgroundColor: '#fff3cd',
+                                      borderRadius: '8px',
+                                      border: '1px solid #ffeaa7',
+                                      fontSize: '14px',
+                                      color: '#856404'
+                                    }}>
+                                      ⚠️ <strong>No dates work for everyone yet!</strong>
+                                      <div style={{ marginTop: '4px', fontSize: '12px' }}>
+                                        Some group members still need to select their available dates, or you may need to add more date options that work for everyone.
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              })()}
                               <div style={{ display: 'grid', gap: '8px' }}>
                                 {group.dropoff_dates.map((date) => {
                                   const analysis = dropoffDateAnalyses[group.id]?.find(a => a.dropoff_date_id === date.id);
                                   const isSelected = selectedFinalDropoffDates[group.id] === date.id;
-                                  
+                                  const isUniversal = analysis?.is_universal || false;
+                                  const isSelectable = isUniversal;
+
                                   return (
-                                    <div 
-                                      key={date.id} 
-                                      onClick={() => handleFinalDropoffDateSelection(group.id, date.id)}
-                                      style={{ 
+                                    <div
+                                      key={date.id}
+                                      onClick={() => isSelectable ? handleFinalDropoffDateSelection(group.id, date.id) : null}
+                                      style={{
                                         padding: '12px',
-                                        backgroundColor: isSelected ? '#d4edda' : '#f8f9fa',
+                                        backgroundColor: isSelected ? '#d4edda' :
+                                                         isSelectable ? '#f8f9fa' : '#f5f5f5',
                                         borderRadius: '8px',
-                                        border: `2px solid ${isSelected ? '#28a745' : '#e9ecef'}`,
+                                        border: `2px solid ${isSelected ? '#28a745' :
+                                                              isSelectable ? '#e9ecef' : '#ddd'}`,
                                         fontSize: '14px',
-                                        color: '#495057',
-                                        cursor: 'pointer',
+                                        color: isSelectable ? '#495057' : '#6c757d',
+                                        cursor: isSelectable ? 'pointer' : 'not-allowed',
+                                        opacity: isSelectable ? 1 : 0.6,
                                         transition: 'all 0.2s ease'
                                       }}
                                       onMouseEnter={(e) => {
-                                        if (!isSelected) {
+                                        if (!isSelected && isSelectable) {
                                           e.currentTarget.style.backgroundColor = '#e9ecef';
                                           e.currentTarget.style.borderColor = '#adb5bd';
                                         }
                                       }}
                                       onMouseLeave={(e) => {
-                                        if (!isSelected) {
+                                        if (!isSelected && isSelectable) {
                                           e.currentTarget.style.backgroundColor = '#f8f9fa';
                                           e.currentTarget.style.borderColor = '#e9ecef';
                                         }
@@ -2273,12 +2360,37 @@ const Groups: React.FC = () => {
                                     >
                                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <div>
-                                          <div style={{ fontWeight: '500' }}>
+                                          <div style={{
+                                            fontWeight: '500',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px'
+                                          }}>
                                             {formatDateDisplay(date.date)}
+                                            {!isSelectable && (
+                                              <span style={{
+                                                fontSize: '12px',
+                                                color: '#dc3545',
+                                                fontWeight: 'normal'
+                                              }}>
+                                                ⚠️ Not all members available
+                                              </span>
+                                            )}
                                           </div>
                                           {analysis && (
                                             <div style={{ fontSize: '12px', color: '#6c757d', marginTop: '4px' }}>
-                                              All {analysis.selected_by_count} members available
+                                              {isUniversal ? (
+                                                <>✅ All {analysis.selected_by_count} members available</>
+                                              ) : (
+                                                <>
+                                                  {analysis.selected_by_count} of {group.current_participants} members available
+                                                  {analysis.selected_by_users.length > 0 && (
+                                                    <div style={{ marginTop: '2px', fontSize: '11px' }}>
+                                                      Available: {analysis.selected_by_users.join(', ')}
+                                                    </div>
+                                                  )}
+                                                </>
+                                              )}
                                             </div>
                                           )}
                                         </div>
@@ -2392,8 +2504,8 @@ const Groups: React.FC = () => {
                       ) : (
                         // Creator actions
                         <>
-                          {isReady && !selectedFinalDropoffDates[group.id] && isCreator && (
-                            <div style={{ 
+                          {isReady && !selectedFinalDropoffDates[group.id] && isCreator && !bookedServices.has(group.id) && (
+                            <div style={{
                               padding: '12px',
                               backgroundColor: '#d4edda',
                               borderRadius: '8px',
@@ -2520,31 +2632,66 @@ const Groups: React.FC = () => {
                               Confirm Booking and Request Payment From Group
                             </button>
                           ) : (
-                            <button
-                              className="button"
-                              onClick={() => handleDeleteGroup(group.id, group.name)}
-                              style={{
-                                backgroundColor: '#dc3545',
-                                color: 'white',
-                                border: 'none',
-                                padding: '10px 20px',
-                                borderRadius: '25px',
-                                fontWeight: 'bold',
-                                fontSize: '14px',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s ease'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = '#c82333';
-                                e.currentTarget.style.transform = 'translateY(-1px)';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = '#dc3545';
-                                e.currentTarget.style.transform = 'translateY(0)';
-                              }}
-                            >
-                              Delete Group
-                            </button>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                              {/* Group management buttons for non-ready groups */}
+                              {!isReady && isCreator && (
+                                <button
+                                  className="button"
+                                  onClick={() => {
+                                    setShowAddInviteesModal({ groupId: group.id, groupName: group.name });
+                                    setNewInvitees([{ name: '', email: '', phone: '' }]);
+                                  }}
+                                  style={{
+                                    backgroundColor: '#6f42c1',
+                                    color: 'white',
+                                    border: 'none',
+                                    padding: '10px 20px',
+                                    borderRadius: '25px',
+                                    fontWeight: 'bold',
+                                    fontSize: '14px',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = '#5a32a3';
+                                    e.currentTarget.style.transform = 'translateY(-1px)';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = '#6f42c1';
+                                    e.currentTarget.style.transform = 'translateY(0)';
+                                  }}
+                                  title="Add more people to your group"
+                                >
+                                  Add More Invitees
+                                </button>
+                              )}
+
+                              <button
+                                className="button"
+                                onClick={() => handleDeleteGroup(group.id, group.name)}
+                                style={{
+                                  backgroundColor: '#dc3545',
+                                  color: 'white',
+                                  border: 'none',
+                                  padding: '10px 20px',
+                                  borderRadius: '25px',
+                                  fontWeight: 'bold',
+                                  fontSize: '14px',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s ease'
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.backgroundColor = '#c82333';
+                                  e.currentTarget.style.transform = 'translateY(-1px)';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.backgroundColor = '#dc3545';
+                                  e.currentTarget.style.transform = 'translateY(0)';
+                                }}
+                              >
+                                Delete Group
+                              </button>
+                            </div>
                           )}
                         </>
                       )}
@@ -2896,6 +3043,181 @@ const Groups: React.FC = () => {
                 }}
               >
                 Send Payment Requests
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Invitees Modal */}
+      {showAddInviteesModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '30px',
+            maxWidth: '600px',
+            width: '90%',
+            maxHeight: '80vh',
+            overflow: 'auto',
+            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)'
+          }}>
+            <h2 style={{ marginTop: 0, color: '#2c3e50', marginBottom: '20px' }}>
+              Add More People to: {showAddInviteesModal.groupName}
+            </h2>
+
+            <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#e8f5e8', borderRadius: '8px', border: '1px solid #d4edda' }}>
+              <p style={{ margin: 0, fontSize: '14px', color: '#155724' }}>
+                💡 <strong>Tip:</strong> Adding more people after creating the group can help you reach your target group size. New invitees will receive invitation emails immediately.
+              </p>
+            </div>
+
+            <div className="invitees-list" style={{ marginBottom: '20px' }}>
+              {newInvitees.map((invitee, index) => (
+                <div
+                  key={index}
+                  style={{
+                    marginBottom: '15px',
+                    padding: '20px',
+                    border: '2px solid #dee2e6',
+                    borderRadius: '12px',
+                    backgroundColor: '#f8f9fa'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                    <h4 style={{ margin: 0, color: '#495057' }}>Person {index + 1}</h4>
+                    {newInvitees.length > 1 && (
+                      <button
+                        onClick={() => removeNewInvitee(index)}
+                        style={{
+                          backgroundColor: '#dc3545',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '50%',
+                          width: '30px',
+                          height: '30px',
+                          cursor: 'pointer',
+                          fontSize: '16px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                        title="Remove this person"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
+                    <input
+                      type="text"
+                      placeholder="Full Name"
+                      value={invitee.name}
+                      onChange={(e) => updateNewInvitee(index, 'name', e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        border: '2px solid #dee2e6',
+                        borderRadius: '8px',
+                        fontSize: '16px'
+                      }}
+                      required
+                    />
+                    <input
+                      type="email"
+                      placeholder="Email Address"
+                      value={invitee.email}
+                      onChange={(e) => updateNewInvitee(index, 'email', e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        border: '2px solid #dee2e6',
+                        borderRadius: '8px',
+                        fontSize: '16px'
+                      }}
+                      required
+                    />
+                  </div>
+
+                  <input
+                    type="tel"
+                    placeholder="Phone Number (Optional)"
+                    value={invitee.phone || ''}
+                    onChange={(e) => updateNewInvitee(index, 'phone', e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      border: '2px solid #dee2e6',
+                      borderRadius: '8px',
+                      fontSize: '16px'
+                    }}
+                  />
+                </div>
+              ))}
+
+              <button
+                onClick={addNewInvitee}
+                style={{
+                  width: '100%',
+                  padding: '15px',
+                  border: '2px dashed #007bff',
+                  borderRadius: '12px',
+                  backgroundColor: 'transparent',
+                  color: '#007bff',
+                  fontSize: '16px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                + Add Another Person
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', gap: '15px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => {
+                  setShowAddInviteesModal(null);
+                  setNewInvitees([]);
+                }}
+                style={{
+                  padding: '12px 24px',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '16px'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleAddNewInvitees(showAddInviteesModal.groupId)}
+                disabled={!newInvitees.some(inv => inv.name && inv.email)}
+                style={{
+                  padding: '12px 24px',
+                  backgroundColor: newInvitees.some(inv => inv.name && inv.email) ? '#28a745' : '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: newInvitees.some(inv => inv.name && inv.email) ? 'pointer' : 'not-allowed',
+                  fontSize: '16px',
+                  fontWeight: 'bold'
+                }}
+              >
+                Add Invitees & Send Invitations
               </button>
             </div>
           </div>

@@ -334,6 +334,60 @@ async def send_invitations(group: Group, creator: User, db: Session):
     
     db.commit()
 
+
+async def send_invitations_to_specific_invitees(group: Group, creator: User, invitees: list, db: Session):
+    """Send invitation emails to specific invitees"""
+    for invitee in invitees:
+        subject = f"You're invited to join '{group.name}' dumpster sharing group!"
+
+        # Use the configured BASE_URL
+        join_url = f"{BASE_URL}/join/{invitee.join_token}"
+
+        # Create email body with group details and join link
+        body = f"""
+        <html>
+            <body>
+                <h2>You've been invited to join a dumpster sharing group!</h2>
+
+                <p>Hi {invitee.name},</p>
+
+                <p>{creator.name} has invited you to join the dumpster sharing group "<strong>{group.name}</strong>".</p>
+
+                <h3>Group Details:</h3>
+                <ul>
+                    <li><strong>Group Name:</strong> {group.name}</li>
+                    <li><strong>Location:</strong> {group.address}</li>
+                    <li><strong>Max Participants:</strong> {group.max_participants}</li>
+                    <li><strong>Created by:</strong> {creator.name} ({creator.email})</li>
+                </ul>
+
+                <p>Join this group to share dumpster rental costs and coordinate pickup schedules with your neighbors!</p>
+
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="{join_url}" style="background-color: #4CAF50; color: white; padding: 15px 32px; text-align: center; text-decoration: none; display: inline-block; font-size: 16px; margin: 4px 2px; cursor: pointer; border-radius: 4px;">
+                        Join Group Now
+                    </a>
+                </div>
+
+                <p><strong>Or copy and paste this link:</strong><br>
+                <a href="{join_url}">{join_url}</a></p>
+
+                <p>If you have any questions, feel free to contact {creator.name} at {creator.email}.</p>
+
+                <p>Best regards,<br>The Dumpster Sharing Team</p>
+            </body>
+        </html>
+        """
+
+        # Send the email
+        success = await send_email(invitee.email, subject, body)
+
+        if success:
+            invitee.invitation_sent = True
+            db.add(invitee)
+
+    db.commit()
+
 def calculate_zip_distance_approximation(zip1: str, zip2: str) -> float:
     """
     Approximate distance between two US zip codes using first 3 digits.
@@ -1209,6 +1263,47 @@ async def get_group_members(group_id: int, db: Session = Depends(get_db)):
     members = db.query(GroupMember).filter(GroupMember.group_id == group_id).all()
     return [{"user_id": member.user_id, "joined_at": member.joined_at} for member in members]
 
+
+@app.post("/groups/{group_id}/add-invitees")
+async def add_invitees_to_group(group_id: int, invitees_data: List[InviteeCreate], current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Add new invitees to an existing group"""
+    group = db.query(Group).filter(Group.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    # Check if current user is the group creator
+    if group.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Only group creators can add invitees")
+
+    # Create new invitees
+    new_invitees = []
+    for invitee_data in invitees_data:
+        if invitee_data.name and invitee_data.email:
+            # Check if email is already invited to this group
+            existing_invitee = db.query(Invitee).filter(
+                Invitee.group_id == group_id,
+                Invitee.email == invitee_data.email
+            ).first()
+
+            if not existing_invitee:
+                invitee = Invitee(
+                    group_id=group_id,
+                    name=invitee_data.name,
+                    email=invitee_data.email,
+                    phone=invitee_data.phone,
+                    join_token=generate_join_token()
+                )
+                db.add(invitee)
+                new_invitees.append(invitee)
+
+    db.commit()
+
+    # Send invitations to new invitees only
+    if new_invitees:
+        await send_invitations_to_specific_invitees(group, current_user, new_invitees, db)
+
+    return {"message": f"Added {len(new_invitees)} new invitees and sent invitations"}
+
 @app.post("/companies", response_model=CompanyResponse)
 async def create_company(company: CompanyCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     # Convert dumpster_sizes to JSON string for storage
@@ -1442,9 +1537,8 @@ async def get_rentals(current_user: User = Depends(get_current_user), db: Sessio
 
 class UserDropoffDateSelectionResponse(BaseModel):
     dropoff_date_id: int
-    start_date: str
-    end_date: str
-    
+    date: str
+
     class Config:
         from_attributes = True
 
@@ -1453,8 +1547,7 @@ class UpdateDropoffDateSelectionsRequest(BaseModel):
 
 class DropoffDateAnalysis(BaseModel):
     dropoff_date_id: int
-    start_date: str
-    end_date: str
+    date: str
     selected_by_count: int
     selected_by_users: List[str]
     is_universal: bool  # True if ALL group members selected this slot
@@ -1478,12 +1571,14 @@ async def get_user_dropoff_date_selections(group_id: int, current_user: User = D
     
     result = []
     for selection in selections:
-        dropoff_date = db.query(DropoffDate).filter(DropoffDate.id == selection.dropoff_date_id).first()
+        dropoff_date = db.query(DropoffDate).filter(
+            DropoffDate.id == selection.dropoff_date_id,
+            DropoffDate.group_id == group_id
+        ).first()
         if dropoff_date:
             result.append({
                 "dropoff_date_id": dropoff_date.id,
-                "start_date": dropoff_date.start_date,
-                "end_date": dropoff_date.end_date
+                "date": dropoff_date.date
             })
     
     return result
@@ -1526,6 +1621,11 @@ async def update_user_dropoff_date_selections(
     
     # Add new selections
     for dropoff_date_id in request.dropoff_date_ids:
+        # Double-check: Ensure this dropoff_date actually belongs to the same group as the member
+        dropoff_date = db.query(DropoffDate).filter(DropoffDate.id == dropoff_date_id).first()
+        if not dropoff_date or dropoff_date.group_id != group_id:
+            raise HTTPException(status_code=400, detail=f"Data integrity error: dropoff_date {dropoff_date_id} does not belong to group {group_id}")
+
         dropoff_date_selection = UserDropoffDateSelection(
             group_member_id=member.id,
             dropoff_date_id=dropoff_date_id
@@ -1557,11 +1657,14 @@ async def get_dropoff_date_analysis(group_id: int, current_user: User = Depends(
     
     result = []
     for dropoff_date in dropoff_dates:
-        # Get all selections for this time slot
-        selections = db.query(UserDropoffDateSelection).filter(
-            UserDropoffDateSelection.dropoff_date_id == dropoff_date.id
+        # Get all selections for this time slot from members of this group only
+        selections = db.query(UserDropoffDateSelection).join(
+            GroupMember, UserDropoffDateSelection.group_member_id == GroupMember.id
+        ).filter(
+            UserDropoffDateSelection.dropoff_date_id == dropoff_date.id,
+            GroupMember.group_id == group_id
         ).all()
-        
+
         # Get member IDs who selected this slot
         member_ids = [selection.group_member_id for selection in selections]
         
@@ -1577,8 +1680,7 @@ async def get_dropoff_date_analysis(group_id: int, current_user: User = Depends(
         
         result.append({
             "dropoff_date_id": dropoff_date.id,
-            "start_date": dropoff_date.start_date,
-            "end_date": dropoff_date.end_date,
+            "date": dropoff_date.date,
             "selected_by_count": len(selected_users),
             "selected_by_users": selected_users,
             "is_universal": len(selected_users) == total_members and total_members > 0
