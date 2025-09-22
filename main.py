@@ -45,6 +45,19 @@ stripe.api_key = STRIPE_SECRET_KEY
 BASE_URL = os.getenv("BASE_URL", "https://groupdump.com")
 
 engine = create_engine(DATABASE_URL)
+
+# Enable foreign key constraints for SQLite
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
+import sqlite3
+
+@event.listens_for(Engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    if isinstance(dbapi_connection, sqlite3.Connection):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
@@ -215,8 +228,8 @@ class UserDropoffDateSelection(Base):
     __table_args__ = (UniqueConstraint('dropoff_date_id', 'group_member_id'),)
     
     id = Column(Integer, primary_key=True, index=True)
-    group_member_id = Column(Integer, ForeignKey("group_members.id"))
-    dropoff_date_id = Column(Integer, ForeignKey("dropoff_dates.id"))
+    group_member_id = Column(Integer, ForeignKey("group_members.id", ondelete="CASCADE"))
+    dropoff_date_id = Column(Integer, ForeignKey("dropoff_dates.id", ondelete="CASCADE"))
     created_at = Column(DateTime, default=datetime.utcnow)
     
     member = relationship("GroupMember", foreign_keys=[group_member_id])
@@ -1654,7 +1667,7 @@ async def get_dropoff_date_analysis(group_id: int, current_user: User = Depends(
     # Get all group members
     members = db.query(GroupMember).filter(GroupMember.group_id == group_id).all()
     total_members = len(members)
-    
+
     result = []
     for dropoff_date in dropoff_dates:
         # Get all selections for this time slot from members of this group only
@@ -1678,12 +1691,14 @@ async def get_dropoff_date_analysis(group_id: int, current_user: User = Depends(
                 if user and user.name not in selected_users:  # Avoid duplicate names
                     selected_users.append(user.name)
         
+        is_universal = len(selected_users) == total_members and total_members > 0
+
         result.append({
             "dropoff_date_id": dropoff_date.id,
             "date": dropoff_date.date,
             "selected_by_count": len(selected_users),
             "selected_by_users": selected_users,
-            "is_universal": len(selected_users) == total_members and total_members > 0
+            "is_universal": is_universal
         })
     
     return result
