@@ -272,6 +272,7 @@ const Groups: React.FC = () => {
   const [comparisonSize, setComparisonSize] = useState<string>('20');
   const [bookedServices, setBookedServices] = useState<Set<number>>(new Set());
   const [paymentRequestsSent, setPaymentRequestsSent] = useState<Set<number>>(new Set());
+  const [perMemberAmounts, setPerMemberAmounts] = useState<{[groupId: number]: number}>({});
   const [showPaymentModal, setShowPaymentModal] = useState<{groupId: number; groupName: string} | null>(null);
   const [actualCost, setActualCost] = useState<string>('');
 
@@ -304,6 +305,17 @@ const Groups: React.FC = () => {
         setPaymentRequestsSent(new Set(parsed));
       } catch (e) {
         console.error('Error loading payment requests state:', e);
+      }
+    }
+
+    // Load per-member amounts from localStorage
+    const savedPerMemberAmounts = localStorage.getItem('perMemberAmounts');
+    if (savedPerMemberAmounts) {
+      try {
+        const parsed = JSON.parse(savedPerMemberAmounts);
+        setPerMemberAmounts(parsed);
+      } catch (e) {
+        console.error('Error loading per-member amounts:', e);
       }
     }
   }, []);
@@ -1858,8 +1870,8 @@ const Groups: React.FC = () => {
                                     gap: '4px'
                                   }}>
                                     {(() => {
-                                      const hasBookedPrice = costBreakdowns[group.id] && costBreakdowns[group.id].length > 0;
-                                      const bookedPrice = hasBookedPrice ? costBreakdowns[group.id][0].amount : null;
+                                      const hasPaymentRequestSent = paymentRequestsSent.has(group.id);
+                                      const actualBookedPrice = hasPaymentRequestSent ? perMemberAmounts[group.id] : null;
                                       const hasOverageFees = false; // Will be populated later
 
                                       return (
@@ -1867,11 +1879,11 @@ const Groups: React.FC = () => {
                                           <div style={{
                                             fontSize: '12px',
                                             fontWeight: 'bold',
-                                            color: hasBookedPrice ? '#6c757d' : '#28a745',
-                                            backgroundColor: hasBookedPrice ? '#f8f9fa' : '#e8f5e8',
+                                            color: hasPaymentRequestSent ? '#6c757d' : '#28a745',
+                                            backgroundColor: hasPaymentRequestSent ? '#f8f9fa' : '#e8f5e8',
                                             padding: '6px 12px',
                                             borderRadius: '20px',
-                                            border: hasBookedPrice ? '1px solid #dee2e6' : '1px solid #d4edda',
+                                            border: hasPaymentRequestSent ? '1px solid #dee2e6' : '1px solid #d4edda',
                                             textAlign: 'center',
                                             minWidth: '140px'
                                           }}>
@@ -1880,15 +1892,15 @@ const Groups: React.FC = () => {
                                           <div style={{
                                             fontSize: '12px',
                                             fontWeight: 'bold',
-                                            color: hasBookedPrice ? '#28a745' : '#6c757d',
-                                            backgroundColor: hasBookedPrice ? '#e8f5e8' : '#f8f9fa',
+                                            color: hasPaymentRequestSent ? '#28a745' : '#6c757d',
+                                            backgroundColor: hasPaymentRequestSent ? '#e8f5e8' : '#f8f9fa',
                                             padding: '6px 12px',
                                             borderRadius: '20px',
-                                            border: hasBookedPrice ? '1px solid #d4edda' : '1px solid #dee2e6',
+                                            border: hasPaymentRequestSent ? '1px solid #d4edda' : '1px solid #dee2e6',
                                             textAlign: 'center',
                                             minWidth: '140px'
                                           }}>
-                                            Actual Booked Price: {hasBookedPrice ? `$${bookedPrice.toFixed(2)}` : '--'}
+                                            Actual Booked Price: {hasPaymentRequestSent && actualBookedPrice ? `$${actualBookedPrice.toFixed(2)}` : '--'}
                                           </div>
                                           <div style={{
                                             fontSize: '12px',
@@ -2995,9 +3007,19 @@ const Groups: React.FC = () => {
                     const newPaymentRequestsSent = new Set(paymentRequestsSent);
                     newPaymentRequestsSent.add(showPaymentModal.groupId);
                     setPaymentRequestsSent(newPaymentRequestsSent);
-                    
+
+                    // Store the per-member amount for this group
+                    setPerMemberAmounts(prev => ({
+                      ...prev,
+                      [showPaymentModal.groupId]: costPerMember
+                    }));
+
                     // Save to localStorage for persistence
                     localStorage.setItem('paymentRequestsSent', JSON.stringify(Array.from(newPaymentRequestsSent)));
+                    localStorage.setItem('perMemberAmounts', JSON.stringify({
+                      ...perMemberAmounts,
+                      [showPaymentModal.groupId]: costPerMember
+                    }));
                     
                     setShowPaymentModal(null);
                     setActualCost('');
