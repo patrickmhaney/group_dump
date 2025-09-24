@@ -605,6 +605,7 @@ class GroupResponse(BaseModel):
     vendor_id: Optional[int] = None
     vendor_name: Optional[str] = None
     created_at: datetime
+    final_dropoff_date_id: Optional[int] = None
     dropoff_dates: Optional[List[DropoffDateResponse]] = []
     participants: Optional[List[ParticipantResponse]] = []
     invitees: Optional[List[InviteeResponse]] = []

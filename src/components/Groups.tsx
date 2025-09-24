@@ -15,6 +15,7 @@ interface Group {
   status: string;
   created_by: number;
   created_at: string;
+  final_dropoff_date_id?: number;
   dropoff_dates?: DropoffDate[];
   vendor_id?: number;
   vendor_name?: string;
@@ -409,6 +410,15 @@ const Groups: React.FC = () => {
     try {
       const response = await axios.get('/groups/invited');
       setGroups(response.data);
+
+      // Sync final dropoff dates from backend
+      const finalDates: {[groupId: number]: number} = {};
+      response.data.forEach((group: Group) => {
+        if (group.final_dropoff_date_id) {
+          finalDates[group.id] = group.final_dropoff_date_id;
+        }
+      });
+      setSelectedFinalDropoffDates(prev => ({...prev, ...finalDates}));
     } catch (error) {
       console.error('Error fetching groups:', error);
     } finally {
@@ -2203,102 +2213,91 @@ const Groups: React.FC = () => {
                           </div>
                         </div>
                       ) : paymentRequestsSent.has(group.id) ? (
-                        // Show finalized time slots when payment requests have been sent
-                        <div style={{ 
+                        // Show the selected final drop-off date when payment requests have been sent
+                        <div style={{
                           marginLeft: '24px',
-                          padding: '16px', 
-                          backgroundColor: '#e7f3ff', 
+                          padding: '16px',
+                          backgroundColor: '#d4edda',
                           borderRadius: '10px',
-                          border: '1px solid #b3d9ff'
+                          border: '1px solid #c3e6cb'
                         }}>
-                          <div style={{ marginBottom: '12px', fontSize: '14px', color: '#0066cc', fontWeight: 'bold' }}>
-                            🔒 Drop off dates finalized after payment requests sent
+                          <div style={{ marginBottom: '12px', fontSize: '14px', color: '#155724', fontWeight: 'bold' }}>
+                            ✅ Final Drop-off Date Selected
                           </div>
-                          
-                          <div style={{ display: 'grid', gap: '8px' }}>
-                            {group.dropoff_dates.map((date) => {
-                              const isSelected = (userDropoffDateSelections[group.id] || []).includes(date.id);
-                              const analysis = dropoffDateAnalyses[group.id]?.find(a => a.dropoff_date_id === date.id);
-                              
-                              return (
-                                <div 
-                                  key={date.id} 
-                                  style={{
-                                    padding: '12px',
-                                    borderRadius: '8px',
-                                    backgroundColor: isSelected ? '#cce5ff' : '#f0f0f0',
-                                    border: `1px solid ${isSelected ? '#80bfff' : '#ddd'}`,
-                                    opacity: 0.8
-                                  }}
-                                >
-                                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                                    <div style={{ 
-                                      width: '20px', 
-                                      height: '20px', 
-                                      marginTop: '2px',
-                                      borderRadius: '4px',
-                                      backgroundColor: isSelected ? '#007bff' : '#ccc',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      color: 'white',
-                                      fontSize: '12px',
-                                      fontWeight: 'bold'
-                                    }}>
-                                      {isSelected ? '✓' : ''}
-                                    </div>
-                                    <div style={{ flex: 1 }}>
-                                      <div style={{ 
-                                        fontWeight: 'bold', 
-                                        marginBottom: '4px',
-                                        color: isSelected ? '#0066cc' : '#666'
-                                      }}>
-                                        {formatDateDisplay(date.date)}
-                                      </div>
-                                      {analysis && (
-                                        <div style={{ 
-                                          fontSize: '12px', 
-                                          color: '#666',
-                                          display: 'flex',
-                                          flexWrap: 'wrap',
-                                          gap: '4px',
-                                          alignItems: 'center'
-                                        }}>
-                                          <span>Selected by {analysis.selected_by_count} member{analysis.selected_by_count !== 1 ? 's' : ''}:</span>
-                                          {analysis.selected_by_users.map((userName, index) => (
-                                            <span key={userName} style={{
-                                              backgroundColor: '#e9ecef',
-                                              padding: '2px 6px',
-                                              borderRadius: '4px',
-                                              fontSize: '11px'
-                                            }}>
-                                              {userName}
-                                            </span>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
+
+                          {selectedFinalDropoffDates[group.id] || group.final_dropoff_date_id ? (
+                            <div style={{
+                              padding: '12px',
+                              borderRadius: '8px',
+                              backgroundColor: '#ffffff',
+                              border: '1px solid #c3e6cb',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '12px'
+                            }}>
+                              <div style={{
+                                width: '24px',
+                                height: '24px',
+                                borderRadius: '50%',
+                                backgroundColor: '#28a745',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: 'white',
+                                fontSize: '14px',
+                                fontWeight: 'bold'
+                              }}>
+                                ✓
+                              </div>
+                              <div>
+                                <div style={{
+                                  fontWeight: 'bold',
+                                  fontSize: '16px',
+                                  color: '#155724',
+                                  marginBottom: '2px'
+                                }}>
+                                  {(() => {
+                                    const finalDateId = selectedFinalDropoffDates[group.id] || group.final_dropoff_date_id;
+                                    const selectedDate = group.dropoff_dates?.find(d => d.id === finalDateId);
+                                    return selectedDate ? formatDateDisplay(selectedDate.date) : 'Date not found';
+                                  })()}
                                 </div>
-                              );
-                            })}
-                          </div>
-                          
+                                <div style={{
+                                  fontSize: '12px',
+                                  color: '#666'
+                                }}>
+                                  This is the confirmed drop-off date for your group
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div style={{
+                              padding: '12px',
+                              borderRadius: '8px',
+                              backgroundColor: '#fff3cd',
+                              border: '1px solid #ffeaa7',
+                              color: '#856404',
+                              fontSize: '14px'
+                            }}>
+                              ⚠️ Final drop-off date not yet selected
+                            </div>
+                          )}
+
                           <div style={{
                             marginTop: '12px',
                             padding: '8px',
-                            backgroundColor: '#fff3cd',
+                            backgroundColor: '#cce5ff',
                             borderRadius: '6px',
-                            border: '1px solid #ffeaa7',
+                            border: '1px solid #80bfff',
                             fontSize: '12px',
-                            color: '#856404',
+                            color: '#0066cc',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '8px'
                           }}>
-                            <span>💡</span>
+                            <span>📧</span>
                             <div>
-                              <strong>Note:</strong> Time slot selections are now locked since payment requests have been sent.
+                              <strong>Payment requests sent!</strong> All group members have been notified with the final drop-off date.
                             </div>
                           </div>
                         </div>
