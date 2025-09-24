@@ -155,13 +155,15 @@ class Group(Base):
     status = Column(String, default="forming")
     created_by = Column(Integer, ForeignKey("users.id"))
     vendor_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
+    final_dropoff_date_id = Column(Integer, ForeignKey("dropoff_dates.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     members = relationship("GroupMember", back_populates="group")
     rentals = relationship("Rental", back_populates="group")
-    dropoff_dates = relationship("DropoffDate", back_populates="group")
+    dropoff_dates = relationship("DropoffDate", back_populates="group", foreign_keys="DropoffDate.group_id")
     invitees = relationship("Invitee", back_populates="group")
     vendor = relationship("Company", foreign_keys=[vendor_id])
+    final_dropoff_date = relationship("DropoffDate", foreign_keys=[final_dropoff_date_id])
 
 class GroupMember(Base):
     __tablename__ = "group_members"
@@ -207,7 +209,7 @@ class DropoffDate(Base):
     group_id = Column(Integer, ForeignKey("groups.id"))
     date = Column(String)
     
-    group = relationship("Group", back_populates="dropoff_dates")
+    group = relationship("Group", back_populates="dropoff_dates", foreign_keys=[group_id])
 
 class Invitee(Base):
     __tablename__ = "invitees"
@@ -1558,6 +1560,9 @@ class UserDropoffDateSelectionResponse(BaseModel):
 class UpdateDropoffDateSelectionsRequest(BaseModel):
     dropoff_date_ids: List[int]
 
+class SetFinalDropoffDateRequest(BaseModel):
+    final_dropoff_date_id: int
+
 class DropoffDateAnalysis(BaseModel):
     dropoff_date_id: int
     date: str
@@ -1648,6 +1653,37 @@ async def update_user_dropoff_date_selections(
     db.commit()
     
     return {"message": "Time slot selections updated successfully"}
+
+@app.post("/groups/{group_id}/set-final-dropoff-date")
+async def set_final_dropoff_date(
+    group_id: int,
+    request: SetFinalDropoffDateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Set the final dropoff date for a group - only accessible by group creator"""
+    # Verify group exists and user is the creator
+    group = db.query(Group).filter(Group.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    if group.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Only group creator can set final dropoff date")
+
+    # Verify the dropoff date belongs to this group
+    dropoff_date = db.query(DropoffDate).filter(
+        DropoffDate.id == request.final_dropoff_date_id,
+        DropoffDate.group_id == group_id
+    ).first()
+
+    if not dropoff_date:
+        raise HTTPException(status_code=400, detail="Invalid dropoff date for this group")
+
+    # Update the group with the final dropoff date
+    group.final_dropoff_date_id = request.final_dropoff_date_id
+    db.commit()
+
+    return {"message": "Final dropoff date set successfully", "final_dropoff_date": dropoff_date.date}
 
 @app.get("/groups/{group_id}/time-slot-analysis", response_model=List[DropoffDateAnalysis])
 async def get_dropoff_date_analysis(group_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -1744,7 +1780,12 @@ async def generate_payment_requests(
     rental = db.query(Rental).filter(Rental.group_id == group_id).first()
     if not rental:
         raise HTTPException(status_code=404, detail="No rental found for this group")
-    
+
+    # Get final dropoff date if set
+    final_dropoff_date = None
+    if group.final_dropoff_date_id:
+        final_dropoff_date = db.query(DropoffDate).filter(DropoffDate.id == group.final_dropoff_date_id).first()
+
     # Get all group members except the creator
     members = db.query(GroupMember).filter(
         GroupMember.group_id == group_id,
@@ -1798,27 +1839,33 @@ async def generate_payment_requests(
                     payment_info = "Cash payment"
             except:
                 payment_info = request.payment_details
-            
+
+            # Build dropoff date line if available
+            dropoff_date_line = ""
+            if final_dropoff_date:
+                dropoff_date_line = f"<li><strong>Scheduled Drop-off Date:</strong> {final_dropoff_date.date}</li>"
+
             body = f"""
             <html>
                 <body>
                     <h2>💰 Payment Request from {current_user.name}</h2>
-                    
+
                     <p>Hi {user.name},</p>
-                    
+
                     <p>You have a payment request for your share of the dumpster rental in group <strong>"{group.name}"</strong>.</p>
-                    
+
                     <h3>📋 Payment Details:</h3>
                     <ul>
                         <li><strong>Amount:</strong> ${cost_per_member:.2f}</li>
                         <li><strong>For:</strong> {request.description}</li>
                         <li><strong>Pay via:</strong> {payment_info}</li>
+                        {dropoff_date_line}
                     </ul>
-                    
+
                     <p>Please send your payment and the group creator will mark it as received.</p>
-                    
+
                     <p>Questions? Contact {current_user.name} at {current_user.email}</p>
-                    
+
                     <p>Best regards,<br>The Dumpster Sharing Team</p>
                 </body>
             </html>

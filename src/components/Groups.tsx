@@ -794,11 +794,26 @@ const Groups: React.FC = () => {
     updateUserDropoffDateSelections(groupId, newSelections);
   };
 
-  const handleFinalDropoffDateSelection = (groupId: number, dropoffDateId: number) => {
-    setSelectedFinalDropoffDates(prev => ({
-      ...prev,
-      [groupId]: dropoffDateId
-    }));
+  const handleFinalDropoffDateSelection = async (groupId: number, dropoffDateId: number) => {
+    try {
+      // Update the backend with the final dropoff date selection
+      await axios.post(`/groups/${groupId}/set-final-dropoff-date`, {
+        final_dropoff_date_id: dropoffDateId
+      });
+
+      // Update local state
+      setSelectedFinalDropoffDates(prev => ({
+        ...prev,
+        [groupId]: dropoffDateId
+      }));
+
+      setMessage('Final drop off date selected successfully!');
+      setTimeout(() => setMessage(''), 3000);
+    } catch (error: any) {
+      console.error('Error setting final dropoff date:', error);
+      setMessage(error.response?.data?.detail || 'Error setting final dropoff date');
+      setTimeout(() => setMessage(''), 5000);
+    }
   };
 
 
@@ -2087,10 +2102,10 @@ const Groups: React.FC = () => {
                         marginBottom: '12px'
                       }}>
                         <span style={{ marginRight: '8px', fontSize: '16px' }}>📅</span>
-                        <span style={{ fontWeight: 'bold', color: '#2c3e50' }}>Available Time Slots</span>
+                        <span style={{ fontWeight: 'bold', color: '#2c3e50' }}>Available Drop-off Dates</span>
                       </div>
                       
-                      {/* Always show time slots with interactive features for non-ready groups, but disable if payment requests sent */}
+                      {/* Always show drop-ff dates with interactive features for non-ready groups, but disable if payment requests sent */}
                       {!isReady && !paymentRequestsSent.has(group.id) ? (
                         <div style={{ 
                           marginLeft: '24px',
