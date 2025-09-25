@@ -5,6 +5,15 @@ import ServiceConfirmation from './ServiceConfirmation.tsx';
 import ServiceOrderSummary from './ServiceOrderSummary.tsx';
 import { formatDateDisplay } from '../utils/dateUtils.ts';
 
+// Group state constants
+const GROUP_STATES = {
+  FORMING: 'forming',
+  COMPLETED_NO_FINAL_DATE: 'completed_no_final_date',
+  COMPLETED_FINAL_DATE_SELECTED: 'completed_final_date_selected',
+  COMPLETED_SERVICE_BOOKED: 'completed_service_booked',
+  COMPLETED_BOOKING_CONFIRMED: 'completed_booking_confirmed'
+} as const;
+
 interface Group {
   id: number;
   name: string;
@@ -2528,197 +2537,361 @@ const Groups: React.FC = () => {
                           </button>
                         )
                       ) : (
-                        // Creator actions
+                        // Creator actions - handling all 5 states
                         <>
-                          {isReady && !selectedFinalDropoffDates[group.id] && isCreator && !bookedServices.has(group.id) && (
-                            <div style={{
-                              padding: '12px',
-                              backgroundColor: '#d4edda',
-                              borderRadius: '8px',
-                              border: '1px solid #c3e6cb',
-                              fontSize: '14px',
-                              color: '#155724',
-                              marginBottom: '10px'
-                            }}>
-                              🎉 Your group is ready! Please select a final dropoff date above to proceed with booking.
-                            </div>
-                          )}
-                          {isReady && selectedFinalDropoffDates[group.id] && (
-                            <button
-                              className="button"
-                              onClick={() => {
-                                setBookedServices(prev => new Set([...prev, group.id]));
-                                
-                                // Find the vendor/company for this group and redirect to their website
-                                const vendor = companies.find(company => company.id === group.vendor_id);
-                                const websiteUrl = vendor?.website;
-                                
-                                if (websiteUrl) {
-                                  // Ensure URL has protocol
-                                  const url = websiteUrl.startsWith('http') ? websiteUrl : `https://${websiteUrl}`;
-                                  window.open(url, '_blank');
-                                } else {
-                                  // Fallback to default URL if no website is configured
-                                  window.open('https://ddumpsters.com/', '_blank');
-                                }
-                              }}
-                              style={{
-                                backgroundColor: '#007bff',
-                                color: 'white',
-                                border: 'none',
-                                padding: '10px 20px',
-                                borderRadius: '25px',
-                                fontWeight: 'bold',
-                                fontSize: '14px',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s ease'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = '#0056b3';
-                                e.currentTarget.style.transform = 'translateY(-1px)';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = '#007bff';
-                                e.currentTarget.style.transform = 'translateY(0)';
-                              }}
-                              title="Complete your group and book the service"
-                            >
-                              Book Service
-                            </button>
-                          )}
-                          {paymentRequestsSent.has(group.id) ? (
-                            <button
-                              className="button"
-                              onClick={() => {
-                                // Find the vendor for this group and redirect to their website
-                                const vendor = companies.find(company => company.id === group.vendor_id);
-                                const websiteUrl = vendor?.website;
-                                
-                                if (websiteUrl) {
-                                  // Ensure URL has protocol
-                                  const url = websiteUrl.startsWith('http') ? websiteUrl : `https://${websiteUrl}`;
-                                  window.open(url, '_blank');
-                                } else {
-                                  // Fallback to default URL if no website is configured
-                                  window.open('https://ddumpsters.com/', '_blank');
-                                }
-                              }}
-                              style={{
-                                backgroundColor: '#007bff',
-                                color: 'white',
-                                border: 'none',
-                                padding: '10px 20px',
-                                borderRadius: '25px',
-                                fontWeight: 'bold',
-                                fontSize: '14px',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s ease'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = '#0056b3';
-                                e.currentTarget.style.transform = 'translateY(-1px)';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = '#007bff';
-                                e.currentTarget.style.transform = 'translateY(0)';
-                              }}
-                            >
-                              Visit {companies.find(company => company.id === group.vendor_id)?.name || 'Vendor'} Website
-                            </button>
-                          ) : bookedServices.has(group.id) ? (
-                            <button
-                              className="button"
-                              onClick={() => {
-                                setShowPaymentModal({
-                                  groupId: group.id,
-                                  groupName: group.name
-                                });
-                                setActualCost('');
-                              }}
-                              style={{
-                                backgroundColor: '#28a745',
-                                color: 'white',
-                                border: 'none',
-                                padding: '10px 20px',
-                                borderRadius: '25px',
-                                fontWeight: 'bold',
-                                fontSize: '14px',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s ease'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = '#218838';
-                                e.currentTarget.style.transform = 'translateY(-1px)';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = '#28a745';
-                                e.currentTarget.style.transform = 'translateY(0)';
-                              }}
-                            >
-                              Confirm Booking and Request Payment From Group
-                            </button>
-                          ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                              {/* Group management buttons for non-ready groups */}
-                              {!isReady && isCreator && (
-                                <button
-                                  className="button"
-                                  onClick={() => {
-                                    setShowAddInviteesModal({ groupId: group.id, groupName: group.name });
-                                    setNewInvitees([{ name: '', email: '', phone: '' }]);
-                                  }}
-                                  style={{
-                                    backgroundColor: '#6f42c1',
-                                    color: 'white',
-                                    border: 'none',
-                                    padding: '10px 20px',
-                                    borderRadius: '25px',
-                                    fontWeight: 'bold',
-                                    fontSize: '14px',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s ease'
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    e.currentTarget.style.backgroundColor = '#5a32a3';
-                                    e.currentTarget.style.transform = 'translateY(-1px)';
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.currentTarget.style.backgroundColor = '#6f42c1';
-                                    e.currentTarget.style.transform = 'translateY(0)';
-                                  }}
-                                  title="Add more people to your group"
-                                >
-                                  Add More Invitees
-                                </button>
-                              )}
+                          {(() => {
+                            // Determine current group state
+                            const hasPaymentRequests = paymentRequestsSent.has(group.id);
+                            const hasBookedService = bookedServices.has(group.id);
+                            const hasFinalDate = !!selectedFinalDropoffDates[group.id];
 
-                              <button
-                                className="button"
-                                onClick={() => handleDeleteGroup(group.id, group.name)}
-                                style={{
-                                  backgroundColor: '#dc3545',
-                                  color: 'white',
-                                  border: 'none',
-                                  padding: '10px 20px',
-                                  borderRadius: '25px',
-                                  fontWeight: 'bold',
-                                  fontSize: '14px',
-                                  cursor: 'pointer',
-                                  transition: 'all 0.2s ease'
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.backgroundColor = '#c82333';
-                                  e.currentTarget.style.transform = 'translateY(-1px)';
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.backgroundColor = '#dc3545';
-                                  e.currentTarget.style.transform = 'translateY(0)';
-                                }}
-                              >
-                                Delete Group
-                              </button>
-                            </div>
-                          )}
+                            if (hasPaymentRequests) {
+                              // State 5: Completed Booking Confirmed and Payment Requested
+                              return (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                  <button
+                                    className="button"
+                                    onClick={() => {
+                                      const vendor = companies.find(company => company.id === group.vendor_id);
+                                      const websiteUrl = vendor?.website;
+
+                                      if (websiteUrl) {
+                                        const url = websiteUrl.startsWith('http') ? websiteUrl : `https://${websiteUrl}`;
+                                        window.open(url, '_blank');
+                                      } else {
+                                        window.open('https://ddumpsters.com/', '_blank');
+                                      }
+                                    }}
+                                    style={{
+                                      backgroundColor: '#007bff',
+                                      color: 'white',
+                                      border: 'none',
+                                      padding: '10px 20px',
+                                      borderRadius: '25px',
+                                      fontWeight: 'bold',
+                                      fontSize: '14px',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.2s ease'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.backgroundColor = '#0056b3';
+                                      e.currentTarget.style.transform = 'translateY(-1px)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.backgroundColor = '#007bff';
+                                      e.currentTarget.style.transform = 'translateY(0)';
+                                    }}
+                                  >
+                                    Visit {companies.find(company => company.id === group.vendor_id)?.name || 'Vendor'} Website
+                                  </button>
+
+                                  <button
+                                    className="button"
+                                    onClick={() => handleDeleteGroup(group.id, group.name)}
+                                    style={{
+                                      backgroundColor: '#dc3545',
+                                      color: 'white',
+                                      border: 'none',
+                                      padding: '10px 20px',
+                                      borderRadius: '25px',
+                                      fontWeight: 'bold',
+                                      fontSize: '14px',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.2s ease'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.backgroundColor = '#c82333';
+                                      e.currentTarget.style.transform = 'translateY(-1px)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.backgroundColor = '#dc3545';
+                                      e.currentTarget.style.transform = 'translateY(0)';
+                                    }}
+                                  >
+                                    Delete Group
+                                  </button>
+                                </div>
+                              );
+                            } else if (hasBookedService) {
+                              // State 4: Completed Service Booked
+                              return (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                  <button
+                                    className="button"
+                                    onClick={() => {
+                                      setBookedServices(prev => new Set([...prev, group.id]));
+
+                                      const vendor = companies.find(company => company.id === group.vendor_id);
+                                      const websiteUrl = vendor?.website;
+
+                                      if (websiteUrl) {
+                                        const url = websiteUrl.startsWith('http') ? websiteUrl : `https://${websiteUrl}`;
+                                        window.open(url, '_blank');
+                                      } else {
+                                        window.open('https://ddumpsters.com/', '_blank');
+                                      }
+                                    }}
+                                    style={{
+                                      backgroundColor: '#007bff',
+                                      color: 'white',
+                                      border: 'none',
+                                      padding: '10px 20px',
+                                      borderRadius: '25px',
+                                      fontWeight: 'bold',
+                                      fontSize: '14px',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.2s ease'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.backgroundColor = '#0056b3';
+                                      e.currentTarget.style.transform = 'translateY(-1px)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.backgroundColor = '#007bff';
+                                      e.currentTarget.style.transform = 'translateY(0)';
+                                    }}
+                                    title="Complete your group and book the service"
+                                  >
+                                    Book Service
+                                  </button>
+
+                                  <button
+                                    className="button"
+                                    onClick={() => {
+                                      setShowPaymentModal({
+                                        groupId: group.id,
+                                        groupName: group.name
+                                      });
+                                      setActualCost('');
+                                    }}
+                                    style={{
+                                      backgroundColor: '#28a745',
+                                      color: 'white',
+                                      border: 'none',
+                                      padding: '10px 20px',
+                                      borderRadius: '25px',
+                                      fontWeight: 'bold',
+                                      fontSize: '14px',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.2s ease'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.backgroundColor = '#218838';
+                                      e.currentTarget.style.transform = 'translateY(-1px)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.backgroundColor = '#28a745';
+                                      e.currentTarget.style.transform = 'translateY(0)';
+                                    }}
+                                  >
+                                    Confirm Booking and Request Payment From Group
+                                  </button>
+
+                                  <button
+                                    className="button"
+                                    onClick={() => handleDeleteGroup(group.id, group.name)}
+                                    style={{
+                                      backgroundColor: '#dc3545',
+                                      color: 'white',
+                                      border: 'none',
+                                      padding: '10px 20px',
+                                      borderRadius: '25px',
+                                      fontWeight: 'bold',
+                                      fontSize: '14px',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.2s ease'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.backgroundColor = '#c82333';
+                                      e.currentTarget.style.transform = 'translateY(-1px)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.backgroundColor = '#dc3545';
+                                      e.currentTarget.style.transform = 'translateY(0)';
+                                    }}
+                                  >
+                                    Delete Group
+                                  </button>
+                                </div>
+                              );
+                            } else if (isReady && hasFinalDate) {
+                              // State 3: Completed Final Date Selected
+                              return (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                  <button
+                                    className="button"
+                                    onClick={() => {
+                                      setBookedServices(prev => new Set([...prev, group.id]));
+
+                                      const vendor = companies.find(company => company.id === group.vendor_id);
+                                      const websiteUrl = vendor?.website;
+
+                                      if (websiteUrl) {
+                                        const url = websiteUrl.startsWith('http') ? websiteUrl : `https://${websiteUrl}`;
+                                        window.open(url, '_blank');
+                                      } else {
+                                        window.open('https://ddumpsters.com/', '_blank');
+                                      }
+                                    }}
+                                    style={{
+                                      backgroundColor: '#007bff',
+                                      color: 'white',
+                                      border: 'none',
+                                      padding: '10px 20px',
+                                      borderRadius: '25px',
+                                      fontWeight: 'bold',
+                                      fontSize: '14px',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.2s ease'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.backgroundColor = '#0056b3';
+                                      e.currentTarget.style.transform = 'translateY(-1px)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.backgroundColor = '#007bff';
+                                      e.currentTarget.style.transform = 'translateY(0)';
+                                    }}
+                                    title="Complete your group and book the service"
+                                  >
+                                    Book Service
+                                  </button>
+
+                                  <button
+                                    className="button"
+                                    onClick={() => handleDeleteGroup(group.id, group.name)}
+                                    style={{
+                                      backgroundColor: '#dc3545',
+                                      color: 'white',
+                                      border: 'none',
+                                      padding: '10px 20px',
+                                      borderRadius: '25px',
+                                      fontWeight: 'bold',
+                                      fontSize: '14px',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.2s ease'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.backgroundColor = '#c82333';
+                                      e.currentTarget.style.transform = 'translateY(-1px)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.backgroundColor = '#dc3545';
+                                      e.currentTarget.style.transform = 'translateY(0)';
+                                    }}
+                                  >
+                                    Delete Group
+                                  </button>
+                                </div>
+                              );
+                            } else if (isReady && !hasFinalDate) {
+                              // State 2: Completed No Final Date Selected
+                              return (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                  <div style={{
+                                    padding: '12px',
+                                    backgroundColor: '#d4edda',
+                                    borderRadius: '8px',
+                                    border: '1px solid #c3e6cb',
+                                    fontSize: '14px',
+                                    color: '#155724',
+                                    marginBottom: '10px'
+                                  }}>
+                                    🎉 Your group is ready! Please select a final dropoff date above to proceed with booking.
+                                  </div>
+
+                                  <button
+                                    className="button"
+                                    onClick={() => handleDeleteGroup(group.id, group.name)}
+                                    style={{
+                                      backgroundColor: '#dc3545',
+                                      color: 'white',
+                                      border: 'none',
+                                      padding: '10px 20px',
+                                      borderRadius: '25px',
+                                      fontWeight: 'bold',
+                                      fontSize: '14px',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.2s ease'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.backgroundColor = '#c82333';
+                                      e.currentTarget.style.transform = 'translateY(-1px)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.backgroundColor = '#dc3545';
+                                      e.currentTarget.style.transform = 'translateY(0)';
+                                    }}
+                                  >
+                                    Delete Group
+                                  </button>
+                                </div>
+                              );
+                            } else {
+                              // State 1: Forming
+                              return (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                  {isCreator && (
+                                    <button
+                                      className="button"
+                                      onClick={() => {
+                                        setShowAddInviteesModal({ groupId: group.id, groupName: group.name });
+                                        setNewInvitees([{ name: '', email: '', phone: '' }]);
+                                      }}
+                                      style={{
+                                        backgroundColor: '#6f42c1',
+                                        color: 'white',
+                                        border: 'none',
+                                        padding: '10px 20px',
+                                        borderRadius: '25px',
+                                        fontWeight: 'bold',
+                                        fontSize: '14px',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease'
+                                      }}
+                                      onMouseEnter={(e) => {
+                                        e.currentTarget.style.backgroundColor = '#5a32a3';
+                                        e.currentTarget.style.transform = 'translateY(-1px)';
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = '#6f42c1';
+                                        e.currentTarget.style.transform = 'translateY(0)';
+                                      }}
+                                      title="Add more people to your group"
+                                    >
+                                      Add More Invitees
+                                    </button>
+                                  )}
+
+                                  <button
+                                    className="button"
+                                    onClick={() => handleDeleteGroup(group.id, group.name)}
+                                    style={{
+                                      backgroundColor: '#dc3545',
+                                      color: 'white',
+                                      border: 'none',
+                                      padding: '10px 20px',
+                                      borderRadius: '25px',
+                                      fontWeight: 'bold',
+                                      fontSize: '14px',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.2s ease'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.backgroundColor = '#c82333';
+                                      e.currentTarget.style.transform = 'translateY(-1px)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.backgroundColor = '#dc3545';
+                                      e.currentTarget.style.transform = 'translateY(0)';
+                                    }}
+                                  >
+                                    Delete Group
+                                  </button>
+                                </div>
+                              );
+                            }
+                          })()}
                         </>
                       )}
                     </div>
