@@ -937,6 +937,7 @@ async def get_groups(skip: int = 0, limit: int = 100, db: Session = Depends(get_
             "vendor_id": group.vendor_id,
             "vendor_name": group.vendor.name if group.vendor else None,
             "created_at": group.created_at,
+            "final_dropoff_date_id": group.final_dropoff_date_id,
             "dropoff_dates": [{"id": ts.id, "date": ts.date} for ts in db.query(DropoffDate).filter(DropoffDate.group_id == group.id).all()],
             "participants": participants,
             "invitees": invitees
@@ -1007,6 +1008,7 @@ async def get_invited_groups(current_user: User = Depends(get_current_user), db:
             "vendor_id": group.vendor_id,
             "vendor_name": group.vendor.name if group.vendor else None,
             "created_at": group.created_at,
+            "final_dropoff_date_id": group.final_dropoff_date_id,
             "dropoff_dates": [{"id": ts.id, "date": ts.date} for ts in db.query(DropoffDate).filter(DropoffDate.group_id == group.id).all()],
             "participants": participants,
             "invitees": invitees
