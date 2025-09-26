@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, ForeignKey, Text, Float, UniqueConstraint
@@ -305,37 +305,47 @@ async def send_invitations(group: Group, creator: User, db: Session):
             join_url = f"{BASE_URL}/join/{invitee.join_token}"
             
             # Create email body with group details and join link
+            register_url = f"{BASE_URL}/register?email={invitee.email}"
             body = f"""
             <html>
-                <body>
-                    <h2>You've been invited to join a dumpster sharing group!</h2>
-                    
-                    <p>Hi {invitee.name},</p>
-                    
-                    <p>{creator.name} has invited you to join the dumpster sharing group "<strong>{group.name}</strong>".</p>
-                    
-                    <h3>Group Details:</h3>
-                    <ul>
-                        <li><strong>Group Name:</strong> {group.name}</li>
-                        <li><strong>Location:</strong> {group.address}</li>
-                        <li><strong>Max Participants:</strong> {group.max_participants}</li>
-                        <li><strong>Created by:</strong> {creator.name} ({creator.email})</li>
-                    </ul>
-                    
-                    <p>Join this group to share dumpster rental costs and coordinate pickup schedules with your neighbors!</p>
-                    
-                    <div style="text-align: center; margin: 30px 0;">
-                        <a href="{join_url}" style="background-color: #4CAF50; color: white; padding: 15px 32px; text-align: center; text-decoration: none; display: inline-block; font-size: 16px; margin: 4px 2px; cursor: pointer; border-radius: 4px;">
-                            Join Group Now
-                        </a>
+                <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                        <h2 style="color: #2c3e50;">🗑️ You're invited to join a dumpster sharing group!</h2>
+
+                        <p>Hi {invitee.name},</p>
+
+                        <p>{creator.name} has invited you to join their dumpster sharing group. This is a great way to <strong>split costs</strong> and coordinate with neighbors for home projects, cleanouts, or renovations.</p>
+
+                        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                            <h3 style="margin-top: 0; color: #495057;">What is dumpster sharing?</h3>
+                            <p style="margin-bottom: 0;">Instead of renting a whole dumpster yourself, you can split the cost with neighbors who also need to dispose of materials. Everyone saves money and coordinates pickup schedules together!</p>
+                        </div>
+
+                        <h3 style="color: #28a745;">Group Details:</h3>
+                        <ul style="background-color: #f8f9fa; padding: 15px; border-radius: 6px;">
+                            <li><strong>Group Name:</strong> {group.name}</li>
+                            <li><strong>Location:</strong> {group.address}</li>
+                            <li><strong>Max Participants:</strong> {group.max_participants}</li>
+                            <li><strong>Organized by:</strong> {creator.name} ({creator.email})</li>
+                        </ul>
+
+                        <div style="background-color: #d1ecf1; padding: 15px; border-radius: 6px; margin: 20px 0;">
+                            <p style="margin: 0;"><strong>💡 No pressure!</strong> Click the link below to see the details and decide if you're interested. You can join in just a few clicks.</p>
+                        </div>
+
+                        <div style="text-align: center; margin: 30px 0;">
+                            <a href="{join_url}" style="background-color: #28a745; color: white; padding: 15px 32px; text-align: center; text-decoration: none; display: inline-block; font-size: 16px; border-radius: 6px; font-weight: bold;">
+                                View Invitation & Join Group
+                            </a>
+                        </div>
+
+                        <div style="font-size: 14px; color: #6c757d; border-top: 1px solid #dee2e6; padding-top: 15px; margin-top: 30px;">
+                            <p><strong>Want to create an account first?</strong> <a href="{register_url}" style="color: #007bff;">Sign up here</a> (completely optional)</p>
+                            <p><strong>Or copy and paste this link:</strong><br>
+                            <a href="{join_url}" style="color: #007bff;">{join_url}</a></p>
+                            <p>Questions? Contact {creator.name} at {creator.email}</p>
+                        </div>
                     </div>
-                    
-                    <p><strong>Or copy and paste this link:</strong><br>
-                    <a href="{join_url}">{join_url}</a></p>
-                    
-                    <p>If you have any questions, feel free to contact {creator.name} at {creator.email}.</p>
-                    
-                    <p>Best regards,<br>The Dumpster Sharing Team</p>
                 </body>
             </html>
             """
@@ -1125,59 +1135,97 @@ async def join_group(group_id: int, join_request: JoinGroupRequest, current_user
     return {"message": "Successfully joined group"}
 
 @app.post("/join/{token}")
-async def join_group_by_token(token: str, join_request: JoinGroupRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Join a group using an invitation token"""
+async def join_group_by_token(
+    token: str,
+    join_request: JoinGroupRequest,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Join a group using an invitation token - no authentication required"""
     invitee = db.query(Invitee).filter(Invitee.join_token == token).first()
     if invitee is None:
         raise HTTPException(status_code=404, detail="Invalid or expired invitation token")
-    
+
     group = db.query(Group).filter(Group.id == invitee.group_id).first()
     if group is None:
         raise HTTPException(status_code=404, detail="Group not found")
-    
-    # Check if user's email matches the invitee's email
-    if current_user.email != invitee.email:
-        raise HTTPException(status_code=403, detail="This invitation is not for your email address")
-    
-    # No payment method required - just join the group
-    
-    # Check if already a member
-    existing_member = db.query(GroupMember).filter(
-        GroupMember.group_id == group.id,
-        GroupMember.user_id == current_user.id
-    ).first()
-    
-    if existing_member:
-        raise HTTPException(status_code=400, detail="Already a member of this group")
-    
+
     # Check if group is full
     member_count = db.query(GroupMember).filter(GroupMember.group_id == group.id).count()
     if member_count >= group.max_participants:
         raise HTTPException(status_code=400, detail="Group is full")
-    
+
     # Get group time slots
     group_dropoff_dates = db.query(DropoffDate).filter(DropoffDate.group_id == group.id).all()
-    
+
     # Validate time slot selection - only required if group has time slots
     if group_dropoff_dates and not join_request.dropoff_date_ids:
         raise HTTPException(status_code=400, detail="You must select at least one available time slot")
-    
+
     # Verify that all selected time slots belong to this group
     if join_request.dropoff_date_ids:
         group_dropoff_date_ids = [ts.id for ts in group_dropoff_dates]
         for dropoff_date_id in join_request.dropoff_date_ids:
             if dropoff_date_id not in group_dropoff_date_ids:
                 raise HTTPException(status_code=400, detail=f"Time slot {dropoff_date_id} does not belong to this group")
-    
-    # Add user to group (no payment info needed)
+
+    # Try to get current user if they're authenticated
+    current_user = None
+    try:
+        # Check if user is authenticated
+        authorization = request.headers.get("Authorization")
+        if authorization:
+            token_str = authorization.split(" ")[1] if " " in authorization else authorization
+            payload = jwt.decode(token_str, SECRET_KEY, algorithms=[ALGORITHM])
+            username: str = payload.get("sub")
+            if username:
+                current_user = db.query(User).filter(User.username == username).first()
+    except:
+        # User is not authenticated, continue without user
+        pass
+
+    user_to_use = None
+
+    if current_user and current_user.email == invitee.email:
+        # User is authenticated and email matches
+        user_to_use = current_user
+    else:
+        # Create a temporary user account or find existing one
+        existing_user = db.query(User).filter(User.email == invitee.email).first()
+        if existing_user:
+            user_to_use = existing_user
+        else:
+            # Create new user with minimal info
+            import secrets
+            user_to_use = User(
+                username=invitee.email,  # Use email as username
+                email=invitee.email,
+                name=invitee.name,
+                hashed_password=secrets.token_hex(32),  # Random password they can reset later
+                is_verified=False  # Mark as unverified since they didn't complete registration
+            )
+            db.add(user_to_use)
+            db.commit()
+            db.refresh(user_to_use)
+
+    # Check if already a member
+    existing_member = db.query(GroupMember).filter(
+        GroupMember.group_id == group.id,
+        GroupMember.user_id == user_to_use.id
+    ).first()
+
+    if existing_member:
+        raise HTTPException(status_code=400, detail="Already a member of this group")
+
+    # Add user to group
     group_member = GroupMember(
         group_id=group.id,
-        user_id=current_user.id
+        user_id=user_to_use.id
     )
     db.add(group_member)
     db.commit()
     db.refresh(group_member)
-    
+
     # Add user's time slot selections
     for dropoff_date_id in join_request.dropoff_date_ids:
         # Check if selection already exists
@@ -1185,14 +1233,14 @@ async def join_group_by_token(token: str, join_request: JoinGroupRequest, curren
             UserDropoffDateSelection.group_member_id == group_member.id,
             UserDropoffDateSelection.dropoff_date_id == dropoff_date_id
         ).first()
-        
+
         if not existing_selection:
             dropoff_date_selection = UserDropoffDateSelection(
                 group_member_id=group_member.id,
                 dropoff_date_id=dropoff_date_id
             )
             db.add(dropoff_date_selection)
-    
+
     # Remove the invitation token as it's been used
     db.delete(invitee)
     db.commit()

@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { useParams, Navigate, Link } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../App.tsx';
-import InviteePaymentSetup from './InviteePaymentSetup.tsx';
 import { formatDateDisplay } from '../utils/dateUtils.ts';
 
 interface DropoffDate {
@@ -44,13 +43,19 @@ const Join: React.FC = () => {
   const [joining, setJoining] = useState(false);
   const [joined, setJoined] = useState(false);
   const [selectedDropoffDates, setSelectedDropoffDates] = useState<number[]>([]);
-  const [showPaymentSetup, setShowPaymentSetup] = useState(false);
-  const [paymentSetupComplete, setPaymentSetupComplete] = useState(false);
 
   useEffect(() => {
     const fetchJoinInfo = async () => {
       try {
-        const response = await axios.get(`/join/${token}/info`);
+        // Create axios instance without auth headers for public endpoint
+        const unauthenticatedAxios = axios.create({
+          baseURL: axios.defaults.baseURL,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        const response = await unauthenticatedAxios.get(`/join/${token}/info`);
         setJoinInfo(response.data);
       } catch (error: any) {
         setError(error.response?.data?.detail || 'Invalid or expired invitation link');
@@ -78,35 +83,30 @@ const Join: React.FC = () => {
     }
   };
 
-  const handleProceedToPayment = () => {
-    if (!user || !token) return;
-    
+  const handleJoinGroup = async () => {
+    if (!token) return;
+
     // Only require dropoff date selection if the group has dropoff dates
     const hasDropoffDates = joinInfo?.group.dropoff_dates && joinInfo.group.dropoff_dates.length > 0;
     if (hasDropoffDates && selectedDropoffDates.length === 0) {
-      setError('You must select at least one available dropoff date');
+      setError('Please select at least one available pickup date');
       return;
     }
 
     setError('');
-    setShowPaymentSetup(true);
-  };
-
-  const handlePaymentSetupComplete = () => {
-    setPaymentSetupComplete(true);
-    setShowPaymentSetup(false);
-  };
-
-  const handlePaymentSetupCancel = () => {
-    setShowPaymentSetup(false);
-  };
-
-  const handleJoin = async () => {
-    if (!user || !token || !paymentSetupComplete) return;
-
     setJoining(true);
+
     try {
-      await axios.post(`/join/${token}`, {
+      // Join the group directly without requiring authentication
+      // Create a new axios instance without the global Authorization header
+      const unauthenticatedAxios = axios.create({
+        baseURL: axios.defaults.baseURL,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      await unauthenticatedAxios.post(`/join/${token}`, {
         dropoff_date_ids: selectedDropoffDates
       });
       setJoined(true);
@@ -143,9 +143,65 @@ const Join: React.FC = () => {
     return (
       <div className="container">
         <div className="card">
-          <h2>Successfully Joined!</h2>
-          <p>You have successfully joined the group "{joinInfo?.group.name}".</p>
-          <Link to="/groups" className="button">View My Groups</Link>
+          <h2>🎉 Welcome to the Group!</h2>
+
+          <div style={{
+            padding: '20px',
+            backgroundColor: '#d4edda',
+            border: '1px solid #c3e6cb',
+            borderRadius: '8px',
+            marginBottom: '20px',
+            textAlign: 'center'
+          }}>
+            <p style={{ margin: '0 0 10px 0', fontSize: '18px', color: '#155724' }}>
+              <strong>You've successfully joined "{joinInfo?.group.name}"!</strong>
+            </p>
+            <p style={{ margin: '0', fontSize: '14px', color: '#155724' }}>
+              You'll receive updates about the dumpster rental via email.
+            </p>
+          </div>
+
+          <div style={{ marginBottom: '20px' }}>
+            <p><strong>📍 Location:</strong> {joinInfo?.group.address}</p>
+            <p><strong>👤 Organized by:</strong> {joinInfo?.group.creator.name} ({joinInfo?.group.creator.email})</p>
+            {selectedDropoffDates.length > 0 && joinInfo?.group.dropoff_dates && (
+              <div>
+                <p><strong>📅 Your selected dates:</strong></p>
+                <ul style={{ paddingLeft: '20px' }}>
+                  {joinInfo.group.dropoff_dates
+                    .filter(date => selectedDropoffDates.includes(date.id))
+                    .map(date => (
+                      <li key={date.id}>{formatDateDisplay(date.date)}</li>
+                    ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          <div style={{
+            padding: '15px',
+            backgroundColor: '#f8f9fa',
+            border: '1px solid #dee2e6',
+            borderRadius: '6px',
+            marginBottom: '20px'
+          }}>
+            <p style={{ margin: '0', fontSize: '14px', color: '#495057' }}>
+              <strong>What's next?</strong> The group organizer will coordinate the final details and notify everyone when the dumpster is ordered. Keep an eye on your email for updates!
+            </p>
+          </div>
+
+          <div style={{ textAlign: 'center' }}>
+            <Link
+              to={`/register?email=${encodeURIComponent(joinInfo?.invitee.email || '')}`}
+              className="button"
+              style={{ marginRight: '10px' }}
+            >
+              Create Account (Optional)
+            </Link>
+            <Link to="/" className="button button-secondary">
+              Learn More About Dumpster Sharing
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -155,21 +211,151 @@ const Join: React.FC = () => {
     return (
       <div className="container">
         <div className="card">
-          <h2>Join Group Invitation</h2>
+          <h2>Group Dump Invitation</h2>
+
+          <div style={{
+            padding: '20px',
+            backgroundColor: '#f8f9fa',
+            border: '1px solid #dee2e6',
+            borderRadius: '8px',
+            marginBottom: '20px'
+          }}>
+            <h4 style={{ margin: '0 0 10px 0', color: '#495057' }}>What is dumpster sharing?</h4>
+            <p style={{ margin: '0', fontSize: '14px', color: '#6c757d' }}>
+              Split the cost of a dumpster rental with your neighbors! Perfect for home renovations, cleanouts, or large projects. Everyone saves money and coordinates pickup schedules together.
+            </p>
+          </div>
+
           {joinInfo && (
             <div>
-              <h3>{joinInfo.group.name}</h3>
-              <p><strong>Location:</strong> {joinInfo.group.address}</p>
-              <p><strong>Created by:</strong> {joinInfo.group.creator.name}</p>
-              <p><strong>Participants:</strong> {joinInfo.group.current_participants}/{joinInfo.group.max_participants}</p>
-              <p><strong>Invited as:</strong> {joinInfo.invitee.name} ({joinInfo.invitee.email})</p>
+              <h3 style={{ color: '#28a745', marginBottom: '15px' }}>{joinInfo.group.name}</h3>
+              <div style={{ marginBottom: '20px' }}>
+                <p><strong>📍 Location:</strong> {joinInfo.group.address}</p>
+                <p><strong>👤 Organized by:</strong> {joinInfo.group.creator.name}</p>
+                <p><strong>👥 Participants:</strong> {joinInfo.group.current_participants}/{joinInfo.group.max_participants} spots filled</p>
+                <p><strong>✉️ You're invited as:</strong> {joinInfo.invitee.name} ({joinInfo.invitee.email})</p>
+              </div>
+
+              {joinInfo.group.dropoff_dates && joinInfo.group.dropoff_dates.length > 0 && (
+                <div style={{ marginBottom: '20px' }}>
+                  <h4>📅 Available Pickup Dates:</h4>
+                  <ul style={{ paddingLeft: '20px' }}>
+                    {joinInfo.group.dropoff_dates.map((date) => (
+                      <li key={date.id} style={{ marginBottom: '5px' }}>
+                        {formatDateDisplay(date.date)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div style={{
+                padding: '15px',
+                backgroundColor: '#d1ecf1',
+                border: '1px solid #bee5eb',
+                borderRadius: '6px',
+                marginBottom: '20px'
+              }}>
+                <h4 style={{ margin: '0 0 10px 0', color: '#0c5460' }}>Ready to join?</h4>
+                <p style={{ margin: '0', fontSize: '14px', color: '#0c5460' }}>
+                  Click "Join Group" below to select your available dates and set up payment. No commitment until you complete the process!
+                </p>
+              </div>
+
+              {joinInfo.group.dropoff_dates && joinInfo.group.dropoff_dates.length > 0 && (
+                <div style={{ marginBottom: '25px' }}>
+                  <div style={{
+                    padding: '15px',
+                    backgroundColor: '#d4edda',
+                    border: '1px solid #c3e6cb',
+                    borderRadius: '6px',
+                    marginBottom: '20px'
+                  }}>
+                    <p style={{ margin: '0', fontSize: '14px', color: '#155724' }}>
+                      <strong>📋 Select your available dates:</strong><br/>
+                      Choose all dates when you could be available for pickup. You can change these later if needed.
+                    </p>
+                  </div>
+
+                  <div className="form-group">
+                    {joinInfo.group.dropoff_dates.map((date) => (
+                      <div key={date.id} style={{ marginBottom: '12px' }}>
+                        <label style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          cursor: 'pointer',
+                          padding: '12px',
+                          border: selectedDropoffDates.includes(date.id) ? '2px solid #28a745' : '1px solid #dee2e6',
+                          borderRadius: '6px',
+                          backgroundColor: selectedDropoffDates.includes(date.id) ? '#d4edda' : '#ffffff'
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={selectedDropoffDates.includes(date.id)}
+                            onChange={() => handleDropoffDateToggle(date.id)}
+                            style={{ marginRight: '15px', transform: 'scale(1.2)' }}
+                          />
+                          <span style={{ fontSize: '16px', fontWeight: selectedDropoffDates.includes(date.id) ? 'bold' : 'normal' }}>
+                            {formatDateDisplay(date.date)}
+                          </span>
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+
+                  {selectedDropoffDates.length === 0 && (
+                    <div style={{
+                      padding: '12px',
+                      backgroundColor: '#fff3cd',
+                      border: '1px solid #ffeaa7',
+                      borderRadius: '6px',
+                      marginBottom: '15px'
+                    }}>
+                      <p style={{ margin: '0', fontSize: '14px', color: '#856404' }}>
+                        Please select at least one date to continue
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="form-group">
+                <button
+                  className="button"
+                  style={{
+                    fontSize: '16px',
+                    padding: '15px 30px',
+                    marginBottom: '15px',
+                    width: '100%'
+                  }}
+                  onClick={handleJoinGroup}
+                  disabled={joining || (joinInfo.group.dropoff_dates && joinInfo.group.dropoff_dates.length > 0 && selectedDropoffDates.length === 0)}
+                >
+                  {joining ? 'Joining Group...' : 'Join Group'}
+                </button>
+
+                <div style={{ textAlign: 'center', marginTop: '15px' }}>
+                  <p style={{ fontSize: '13px', color: '#6c757d', margin: '0 0 10px 0' }}>
+                    Already have an account?
+                  </p>
+                  <Link
+                    to={`/login?redirect=/join/${token}`}
+                    className="button button-secondary"
+                    style={{ marginRight: '10px', fontSize: '14px', padding: '8px 16px' }}
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    to={`/register?redirect=/join/${token}`}
+                    className="button button-secondary"
+                    style={{ fontSize: '14px', padding: '8px 16px' }}
+                  >
+                    Create Account
+                  </Link>
+                </div>
+              </div>
             </div>
           )}
-          <div className="form-group">
-            <p>You need to log in or register to join this group.</p>
-            <Link to={`/login?redirect=/join/${token}`} className="button" style={{ marginRight: '10px' }}>Login</Link>
-            <Link to={`/register?redirect=/join/${token}`} className="button button-secondary">Register</Link>
-          </div>
         </div>
       </div>
     );
@@ -192,93 +378,102 @@ const Join: React.FC = () => {
   return (
     <div className="container">
       <div className="card">
-        <h2>Join Group Invitation</h2>
+        <h2>🗑️ Join Group Invitation</h2>
         {joinInfo && (
           <div>
-            <h3>{joinInfo.group.name}</h3>
-            <p><strong>Location:</strong> {joinInfo.group.address}</p>
-            <p><strong>Created by:</strong> {joinInfo.group.creator.name} ({joinInfo.group.creator.email})</p>
-            <p><strong>Participants:</strong> {joinInfo.group.current_participants}/{joinInfo.group.max_participants}</p>
-            <p><strong>Status:</strong> {joinInfo.group.status}</p>
-            
+            <h3 style={{ color: '#28a745', marginBottom: '15px' }}>{joinInfo.group.name}</h3>
+            <div style={{ marginBottom: '20px' }}>
+              <p><strong>📍 Location:</strong> {joinInfo.group.address}</p>
+              <p><strong>👤 Created by:</strong> {joinInfo.group.creator.name} ({joinInfo.group.creator.email})</p>
+              <p><strong>👥 Participants:</strong> {joinInfo.group.current_participants}/{joinInfo.group.max_participants}</p>
+              <p><strong>📊 Status:</strong> {joinInfo.group.status}</p>
+            </div>
+
             {joinInfo.group.dropoff_dates && joinInfo.group.dropoff_dates.length > 0 && (
-              <div className="form-group" style={{ marginTop: '20px' }}>
-                <h4>Available Dropoff Dates</h4>
-                <p>Please select at least one dropoff date that works for you:</p>
-                <div style={{ marginBottom: '15px' }}>
+              <div style={{ marginBottom: '25px' }}>
+                <div style={{
+                  padding: '15px',
+                  backgroundColor: '#d4edda',
+                  border: '1px solid #c3e6cb',
+                  borderRadius: '6px',
+                  marginBottom: '20px'
+                }}>
+                  <p style={{ margin: '0', fontSize: '14px', color: '#155724' }}>
+                    <strong>📋 Select your available dates:</strong><br/>
+                    Choose all dates when you could be available for pickup. You can change these later if needed.
+                  </p>
+                </div>
+
+                <div className="form-group">
                   {joinInfo.group.dropoff_dates.map((date) => (
-                    <div key={date.id} style={{ marginBottom: '10px' }}>
-                      <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                    <div key={date.id} style={{ marginBottom: '12px' }}>
+                      <label style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        cursor: 'pointer',
+                        padding: '12px',
+                        border: selectedDropoffDates.includes(date.id) ? '2px solid #28a745' : '1px solid #dee2e6',
+                        borderRadius: '6px',
+                        backgroundColor: selectedDropoffDates.includes(date.id) ? '#d4edda' : '#ffffff'
+                      }}>
                         <input
                           type="checkbox"
                           checked={selectedDropoffDates.includes(date.id)}
                           onChange={() => handleDropoffDateToggle(date.id)}
-                          style={{ marginRight: '10px' }}
+                          style={{ marginRight: '15px', transform: 'scale(1.2)' }}
                         />
-                        <span>
+                        <span style={{ fontSize: '16px', fontWeight: selectedDropoffDates.includes(date.id) ? 'bold' : 'normal' }}>
                           {formatDateDisplay(date.date)}
                         </span>
                       </label>
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
-            
-            {showPaymentSetup && token ? (
-              <InviteePaymentSetup
-                joinToken={token}
-                onPaymentSetupComplete={handlePaymentSetupComplete}
-                onCancel={handlePaymentSetupCancel}
-              />
-            ) : !paymentSetupComplete ? (
-              <div className="form-group">
-                <p>You've been invited to join this dumpster sharing group!</p>
-                <div style={{
-                  padding: '12px',
-                  backgroundColor: '#fff3cd',
-                  border: '1px solid #ffeaa7',
-                  borderRadius: '6px',
-                  marginBottom: '15px',
-                  fontSize: '14px'
-                }}>
-                  <strong>💡 About pricing:</strong> The costs shown are estimates based on the vendor's listed prices. The final amount may vary due to weight overages, additional days, or vendor price changes.
-                </div>
-                {joinInfo.group.dropoff_dates && joinInfo.group.dropoff_dates.length > 0 && selectedDropoffDates.length === 0 && (
-                  <p style={{ color: '#dc3545', fontSize: '14px', marginBottom: '10px' }}>
-                    Please select at least one dropoff date before proceeding.
-                  </p>
+
+                {selectedDropoffDates.length === 0 && (
+                  <div style={{
+                    padding: '12px',
+                    backgroundColor: '#fff3cd',
+                    border: '1px solid #ffeaa7',
+                    borderRadius: '6px',
+                    marginBottom: '15px'
+                  }}>
+                    <p style={{ margin: '0', fontSize: '14px', color: '#856404' }}>
+                      Please select at least one date to continue
+                    </p>
+                  </div>
                 )}
-                <button 
-                  className="button" 
-                  onClick={handleProceedToPayment}
-                  disabled={joinInfo.group.dropoff_dates && joinInfo.group.dropoff_dates.length > 0 && selectedDropoffDates.length === 0}
-                >
-                  Continue to Payment Setup
-                </button>
-              </div>
-            ) : (
-              <div className="form-group">
-                <div style={{ 
-                  padding: '15px', 
-                  backgroundColor: '#d4edda', 
-                  border: '1px solid #c3e6cb',
-                  borderRadius: '4px',
-                  marginBottom: '15px'
-                }}>
-                  <p style={{ margin: 0, color: '#155724' }}>
-                    ✅ Payment method successfully added! You can now join the group.
-                  </p>
-                </div>
-                <button 
-                  className="button" 
-                  onClick={handleJoin}
-                  disabled={joining}
-                >
-                  {joining ? 'Joining...' : 'Join Group'}
-                </button>
               </div>
             )}
+
+            {error && (
+              <div style={{
+                padding: '12px',
+                backgroundColor: '#f8d7da',
+                border: '1px solid #f5c6cb',
+                borderRadius: '6px',
+                marginBottom: '15px'
+              }}>
+                <p style={{ margin: '0', fontSize: '14px', color: '#721c24' }}>
+                  {error}
+                </p>
+              </div>
+            )}
+
+            <div className="form-group">
+              <button
+                className="button"
+                style={{
+                  fontSize: '16px',
+                  padding: '15px 30px',
+                  width: '100%'
+                }}
+                onClick={handleJoinGroup}
+                disabled={joining || (joinInfo.group.dropoff_dates && joinInfo.group.dropoff_dates.length > 0 && selectedDropoffDates.length === 0)}
+              >
+                {joining ? 'Joining Group...' : 'Join Group'}
+              </button>
+            </div>
           </div>
         )}
       </div>
