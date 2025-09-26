@@ -3194,7 +3194,8 @@ const Groups: React.FC = () => {
                     const response = await axios.post(`/groups/${showPaymentModal?.groupId}/generate-payment-requests`, {
                       description: "Dumpster rental share",
                       preferred_method: modalPaymentMethod,
-                      payment_details: JSON.stringify(getModalPaymentDetails())
+                      payment_details: JSON.stringify(getModalPaymentDetails()),
+                      total_cost: parseFloat(actualCost)
                     });
                     
                     console.log('API response:', response.data);

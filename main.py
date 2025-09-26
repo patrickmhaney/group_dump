@@ -668,6 +668,7 @@ class PaymentRequestCreate(BaseModel):
     description: str
     preferred_method: str
     payment_details: str
+    total_cost: float
 
 class PaymentRequestResponse(BaseModel):
     id: int
@@ -1876,7 +1877,7 @@ async def generate_payment_requests(
         GroupMember.user_id == current_user.id
     ).first()
     
-    cost_per_member = rental.total_cost / (len(members) + 1)  # +1 for creator
+    cost_per_member = request.total_cost / (len(members) + 1)  # +1 for creator
     
     payment_requests_created = []
     
