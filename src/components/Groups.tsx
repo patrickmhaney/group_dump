@@ -2133,8 +2133,8 @@ const Groups: React.FC = () => {
                         <span style={{ fontWeight: 'bold', color: '#2c3e50' }}>Available Drop-off Dates</span>
                       </div>
                       
-                      {/* Always show drop-ff dates with interactive features for non-ready groups, but disable if payment requests sent */}
-                      {!isReady && !paymentRequestsSent.has(group.id) ? (
+                      {/* Always show drop-ff dates with interactive features for non-ready groups, but disable if final date is selected */}
+                      {!isReady && !(selectedFinalDropoffDates[group.id] || group.final_dropoff_date_id) ? (
                         <div style={{ 
                           marginLeft: '24px',
                           padding: '16px', 
@@ -2230,8 +2230,8 @@ const Groups: React.FC = () => {
                             </div>
                           </div>
                         </div>
-                      ) : paymentRequestsSent.has(group.id) ? (
-                        // Show the selected final drop-off date when payment requests have been sent
+                      ) : (selectedFinalDropoffDates[group.id] || group.final_dropoff_date_id) ? (
+                        // Show the selected final drop-off date when a final date has been selected (states 3, 4, 5)
                         <div style={{
                           marginLeft: '24px',
                           padding: '16px',
@@ -2552,7 +2552,7 @@ const Groups: React.FC = () => {
                             // Determine current group state
                             const hasPaymentRequests = paymentRequestsSent.has(group.id);
                             const hasBookedService = bookedServices.has(group.id);
-                            const hasFinalDate = !!selectedFinalDropoffDates[group.id];
+                            const hasFinalDate = !!(selectedFinalDropoffDates[group.id] || group.final_dropoff_date_id);
 
                             if (hasPaymentRequests) {
                               // State 5: Completed Booking Confirmed and Payment Requested
