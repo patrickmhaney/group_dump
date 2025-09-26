@@ -681,12 +681,21 @@ const Groups: React.FC = () => {
     }
 
     try {
-      await axios.delete(`/groups/${groupId}`);
+      await axios.delete(`/groups/${groupId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
       setMessage('Group deleted successfully!');
       setTimeout(() => setMessage(''), 3000);
       fetchGroups(); // Refresh the list
     } catch (error: any) {
-      const errorMessage = typeof error.response?.data?.detail === 'string' 
+      console.error('Delete group error:', error);
+      console.error('Error response:', error.response);
+      console.error('Error response data:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+
+      const errorMessage = typeof error.response?.data?.detail === 'string'
         ? error.response.data.detail
         : Array.isArray(error.response?.data?.detail)
         ? error.response.data.detail.map((err: any) => err.msg || err).join(', ')

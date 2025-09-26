@@ -1297,32 +1297,56 @@ async def get_group_by_token(token: str, db: Session = Depends(get_db)):
 
 @app.delete("/groups/{group_id}")
 async def delete_group(group_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    print(f"DEBUG: Attempting to delete group {group_id} by user {current_user.id} ({current_user.email})")
+
     group = db.query(Group).filter(Group.id == group_id).first()
     if group is None:
+        print(f"DEBUG: Group {group_id} not found")
         raise HTTPException(status_code=404, detail="Group not found")
-    
+
+    print(f"DEBUG: Group {group_id} found, created_by: {group.created_by}")
+
     # Check if the current user is the creator of the group
     if group.created_by != current_user.id:
+        print(f"DEBUG: Permission denied - user {current_user.id} is not creator {group.created_by}")
         raise HTTPException(status_code=403, detail="Only the group creator can delete this group")
     
     # Delete related data first (due to foreign key constraints)
-    # Delete group members
+
+    # First delete user dropoff date selections (references group_members)
+    group_members = db.query(GroupMember).filter(GroupMember.group_id == group_id).all()
+    for member in group_members:
+        db.query(UserDropoffDateSelection).filter(UserDropoffDateSelection.group_member_id == member.id).delete()
+
+    # Delete payment requests (references both group_id and group_members)
+    db.query(PaymentRequest).filter(PaymentRequest.group_id == group_id).delete()
+
+    # Now we can delete group members
     db.query(GroupMember).filter(GroupMember.group_id == group_id).delete()
-    
+
+    # Clear final_dropoff_date_id reference to avoid circular dependency
+    group.final_dropoff_date_id = None
+    db.commit()
+
     # Delete time slots
     db.query(DropoffDate).filter(DropoffDate.group_id == group_id).delete()
-    
+
     # Delete invitees
     db.query(Invitee).filter(Invitee.group_id == group_id).delete()
-    
+
     # Delete rentals
     db.query(Rental).filter(Rental.group_id == group_id).delete()
-    
+
     # Finally delete the group
-    db.delete(group)
-    db.commit()
-    
-    return {"message": "Group deleted successfully"}
+    try:
+        db.delete(group)
+        db.commit()
+        print(f"DEBUG: Successfully deleted group {group_id}")
+        return {"message": "Group deleted successfully"}
+    except Exception as e:
+        print(f"DEBUG: Error during deletion: {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error deleting group: {str(e)}")
 
 @app.get("/groups/{group_id}/members")
 async def get_group_members(group_id: int, db: Session = Depends(get_db)):
