@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../App.tsx';
 
@@ -319,6 +320,9 @@ const Companies: React.FC = () => {
               {showCreateForm ? 'Cancel' : 'Register Company'}
             </button>
           )}
+          <Link to="/profile" className="button button-secondary">
+            Edit Profile
+          </Link>
           <button
             className="button button-secondary"
             onClick={logout}

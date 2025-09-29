@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../App.tsx';
 import ServiceConfirmation from './ServiceConfirmation.tsx';
@@ -858,6 +859,9 @@ const Groups: React.FC = () => {
           >
             {showCreateForm ? 'Cancel' : 'Create Group'}
           </button>
+          <Link to="/profile" className="button button-secondary">
+            Edit Profile
+          </Link>
           <button
             className="button button-secondary"
             onClick={logout}

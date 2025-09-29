@@ -532,6 +532,14 @@ class UserCreate(BaseModel):
     password: str
     user_type: str = "renter"
 
+class UserUpdateRequest(BaseModel):
+    name: str
+    phone: str
+    address: str
+    city: str
+    state: str
+    zip_code: str
+
 class UserResponse(BaseModel):
     id: int
     email: str
@@ -758,6 +766,27 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
 
 @app.get("/users/me", response_model=UserResponse)
 async def read_users_me(current_user: User = Depends(get_current_user)):
+    return current_user
+
+@app.put("/users/me", response_model=UserResponse)
+async def update_user(user_update: UserUpdateRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # Geocode the user's address if location data changed
+    coordinates = await geocode_address(user_update.address, user_update.city, user_update.state, user_update.zip_code)
+
+    # Update user fields
+    current_user.name = user_update.name
+    current_user.phone = user_update.phone
+    current_user.address = user_update.address
+    current_user.city = user_update.city
+    current_user.state = user_update.state
+    current_user.zip_code = user_update.zip_code
+    current_user.latitude = coordinates[0] if coordinates else None
+    current_user.longitude = coordinates[1] if coordinates else None
+    current_user.geocoded_at = datetime.utcnow() if coordinates else None
+
+    db.commit()
+    db.refresh(current_user)
+
     return current_user
 
 @app.post("/groups", response_model=GroupResponse)
@@ -1279,6 +1308,12 @@ async def get_group_by_token(token: str, db: Session = Depends(get_db)):
         Invitee.id != invitee.id
     ).all()
 
+    # Get rental information to calculate price per person
+    rental = db.query(Rental).filter(Rental.group_id == group.id).first()
+    price_per_person = None
+    if rental and rental.total_cost:
+        price_per_person = rental.total_cost / group.max_participants
+
     return {
         "group": {
             "id": group.id,
@@ -1292,7 +1327,8 @@ async def get_group_by_token(token: str, db: Session = Depends(get_db)):
                 "name": creator.name,
                 "email": creator.email
             } if creator else None,
-            "dropoff_dates": [{"id": ts.id, "date": ts.date} for ts in dropoff_dates]
+            "dropoff_dates": [{"id": ts.id, "date": ts.date} for ts in dropoff_dates],
+            "price_per_person": price_per_person
         },
         "invitee": {
             "name": invitee.name,

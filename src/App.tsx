@@ -6,6 +6,7 @@ import Register from './components/Register.tsx';
 import Groups from './components/Groups.tsx';
 import Companies from './components/Companies.tsx';
 import Join from './components/Join.tsx';
+import UserProfile from './components/UserProfile.tsx';
 import StripeProvider from './components/StripeProvider.tsx';
 
 interface User {
@@ -81,6 +82,7 @@ function App() {
                   <Companies />
                 </StripeProvider>
               ) : <Navigate to="/groups" />) : <Navigate to="/login" />} />
+              <Route path="/profile" element={user ? <UserProfile /> : <Navigate to="/login" />} />
               <Route path="/join/:token" element={<Join />} />
               <Route path="/" element={<Navigate to={user ? (user.user_type === 'renter' ? "/groups" : "/companies") : "/login"} />} />
             </Routes>

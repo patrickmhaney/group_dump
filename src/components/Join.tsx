@@ -18,6 +18,7 @@ interface Group {
   status: string;
   created_at: string;
   dropoff_dates?: DropoffDate[];
+  price_per_person?: number;
   creator: {
     name: string;
     email: string;
@@ -234,6 +235,14 @@ const Join: React.FC = () => {
                 <p><strong>📍 Drop-off Location:</strong> {joinInfo.group.address}</p>
                 <p><strong>👤 Organized by:</strong> {joinInfo.group.creator.name}</p>
                 <p><strong>👥 Target Group Size:</strong> {joinInfo.group.max_participants}</p>
+                {joinInfo.group.price_per_person && (
+                  <div style={{ marginBottom: '10px' }}>
+                    <p style={{ margin: '0 0 5px 0' }}><strong>💰 Price per person:</strong> ${joinInfo.group.price_per_person.toFixed(2)}</p>
+                    <p style={{ margin: '0', fontSize: '12px', color: '#6c757d', fontStyle: 'italic' }}>
+                      *Estimate based on price listed on vendor's website. Does not include additional charges for weight overages or extra rental days.
+                    </p>
+                  </div>
+                )}
                 <p><strong>✉️ You're invited as:</strong> {joinInfo.invitee.name} ({joinInfo.invitee.email})</p>
                 {joinInfo.other_invitees && joinInfo.other_invitees.length > 0 && (
                   <div style={{ marginTop: '10px' }}>
