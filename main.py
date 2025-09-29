@@ -317,20 +317,19 @@ async def send_invitations(group: Group, creator: User, db: Session):
                         <p>{creator.name} has invited you to join their dumpster sharing group. This is a great way to <strong>split costs</strong> and coordinate with neighbors for home projects, cleanouts, or renovations.</p>
 
                         <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                            <h3 style="margin-top: 0; color: #495057;">What is dumpster sharing?</h3>
+                            <h3 style="margin-top: 0; color: #495057;">What is Group Dump?</h3>
                             <p style="margin-bottom: 0;">Instead of renting a whole dumpster yourself, you can split the cost with neighbors who also need to dispose of materials. Everyone saves money and coordinates pickup schedules together!</p>
                         </div>
 
                         <h3 style="color: #28a745;">Group Details:</h3>
                         <ul style="background-color: #f8f9fa; padding: 15px; border-radius: 6px;">
-                            <li><strong>Group Name:</strong> {group.name}</li>
-                            <li><strong>Location:</strong> {group.address}</li>
-                            <li><strong>Max Participants:</strong> {group.max_participants}</li>
+                            <li><strong>Drop-off Location:</strong> {group.address}</li>
+                            <li><strong>Target Group Size:</strong> {group.max_participants}</li>
                             <li><strong>Organized by:</strong> {creator.name} ({creator.email})</li>
                         </ul>
 
                         <div style="background-color: #d1ecf1; padding: 15px; border-radius: 6px; margin: 20px 0;">
-                            <p style="margin: 0;"><strong>💡 No pressure!</strong> Click the link below to see the details and decide if you're interested. You can join in just a few clicks.</p>
+                            <p style="margin: 0;"><strong>💡</strong> Click the link below to see the details and decide if you're interested. You can join in just a few clicks.</p>
                         </div>
 
                         <div style="text-align: center; margin: 30px 0;">
@@ -380,9 +379,8 @@ async def send_invitations_to_specific_invitees(group: Group, creator: User, inv
 
                 <h3>Group Details:</h3>
                 <ul>
-                    <li><strong>Group Name:</strong> {group.name}</li>
-                    <li><strong>Location:</strong> {group.address}</li>
-                    <li><strong>Max Participants:</strong> {group.max_participants}</li>
+                    <li><strong>Drop-off Location:</strong> {group.address}</li>
+                    <li><strong>Target Group Size:</strong> {group.max_participants}</li>
                     <li><strong>Created by:</strong> {creator.name} ({creator.email})</li>
                 </ul>
 
@@ -1274,7 +1272,13 @@ async def get_group_by_token(token: str, db: Session = Depends(get_db)):
     
     # Get time slots with IDs
     dropoff_dates = db.query(DropoffDate).filter(DropoffDate.group_id == group.id).all()
-    
+
+    # Get other invited group members (excluding the current invitee)
+    other_invitees = db.query(Invitee).filter(
+        Invitee.group_id == group.id,
+        Invitee.id != invitee.id
+    ).all()
+
     return {
         "group": {
             "id": group.id,
@@ -1293,7 +1297,8 @@ async def get_group_by_token(token: str, db: Session = Depends(get_db)):
         "invitee": {
             "name": invitee.name,
             "email": invitee.email
-        }
+        },
+        "other_invitees": [{"name": inv.name, "email": inv.email} for inv in other_invitees]
     }
 
 @app.delete("/groups/{group_id}")

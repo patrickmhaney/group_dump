@@ -32,6 +32,7 @@ interface Invitee {
 interface JoinInfo {
   group: Group;
   invitee: Invitee;
+  other_invitees: Invitee[];
 }
 
 const Join: React.FC = () => {
@@ -230,37 +231,24 @@ const Join: React.FC = () => {
             <div>
               <h3 style={{ color: '#28a745', marginBottom: '15px' }}>{joinInfo.group.name}</h3>
               <div style={{ marginBottom: '20px' }}>
-                <p><strong>📍 Location:</strong> {joinInfo.group.address}</p>
+                <p><strong>📍 Drop-off Location:</strong> {joinInfo.group.address}</p>
                 <p><strong>👤 Organized by:</strong> {joinInfo.group.creator.name}</p>
-                <p><strong>👥 Participants:</strong> {joinInfo.group.current_participants}/{joinInfo.group.max_participants} spots filled</p>
+                <p><strong>👥 Target Group Size:</strong> {joinInfo.group.max_participants}</p>
                 <p><strong>✉️ You're invited as:</strong> {joinInfo.invitee.name} ({joinInfo.invitee.email})</p>
+                {joinInfo.other_invitees && joinInfo.other_invitees.length > 0 && (
+                  <div style={{ marginTop: '10px' }}>
+                    <p style={{ margin: '0 0 5px 0' }}><strong>👋 Other Invited Members:</strong></p>
+                    <ul style={{ margin: '0', paddingLeft: '20px', fontSize: '14px', color: '#6c757d' }}>
+                      {joinInfo.other_invitees.map((invitee, index) => (
+                        <li key={index} style={{ marginBottom: '2px' }}>
+                          {invitee.name} ({invitee.email})
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
 
-              {joinInfo.group.dropoff_dates && joinInfo.group.dropoff_dates.length > 0 && (
-                <div style={{ marginBottom: '20px' }}>
-                  <h4>📅 Available Pickup Dates:</h4>
-                  <ul style={{ paddingLeft: '20px' }}>
-                    {joinInfo.group.dropoff_dates.map((date) => (
-                      <li key={date.id} style={{ marginBottom: '5px' }}>
-                        {formatDateDisplay(date.date)}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              <div style={{
-                padding: '15px',
-                backgroundColor: '#d1ecf1',
-                border: '1px solid #bee5eb',
-                borderRadius: '6px',
-                marginBottom: '20px'
-              }}>
-                <h4 style={{ margin: '0 0 10px 0', color: '#0c5460' }}>Ready to join?</h4>
-                <p style={{ margin: '0', fontSize: '14px', color: '#0c5460' }}>
-                  Click "Join Group" below to select your available dates and set up payment. No commitment until you complete the process!
-                </p>
-              </div>
 
               {joinInfo.group.dropoff_dates && joinInfo.group.dropoff_dates.length > 0 && (
                 <div style={{ marginBottom: '25px' }}>
@@ -318,6 +306,19 @@ const Join: React.FC = () => {
                   )}
                 </div>
               )}
+
+              <div style={{
+                padding: '15px',
+                backgroundColor: '#d1ecf1',
+                border: '1px solid #bee5eb',
+                borderRadius: '6px',
+                marginBottom: '20px'
+              }}>
+                <h4 style={{ margin: '0 0 10px 0', color: '#0c5460' }}>Ready to join?</h4>
+                <p style={{ margin: '0', fontSize: '14px', color: '#0c5460' }}>
+                  Click "Join Group" below to select your available dates and confirm your place in the group! The group creator will request payment after booking the service.
+                </p>
+              </div>
 
               <div className="form-group">
                 <button
