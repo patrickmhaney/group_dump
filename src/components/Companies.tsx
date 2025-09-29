@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../App.tsx';
@@ -54,10 +54,23 @@ const Companies: React.FC = () => {
     }]
   });
   const { user, logout } = useContext(AuthContext);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchCompanies();
   }, [proximityFilter]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowUserDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const fetchCompanies = async () => {
     try {
@@ -301,37 +314,136 @@ const Companies: React.FC = () => {
 
   return (
     <div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '20px' }}>
-        <h1>Welcome, {user?.name}!</h1>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          {user?.user_type === 'renter' && (
-            <button
-              className={`button ${proximityFilter ? '' : 'button-secondary'}`}
-              onClick={() => setProximityFilter(!proximityFilter)}
-            >
-              {proximityFilter ? 'Show All Companies' : 'Show Nearby Only'}
-            </button>
-          )}
-          {user?.user_type === 'company' && (
-            <button
-              className="button"
-              onClick={() => setShowCreateForm(!showCreateForm)}
-            >
-              {showCreateForm ? 'Cancel' : 'Register Company'}
-            </button>
-          )}
-          <Link to="/profile" className="button button-secondary">
-            Edit Profile
-          </Link>
+      <div style={{
+        position: 'absolute',
+        top: '20px',
+        right: '20px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        zIndex: 1000
+      }}>
+        {user?.user_type === 'renter' && (
           <button
-            className="button button-secondary"
-            onClick={logout}
+            className={`button ${proximityFilter ? '' : 'button-secondary'}`}
+            onClick={() => setProximityFilter(!proximityFilter)}
+            style={{
+              fontSize: '14px',
+              padding: '8px 16px',
+              minHeight: 'auto'
+            }}
           >
-            Logout
+            {proximityFilter ? 'Show All Companies' : 'Show Nearby Only'}
           </button>
+        )}
+        {user?.user_type === 'company' && (
+          <button
+            className="button"
+            onClick={() => setShowCreateForm(!showCreateForm)}
+            style={{
+              fontSize: '14px',
+              padding: '8px 16px',
+              minHeight: 'auto'
+            }}
+          >
+            {showCreateForm ? 'Cancel' : 'Register Company'}
+          </button>
+        )}
+
+        <div ref={dropdownRef} style={{ position: 'relative' }}>
+          <button
+            onClick={() => setShowUserDropdown(!showUserDropdown)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#007bff',
+              fontSize: '16px',
+              fontWeight: '500',
+              cursor: 'pointer',
+              padding: '8px',
+              borderRadius: '4px'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#f8f9fa';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
+          >
+            {user?.name?.split(' ')[0] || 'User'}
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              style={{ marginLeft: '6px' }}
+            >
+              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+            </svg>
+          </button>
+
+          {showUserDropdown && (
+            <div style={{
+              position: 'absolute',
+              top: '100%',
+              right: '0',
+              backgroundColor: 'white',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              minWidth: '140px',
+              zIndex: 1001
+            }}>
+              <Link
+                to="/profile"
+                style={{
+                  display: 'block',
+                  padding: '12px 16px',
+                  color: '#333',
+                  textDecoration: 'none',
+                  borderBottom: '1px solid #eee'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f8f9fa';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+                onClick={() => setShowUserDropdown(false)}
+              >
+                Edit Profile
+              </Link>
+              <button
+                onClick={() => {
+                  logout();
+                  setShowUserDropdown(false);
+                }}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '12px 16px',
+                  background: 'none',
+                  border: 'none',
+                  color: '#333',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  fontSize: '16px'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f8f9fa';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                Logout
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
+      <div style={{ marginTop: '80px' }}>
       {message && (
         <div className={message.includes('Error') ? 'error' : 'success'}>
           {message}
@@ -554,6 +666,7 @@ const Companies: React.FC = () => {
             ))}
           </div>
         )}
+      </div>
       </div>
     </div>
   );
