@@ -47,11 +47,20 @@ code {
   gap: 15px;
 }
 
-.form input, .form select, .form textarea {
+.form input:not([type="radio"]), .form select, .form textarea {
+  width: 100%;
   padding: 10px;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 16px;
+  box-sizing: border-box;
+  margin-bottom: 10px;
+}
+
+.form input[type="radio"] {
+  width: auto;
+  margin: 0;
+  padding: 0;
 }
 
 .button {

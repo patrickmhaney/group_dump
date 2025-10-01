@@ -305,6 +305,11 @@ const Groups: React.FC = () => {
   const [zellePhone, setZellePhone] = useState('');
   const [venmoUsername, setVenmoUsername] = useState('');
 
+  // Wizard step state
+  const [currentStep, setCurrentStep] = useState(1);
+  const totalSteps = 6;
+  const [allowSubmit, setAllowSubmit] = useState(false);
+
   useEffect(() => {
     fetchGroups();
     fetchCompanies();
@@ -551,6 +556,18 @@ const Groups: React.FC = () => {
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    console.log('handleCreateGroup called, currentStep:', currentStep, 'totalSteps:', totalSteps, 'allowSubmit:', allowSubmit);
+
+    // Only allow submission on step 6 (review page) AND if explicitly allowed
+    if (currentStep !== totalSteps || !allowSubmit) {
+      console.log('Not on final step or not explicitly allowed, preventing submission');
+      setMessage('Please complete all steps and click Create Group button.');
+      setTimeout(() => setMessage(''), 3000);
+      return;
+    }
+
+    console.log('Proceeding with group creation');
+    setAllowSubmit(false); // Reset flag
     setIsSubmitting(true);
 
     try {
@@ -827,6 +844,49 @@ const Groups: React.FC = () => {
     setInvitees(updatedInvitees);
   };
 
+  // Wizard navigation and validation
+  const validateStep = (step: number): boolean => {
+    switch (step) {
+      case 1: // Basic Info
+        return !!(formData.name && formData.street_address && formData.city &&
+                  formData.state && formData.zip_code && formData.max_participants);
+      case 2: // Service Selection
+        return !!(formData.vendor_id && formData.selected_dumpster_size);
+      case 3: // Invitees (optional step)
+        // If max_participants is 1, skip validation
+        if (formData.max_participants === 1) return true;
+        // Otherwise, invitees are optional but if added, must be valid
+        return invitees.every(inv => inv.name && inv.email);
+      case 4: // Drop-off Dates
+        return dropoffDates.length > 0 && dropoffDates.every(d => d.date);
+      case 5: // Payment Method
+        return !!paymentMethodType;
+      case 6: // Review - always valid
+        return true;
+      default:
+        return true;
+    }
+  };
+
+  const handleNextStep = () => {
+    if (validateStep(currentStep)) {
+      setCurrentStep(prev => Math.min(prev + 1, totalSteps));
+    } else {
+      setMessage('Please fill in all required fields before continuing.');
+    }
+  };
+
+  const handlePrevStep = () => {
+    setCurrentStep(prev => Math.max(prev - 1, 1));
+  };
+
+  const handleStepClick = (step: number) => {
+    // Allow jumping to previous steps or current step
+    if (step <= currentStep) {
+      setCurrentStep(step);
+    }
+  };
+
   const handleDropoffDateToggle = (groupId: number, dropoffDateId: number) => {
     const currentSelections = userDropoffDateSelections[groupId] || [];
     const newSelections = currentSelections.includes(dropoffDateId)
@@ -1007,109 +1067,204 @@ const Groups: React.FC = () => {
       {showCreateForm && (
         <div className="card">
           <h2>Create New Group</h2>
-          <form onSubmit={handleCreateGroup} className="form">
-            <input
-              type="text"
-              name="name"
-              placeholder="Group Name"
-              value={formData.name}
-              onChange={handleChange}
-              required
-            />
-            <input
-              type="text"
-              name="street_address"
-              placeholder="Street Address"
-              value={formData.street_address}
-              onChange={handleChange}
-              required
-            />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px' }}>
-              <input
-                type="text"
-                name="city"
-                placeholder="City"
-                value={formData.city}
-                onChange={handleChange}
-                required
-              />
-              <input
-                type="text"
-                name="state"
-                placeholder="State"
-                value={formData.state}
-                onChange={handleChange}
-                required
-                maxLength={2}
-                style={{ textTransform: 'uppercase' }}
-              />
-              <input
-                type="text"
-                name="zip_code"
-                placeholder="ZIP Code"
-                value={formData.zip_code}
-                onChange={handleChange}
-                required
-                maxLength={10}
-                pattern="[0-9]{5}(-[0-9]{4})?"
-              />
-            </div>
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{ display: 'block', fontSize: '16px', marginBottom: '10px', fontWeight: 'bold', color: '#333' }}>
-                Group Members
-              </label>
-              <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
-                Select the total number of people in your group (including yourself). When this number is reached, the group will be ready to proceed with booking. Only choose "1 Member" if you want to dump alone. 
-              </p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '12px' }}>
-                {[1, 2, 3, 4].map(num => (
-                  <label
-                    key={num}
+
+          {/* Progress Stepper */}
+          <div style={{ marginBottom: '30px', padding: '20px 0' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
+              {/* Progress Line */}
+              <div style={{
+                position: 'absolute',
+                top: '20px',
+                left: '0',
+                right: '0',
+                height: '2px',
+                backgroundColor: '#e9ecef',
+                zIndex: 0
+              }}>
+                <div style={{
+                  height: '100%',
+                  backgroundColor: '#007bff',
+                  width: `${((currentStep - 1) / (totalSteps - 1)) * 100}%`,
+                  transition: 'width 0.3s ease'
+                }} />
+              </div>
+
+              {/* Step Circles */}
+              {[
+                { num: 1, label: 'Basic Info' },
+                { num: 2, label: 'Service' },
+                { num: 3, label: 'Invites' },
+                { num: 4, label: 'Dates' },
+                { num: 5, label: 'Payment' }
+              ].map(step => (
+                <div key={step.num} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1 }}>
+                  <div
+                    onClick={() => handleStepClick(step.num)}
                     style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '50%',
+                      backgroundColor: step.num === currentStep ? '#007bff' : step.num < currentStep ? '#28a745' : '#ffffff',
+                      border: `3px solid ${step.num <= currentStep ? (step.num === currentStep ? '#007bff' : '#28a745') : '#dee2e6'}`,
                       display: 'flex',
                       alignItems: 'center',
-                      cursor: 'pointer',
-                      padding: '12px 20px',
-                      border: `2px solid ${formData.max_participants === num ? '#007bff' : '#dee2e6'}`,
-                      borderRadius: '8px',
-                      backgroundColor: formData.max_participants === num ? '#f8f9ff' : '#ffffff',
-                      transition: 'all 0.3s ease',
-                      minWidth: '80px',
                       justifyContent: 'center',
-                      fontWeight: formData.max_participants === num ? 'bold' : 'normal'
-                    }}
-                    onMouseEnter={(e) => {
-                      if (formData.max_participants !== num) {
-                        e.currentTarget.style.borderColor = '#007bff';
-                        e.currentTarget.style.backgroundColor = '#f8f9ff';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (formData.max_participants !== num) {
-                        e.currentTarget.style.borderColor = '#dee2e6';
-                        e.currentTarget.style.backgroundColor = '#ffffff';
-                      }
+                      fontWeight: 'bold',
+                      color: step.num === currentStep ? '#ffffff' : step.num < currentStep ? '#ffffff' : '#999',
+                      cursor: step.num <= currentStep ? 'pointer' : 'default',
+                      transition: 'all 0.3s ease',
+                      fontSize: '16px'
                     }}
                   >
-                    <input
-                      type="radio"
-                      name="max_participants"
-                      value={num}
-                      checked={formData.max_participants === num}
-                      onChange={handleChange}
-                      style={{ display: 'none' }}
-                    />
-                    <span style={{ fontSize: '14px', color: formData.max_participants === num ? '#007bff' : '#666' }}>
-                      {num === 1 ? '1 Member' : `${num} Members`}
-                    </span>
-                  </label>
-                ))}
-              </div>
+                    {step.num < currentStep ? '✓' : step.num}
+                  </div>
+                  <div style={{
+                    marginTop: '8px',
+                    fontSize: '12px',
+                    fontWeight: step.num === currentStep ? 'bold' : 'normal',
+                    color: step.num === currentStep ? '#007bff' : '#666',
+                    textAlign: 'center'
+                  }}>
+                    {step.label}
+                  </div>
+                </div>
+              ))}
             </div>
-            
-            {/* Vendor Services Comparison Section */}
-            {companies.length > 0 && (
+          </div>
+
+          <form onSubmit={handleCreateGroup} className="form">
+
+            {/* Step 1: Basic Info */}
+            {currentStep === 1 && (
+              <div>
+                <div style={{ marginBottom: '15px' }}>
+                  <label style={{ display: 'block', fontSize: '16px', marginBottom: '10px', fontWeight: 'bold', color: '#333' }}>
+                    Group Name
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    placeholder="Group Name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+
+                <div style={{ marginBottom: '15px' }}>
+                  <label style={{ display: 'block', fontSize: '16px', marginBottom: '10px', fontWeight: 'bold', color: '#333' }}>
+                    Drop-off Address
+                  </label>
+                  <input
+                    type="text"
+                    name="street_address"
+                    placeholder="Street Address"
+                    value={formData.street_address}
+                    onChange={handleChange}
+                    required
+                  />
+                  <input
+                    type="text"
+                    name="city"
+                    placeholder="City"
+                    value={formData.city}
+                    onChange={handleChange}
+                    required
+                  />
+                  <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', gap: '12px' }}>
+                    <input
+                      type="text"
+                      name="state"
+                      placeholder="State"
+                      value={formData.state}
+                      onChange={handleChange}
+                      required
+                      maxLength={2}
+                      style={{ textTransform: 'uppercase' }}
+                    />
+                    <input
+                      type="text"
+                      name="zip_code"
+                      placeholder="ZIP Code"
+                      value={formData.zip_code}
+                      onChange={handleChange}
+                      required
+                      maxLength={10}
+                      pattern="[0-9]{5}(-[0-9]{4})?"
+                    />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '15px' }}>
+                  <label style={{ display: 'block', fontSize: '16px', marginBottom: '10px', fontWeight: 'bold', color: '#333' }}>
+                    Group Members
+                  </label>
+                  <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
+                    Select the total number of people in your group, including yourself. When this number is reached, the group will be ready to proceed with booking.
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '12px', marginBottom: '12px' }}>
+                    {[1, 2, 3, 4].map(num => (
+                      <label
+                        key={num}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          cursor: 'pointer',
+                          padding: '12px 20px',
+                          border: `2px solid ${formData.max_participants === num ? '#007bff' : '#dee2e6'}`,
+                          borderRadius: '8px',
+                          backgroundColor: formData.max_participants === num ? '#f8f9ff' : '#ffffff',
+                          transition: 'all 0.3s ease',
+                          minWidth: '80px',
+                          justifyContent: 'center',
+                          fontWeight: formData.max_participants === num ? 'bold' : 'normal'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (formData.max_participants !== num) {
+                            e.currentTarget.style.borderColor = '#007bff';
+                            e.currentTarget.style.backgroundColor = '#f8f9ff';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (formData.max_participants !== num) {
+                            e.currentTarget.style.borderColor = '#dee2e6';
+                            e.currentTarget.style.backgroundColor = '#ffffff';
+                          }
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          name="max_participants"
+                          value={num}
+                          checked={formData.max_participants === num}
+                          onChange={handleChange}
+                          style={{ display: 'none' }}
+                        />
+                        <span style={{ fontSize: '14px', color: formData.max_participants === num ? '#007bff' : '#666' }}>
+                          {num === 1 ? '1 Member' : `${num} Members`}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  <div style={{
+                    padding: '12px 15px',
+                    backgroundColor: '#f0f8ff',
+                    border: '1px solid #b8d4f1',
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    color: '#1e4d7b',
+                    marginTop: '4px'
+                  }}>
+                    💡 <strong>Tip:</strong> Only choose "1 Member" if you want to dump alone.
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: Service Selection */}
+            {currentStep === 2 && companies.length > 0 && (
               <div style={{ marginBottom: '20px' }}>
+                <h3 style={{ marginTop: 0, marginBottom: '20px', color: '#333' }}>Select Dumpster Service</h3>
                 <label style={{ display: 'block', fontSize: '16px', marginBottom: '10px', fontWeight: 'bold', color: '#333' }}>
                   Compare and Select Dumpster Provider Services
                 </label>
@@ -1119,7 +1274,7 @@ const Groups: React.FC = () => {
                 
                 {/* Size Selector for Comparison */}
                 <div style={{ marginBottom: '20px' }}>
-                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
                     {['10', '15', '20', '25', '30', '40'].map(size => (
                       <button
                         key={size}
@@ -1133,8 +1288,9 @@ const Groups: React.FC = () => {
                           color: comparisonSize === size ? '#007bff' : '#666',
                           cursor: 'pointer',
                           fontSize: '14px',
-                          fontWeight: comparisonSize === size ? 'bold' : 'normal',
-                          transition: 'all 0.3s ease'
+                          fontWeight: '500',
+                          transition: 'all 0.3s ease',
+                          minWidth: '85px'
                         }}
                         onMouseEnter={(e) => {
                           if (comparisonSize !== size) {
@@ -1162,7 +1318,7 @@ const Groups: React.FC = () => {
                 {/* Services Comparison Grid */}
                 <div style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                  gridTemplateColumns: 'repeat(2, 1fr)',
                   gap: '12px',
                   marginBottom: '20px'
                 }}>
@@ -1228,18 +1384,25 @@ const Groups: React.FC = () => {
                 </div>
               </div>
             )}
-            
+
             {/* Service Selection Section */}
-            {formData.vendor_id && (
-              <div className="service-selection-section" style={{ 
-                marginTop: '20px', 
-                padding: '20px', 
-                border: '2px solid #28a745', 
-                borderRadius: '8px', 
-                backgroundColor: '#f8fff8' 
+            {currentStep === 2 && formData.vendor_id && (
+              <div className="service-selection-section" style={{
+                marginTop: '20px',
+                padding: '20px',
+                border: '2px solid #28a745',
+                borderRadius: '8px',
+                backgroundColor: '#f8fff8'
               }}>
-                <h3 style={{ marginTop: '0', color: '#28a745' }}>🚚 Select Your Dumpster Service</h3>
-                
+                {(() => {
+                  const selectedCompany = companies.find(c => c.id === parseInt(formData.vendor_id));
+                  return (
+                    <h3 style={{ marginTop: '0', color: '#28a745' }}>
+                      Select Your Service Level via {selectedCompany?.name || 'Provider'}
+                    </h3>
+                  );
+                })()}
+
                 {(() => {
                   const selectedCompany = companies.find(c => c.id === parseInt(formData.vendor_id));
                   if (!selectedCompany?.dumpster_sizes?.length) {
@@ -1373,9 +1536,15 @@ const Groups: React.FC = () => {
                 })()}
               </div>
             )}
-            
-            {formData.max_participants !== 1 && (
+
+            {/* Step 3: Invitees */}
+            {currentStep === 3 && (
             <div className="invitees-section" style={{ marginBottom: '20px' }}>
+              <h3 style={{ marginTop: 0, marginBottom: '20px', color: '#333' }}>
+                {formData.max_participants === 1 ? 'Invitations (Optional)' : 'Invite People to Group'}
+              </h3>
+              {formData.max_participants !== 1 ? (
+              <>
               <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', fontSize: '16px', marginBottom: '10px', fontWeight: 'bold', color: '#333' }}>
                   Invite People to Group
@@ -1384,7 +1553,7 @@ const Groups: React.FC = () => {
                   Add neighbors to automatically send them email invitations when the group is created
                 </p>
               </div>
-              
+
               {invitees.length === 0 ? (
                 <div style={{ 
                   textAlign: 'center', 
@@ -1539,10 +1708,19 @@ const Groups: React.FC = () => {
                   </div>
                 </>
               )}
+              </>
+              ) : (
+                <p style={{ color: '#666', fontSize: '14px', textAlign: 'center', padding: '20px' }}>
+                  Since you're creating a solo group, you can skip this step or add people if plans change.
+                </p>
+              )}
             </div>
             )}
 
+            {/* Step 4: Drop-off Dates */}
+            {currentStep === 4 && (
             <div className="time-slots-section" style={{ marginBottom: '20px' }}>
+              <h3 style={{ marginTop: 0, marginBottom: '20px', color: '#333' }}>Select Drop-off Dates</h3>
               <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', fontSize: '16px', marginBottom: '10px', fontWeight: 'bold', color: '#333' }}>
                   Add Potential Drop Off Dates
@@ -1686,17 +1864,20 @@ const Groups: React.FC = () => {
                 </>
               )}
             </div>
-            
-            <div className="payment-section" style={{ 
-              marginTop: '30px', 
-              padding: '20px', 
-              border: '2px solid #007bff', 
-              borderRadius: '8px', 
-              backgroundColor: '#f8f9fa' 
+            )}
+
+            {/* Step 5: Payment Method */}
+            {currentStep === 5 && (
+            <div className="payment-section" style={{
+              marginTop: '30px',
+              padding: '20px',
+              border: '2px solid #007bff',
+              borderRadius: '8px',
+              backgroundColor: '#f8f9fa'
             }}>
               <h3 style={{ marginTop: '0', color: '#007bff' }}>💰 Payment Method Setup</h3>
               <p style={{ color: '#666', marginBottom: '15px' }}>
-                Choose how you'd like to receive payments from group members. No credit cards required!
+                Choose how you'd like to receive payments from group members.
               </p>
               
               <div style={{ 
@@ -1712,37 +1893,37 @@ const Groups: React.FC = () => {
                   </label>
                   
                   <div style={{ marginBottom: '15px' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', marginBottom: '10px', cursor: 'pointer' }}>
                       <input
                         type="radio"
                         value="zelle"
                         checked={paymentMethodType === 'zelle'}
                         onChange={(e) => setPaymentMethodType(e.target.value)}
-                        style={{ marginRight: '8px' }}
+                        style={{ marginRight: '10px', flexShrink: 0 }}
                       />
-                      Zelle
+                      <span>Zelle</span>
                     </label>
-                    
-                    <label style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+
+                    <label style={{ display: 'flex', alignItems: 'center', marginBottom: '10px', cursor: 'pointer' }}>
                       <input
                         type="radio"
                         value="venmo"
                         checked={paymentMethodType === 'venmo'}
                         onChange={(e) => setPaymentMethodType(e.target.value)}
-                        style={{ marginRight: '8px' }}
+                        style={{ marginRight: '10px', flexShrink: 0 }}
                       />
-                      Venmo
+                      <span>Venmo</span>
                     </label>
-                    
-                    <label style={{ display: 'flex', alignItems: 'center' }}>
+
+                    <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
                       <input
                         type="radio"
                         value="cash"
                         checked={paymentMethodType === 'cash'}
                         onChange={(e) => setPaymentMethodType(e.target.value)}
-                        style={{ marginRight: '8px' }}
+                        style={{ marginRight: '10px', flexShrink: 0 }}
                       />
-                      Cash
+                      <span>Cash</span>
                     </label>
                   </div>
                 </div>
@@ -1750,32 +1931,166 @@ const Groups: React.FC = () => {
                 
               </div>
 
-              <div style={{ 
-                padding: '10px', 
-                backgroundColor: '#d1ecf1', 
+              <div style={{
+                padding: '10px',
+                backgroundColor: '#d1ecf1',
                 border: '1px solid #bee5eb',
                 borderRadius: '4px',
                 fontSize: '14px',
                 color: '#0c5460'
               }}>
-                <strong>💡 How it works:</strong> Members will receive your payment details and send payments directly to you. 
-                You'll track received payments through the app dashboard.
+                <strong>💡 How it works:</strong> Members will receive your payment details and send payments directly to you.
               </div>
             </div>
-            
-            <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-              <button 
-                type="submit" 
-                className="button"
-                disabled={isSubmitting}
-                style={{ opacity: isSubmitting ? 0.6 : 1 }}
-              >
-                {isSubmitting ? 'Creating Group...' : 'Create Group & Setup Payment'}
-              </button>
-              <button 
-                type="button" 
-                className="button button-secondary" 
-                onClick={() => setShowCreateForm(false)}
+            )}
+
+            {/* Step 6: Review & Summary */}
+            {currentStep === 6 && (
+              <div style={{ marginBottom: '20px' }}>
+                <h3 style={{ marginTop: 0, marginBottom: '20px', color: '#333' }}>Review Your Group</h3>
+                <p style={{ color: '#666', fontSize: '14px', marginBottom: '20px' }}>
+                  Please review all the details below before creating your group.
+                </p>
+
+                {/* Basic Info Summary */}
+                <div style={{
+                  padding: '20px',
+                  border: '1px solid #dee2e6',
+                  borderRadius: '8px',
+                  marginBottom: '15px',
+                  backgroundColor: '#ffffff'
+                }}>
+                  <h4 style={{ marginTop: 0, color: '#333', fontSize: '16px', marginBottom: '12px' }}>Basic Information</h4>
+                  <div style={{ display: 'grid', gap: '8px', fontSize: '14px', color: '#666' }}>
+                    <div><strong style={{ color: '#333' }}>Group Name:</strong> {formData.name}</div>
+                    <div><strong style={{ color: '#333' }}>Address:</strong> {formData.street_address}, {formData.city}, {formData.state} {formData.zip_code}</div>
+                    <div><strong style={{ color: '#333' }}>Group Size:</strong> {formData.max_participants} {formData.max_participants === 1 ? 'member' : 'members'}</div>
+                  </div>
+                </div>
+
+                {/* Service Summary */}
+                {formData.vendor_id && formData.selected_dumpster_size && (
+                  <div style={{
+                    padding: '20px',
+                    border: '1px solid #dee2e6',
+                    borderRadius: '8px',
+                    marginBottom: '15px',
+                    backgroundColor: '#ffffff'
+                  }}>
+                    <h4 style={{ marginTop: 0, color: '#333', fontSize: '16px', marginBottom: '12px' }}>Dumpster Service</h4>
+                    <div style={{ display: 'grid', gap: '8px', fontSize: '14px', color: '#666' }}>
+                      <div><strong style={{ color: '#333' }}>Provider:</strong> {companies.find(c => c.id === parseInt(formData.vendor_id))?.name}</div>
+                      <div><strong style={{ color: '#333' }}>Size:</strong> {JSON.parse(formData.selected_dumpster_size).cubic_yards} cubic yards</div>
+                      <div><strong style={{ color: '#333' }}>Starting Price:</strong> ${JSON.parse(formData.selected_dumpster_size).starting_price}</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Invitees Summary */}
+                {invitees.length > 0 && (
+                  <div style={{
+                    padding: '20px',
+                    border: '1px solid #dee2e6',
+                    borderRadius: '8px',
+                    marginBottom: '15px',
+                    backgroundColor: '#ffffff'
+                  }}>
+                    <h4 style={{ marginTop: 0, color: '#333', fontSize: '16px', marginBottom: '12px' }}>Invitees ({invitees.length})</h4>
+                    <div style={{ display: 'grid', gap: '6px', fontSize: '14px', color: '#666' }}>
+                      {invitees.map((inv, idx) => (
+                        <div key={idx}>• {inv.name} ({inv.email})</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Drop-off Dates Summary */}
+                {dropoffDates.length > 0 && (
+                  <div style={{
+                    padding: '20px',
+                    border: '1px solid #dee2e6',
+                    borderRadius: '8px',
+                    marginBottom: '15px',
+                    backgroundColor: '#ffffff'
+                  }}>
+                    <h4 style={{ marginTop: 0, color: '#333', fontSize: '16px', marginBottom: '12px' }}>Proposed Drop-off Dates</h4>
+                    <div style={{ display: 'grid', gap: '6px', fontSize: '14px', color: '#666' }}>
+                      {dropoffDates.map((date, idx) => (
+                        <div key={idx}>• {new Date(date.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Payment Method Summary */}
+                <div style={{
+                  padding: '20px',
+                  border: '1px solid #dee2e6',
+                  borderRadius: '8px',
+                  marginBottom: '15px',
+                  backgroundColor: '#ffffff'
+                }}>
+                  <h4 style={{ marginTop: 0, color: '#333', fontSize: '16px', marginBottom: '12px' }}>Payment Method</h4>
+                  <div style={{ fontSize: '14px', color: '#666' }}>
+                    <strong style={{ color: '#333' }}>{paymentMethodType.charAt(0).toUpperCase() + paymentMethodType.slice(1)}</strong>
+                  </div>
+                </div>
+
+                <div style={{
+                  padding: '15px',
+                  backgroundColor: '#f8f9fa',
+                  border: '1px solid #dee2e6',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  color: '#495057'
+                }}>
+                  <strong>Ready to create your group?</strong> Click "Create Group" below to finalize and send invitations!
+                </div>
+              </div>
+            )}
+
+            {/* Navigation Buttons */}
+            <div style={{ display: 'flex', gap: '10px', marginTop: '30px', paddingTop: '20px', borderTop: '2px solid #e9ecef' }}>
+              {currentStep > 1 && (
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  onClick={handlePrevStep}
+                  disabled={isSubmitting}
+                >
+                  ← Back
+                </button>
+              )}
+
+              {currentStep < totalSteps ? (
+                <button
+                  type="button"
+                  className="button"
+                  onClick={handleNextStep}
+                  disabled={isSubmitting}
+                  style={{ flex: 1 }}
+                >
+                  Next →
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  className="button"
+                  disabled={isSubmitting}
+                  style={{ opacity: isSubmitting ? 0.6 : 1, flex: 1 }}
+                  onClick={() => setAllowSubmit(true)}
+                >
+                  {isSubmitting ? 'Creating Group...' : 'Create Group'}
+                </button>
+              )}
+
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={() => {
+                  setShowCreateForm(false);
+                  setCurrentStep(1);
+                }}
                 disabled={isSubmitting}
               >
                 Cancel
@@ -1785,15 +2100,20 @@ const Groups: React.FC = () => {
         </div>
       )}
 
-      <button
-        className="button"
-        onClick={() => setShowCreateForm(!showCreateForm)}
-        style={{
-          marginBottom: '20px'
-        }}
-      >
-        {showCreateForm ? 'Cancel' : 'Create Group'}
-      </button>
+      {!showCreateForm && (
+        <>
+        <button
+          className="button"
+          onClick={() => {
+            setShowCreateForm(true);
+            setCurrentStep(1);
+          }}
+          style={{
+            marginBottom: '20px'
+          }}
+        >
+          Create Group
+        </button>
 
       <div className="card">
         <h2>Groups</h2>
@@ -3039,6 +3359,8 @@ const Groups: React.FC = () => {
           </div>
         )}
       </div>
+      </>
+      )}
 
       {showConfirmation && (
         <ServiceConfirmation
