@@ -2102,21 +2102,27 @@ const Groups: React.FC = () => {
 
       {!showCreateForm && (
         <>
-        <button
-          className="button"
-          onClick={() => {
-            setShowCreateForm(true);
-            setCurrentStep(1);
-          }}
-          style={{
-            marginBottom: '20px'
-          }}
-        >
-          Create Group
-        </button>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+          <button
+            className="button"
+            onClick={() => {
+              setShowCreateForm(true);
+              setCurrentStep(1);
+            }}
+            style={{
+              width: '300px'
+            }}
+          >
+            Create Group
+          </button>
+        </div>
 
       <div className="card">
-        <h2>Groups</h2>
+        <h2 style={{
+          fontSize: '20px',
+          fontWeight: 'bold',
+          color: '#000'
+        }}>Your Groups</h2>
         {groups.length === 0 ? (
           <div style={{ 
             textAlign: 'center', 
