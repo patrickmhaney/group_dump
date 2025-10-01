@@ -863,27 +863,35 @@ const Groups: React.FC = () => {
 
   return (
     <div>
+      {/* Site Title - Top Left */}
+      <div style={{
+        position: 'absolute',
+        top: '20px',
+        left: '20px',
+        zIndex: 1000
+      }}>
+        <h1 style={{
+          fontSize: '20px',
+          fontWeight: 'bold',
+          color: '#000',
+          margin: 0,
+          padding: '8px'
+        }}>
+          Group Dump
+        </h1>
+      </div>
+
+      {/* User Area - Top Right */}
       <div style={{
         position: 'absolute',
         top: '20px',
         right: '20px',
         display: 'flex',
-        alignItems: 'center',
-        gap: '12px',
+        flexDirection: 'column',
+        alignItems: 'flex-end',
+        gap: '8px',
         zIndex: 1000
       }}>
-        <button
-          className="button"
-          onClick={() => setShowCreateForm(!showCreateForm)}
-          style={{
-            fontSize: '14px',
-            padding: '8px 16px',
-            minHeight: 'auto'
-          }}
-        >
-          {showCreateForm ? 'Cancel' : 'Create Group'}
-        </button>
-
         <div ref={dropdownRef} style={{ position: 'relative' }}>
           <button
             onClick={() => setShowUserDropdown(!showUserDropdown)}
@@ -1776,6 +1784,16 @@ const Groups: React.FC = () => {
           </form>
         </div>
       )}
+
+      <button
+        className="button"
+        onClick={() => setShowCreateForm(!showCreateForm)}
+        style={{
+          marginBottom: '20px'
+        }}
+      >
+        {showCreateForm ? 'Cancel' : 'Create Group'}
+      </button>
 
       <div className="card">
         <h2>Groups</h2>

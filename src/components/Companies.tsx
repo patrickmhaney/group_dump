@@ -314,42 +314,35 @@ const Companies: React.FC = () => {
 
   return (
     <div>
+      {/* Site Title - Top Left */}
+      <div style={{
+        position: 'absolute',
+        top: '20px',
+        left: '20px',
+        zIndex: 1000
+      }}>
+        <h1 style={{
+          fontSize: '20px',
+          fontWeight: 'bold',
+          color: '#000',
+          margin: 0,
+          padding: '8px'
+        }}>
+          Group Dump
+        </h1>
+      </div>
+
+      {/* User Area - Top Right */}
       <div style={{
         position: 'absolute',
         top: '20px',
         right: '20px',
         display: 'flex',
-        alignItems: 'center',
-        gap: '12px',
+        flexDirection: 'column',
+        alignItems: 'flex-end',
+        gap: '8px',
         zIndex: 1000
       }}>
-        {user?.user_type === 'renter' && (
-          <button
-            className={`button ${proximityFilter ? '' : 'button-secondary'}`}
-            onClick={() => setProximityFilter(!proximityFilter)}
-            style={{
-              fontSize: '14px',
-              padding: '8px 16px',
-              minHeight: 'auto'
-            }}
-          >
-            {proximityFilter ? 'Show All Companies' : 'Show Nearby Only'}
-          </button>
-        )}
-        {user?.user_type === 'company' && (
-          <button
-            className="button"
-            onClick={() => setShowCreateForm(!showCreateForm)}
-            style={{
-              fontSize: '14px',
-              padding: '8px 16px',
-              minHeight: 'auto'
-            }}
-          >
-            {showCreateForm ? 'Cancel' : 'Register Company'}
-          </button>
-        )}
-
         <div ref={dropdownRef} style={{ position: 'relative' }}>
           <button
             onClick={() => setShowUserDropdown(!showUserDropdown)}
@@ -439,6 +432,40 @@ const Companies: React.FC = () => {
                 Logout
               </button>
             </div>
+          )}
+        </div>
+
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'flex-end',
+          gap: '8px'
+        }}>
+          {user?.user_type === 'renter' && (
+            <button
+              className={`button ${proximityFilter ? '' : 'button-secondary'}`}
+              onClick={() => setProximityFilter(!proximityFilter)}
+              style={{
+                fontSize: '14px',
+                padding: '8px 16px',
+                minHeight: 'auto'
+              }}
+            >
+              {proximityFilter ? 'Show All Companies' : 'Show Nearby Only'}
+            </button>
+          )}
+          {user?.user_type === 'company' && (
+            <button
+              className="button"
+              onClick={() => setShowCreateForm(!showCreateForm)}
+              style={{
+                fontSize: '14px',
+                padding: '8px 16px',
+                minHeight: 'auto'
+              }}
+            >
+              {showCreateForm ? 'Cancel' : 'Register Company'}
+            </button>
           )}
         </div>
       </div>
