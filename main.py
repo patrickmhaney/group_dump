@@ -1280,7 +1280,80 @@ async def join_group_by_token(
     # Remove the invitation token as it's been used
     db.delete(invitee)
     db.commit()
-    
+
+    # Get the updated member count after adding the new member
+    updated_member_count = db.query(GroupMember).filter(GroupMember.group_id == group.id).count()
+
+    # Get group creator for email notifications
+    creator = db.query(User).filter(User.id == group.created_by).first()
+
+    # Send email notification to group creator when invitee joins
+    if creator:
+        subject = f"🎉 {user_to_use.name} has joined your group '{group.name}'"
+        body = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="color: #28a745;">Great news! Someone joined your group</h2>
+
+                    <p>Hi {creator.name},</p>
+
+                    <p><strong>{user_to_use.name}</strong> ({user_to_use.email}) has accepted your invitation and joined <strong>"{group.name}"</strong>!</p>
+
+                    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 6px; margin: 20px 0;">
+                        <h3 style="margin-top: 0; color: #495057;">Group Status:</h3>
+                        <ul style="margin-bottom: 0;">
+                            <li><strong>Current members:</strong> {updated_member_count}/{group.max_participants}</li>
+                            <li><strong>Status:</strong> {"Fully formed! 🎉" if updated_member_count >= group.max_participants else f"Still forming ({group.max_participants - updated_member_count} spots remaining)"}</li>
+                        </ul>
+                    </div>
+
+                    {"<div style='background-color: #d4edda; padding: 15px; border-radius: 6px; margin: 20px 0; border: 2px solid #28a745;'><p style='margin: 0; color: #155724;'><strong>🎉 Your group is now fully formed!</strong> You can proceed with booking your dumpster rental.</p></div>" if updated_member_count >= group.max_participants else ""}
+
+                    <p>Best regards,<br>The Group Dump Team</p>
+                </div>
+            </body>
+        </html>
+        """
+        await send_email(creator.email, subject, body)
+
+    # If group is now fully formed, send additional notification
+    if updated_member_count >= group.max_participants:
+        if creator:
+            subject = f"✅ Your group '{group.name}' is fully formed!"
+            body = f"""
+            <html>
+                <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                        <h2 style="color: #28a745;">🎉 Congratulations! Your group is fully formed</h2>
+
+                        <p>Hi {creator.name},</p>
+
+                        <p>Great news! Your dumpster sharing group <strong>"{group.name}"</strong> has reached full capacity with all {group.max_participants} members confirmed.</p>
+
+                        <div style="background-color: #d4edda; padding: 20px; border-radius: 8px; margin: 20px 0; border: 2px solid #28a745;">
+                            <h3 style="margin-top: 0; color: #155724;">What's Next?</h3>
+                            <ol style="color: #155724; margin-bottom: 0;">
+                                <li>Review group details on your groups page</li>
+                                <li>Choose a final drop-off date on your groups page based on the availability selected by each group member</li>
+                                <li>Book the dumpster rental with your vendor</li>
+                                <li>Request payment from all members</li>
+                            </ol>
+                        </div>
+
+                        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 6px; margin: 20px 0;">
+                            <p style="margin: 0;"><strong>📍 Location:</strong> {group.address}</p>
+                        </div>
+
+                        <p>You can manage your group and coordinate next steps from your dashboard.</p>
+
+                        <p>Best regards,<br>The Group Dump Team</p>
+                    </div>
+                </body>
+            </html>
+            """
+            await send_email(creator.email, subject, body)
+
     return {
         "message": "Successfully joined group",
         "group": {

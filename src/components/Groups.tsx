@@ -2721,25 +2721,8 @@ const Groups: React.FC = () => {
                               padding: '12px',
                               borderRadius: '8px',
                               backgroundColor: '#ffffff',
-                              border: '1px solid #c3e6cb',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '12px'
+                              border: '1px solid #c3e6cb'
                             }}>
-                              <div style={{
-                                width: '24px',
-                                height: '24px',
-                                borderRadius: '50%',
-                                backgroundColor: '#28a745',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: 'white',
-                                fontSize: '14px',
-                                fontWeight: 'bold'
-                              }}>
-                                ✓
-                              </div>
                               <div>
                                 <div style={{
                                   fontWeight: 'bold',
