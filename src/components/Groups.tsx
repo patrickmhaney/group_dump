@@ -2756,24 +2756,6 @@ const Groups: React.FC = () => {
                               ⚠️ Final drop-off date not yet selected
                             </div>
                           )}
-
-                          <div style={{
-                            marginTop: '12px',
-                            padding: '8px',
-                            backgroundColor: '#cce5ff',
-                            borderRadius: '6px',
-                            border: '1px solid #80bfff',
-                            fontSize: '12px',
-                            color: '#0066cc',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px'
-                          }}>
-                            <span>📧</span>
-                            <div>
-                              <strong>Payment requests sent!</strong> All group members have been notified with the final drop-off date.
-                            </div>
-                          </div>
                         </div>
                       ) : (
                         // For ready groups, show time slot selection for creators or final selection for members
@@ -3014,6 +2996,24 @@ const Groups: React.FC = () => {
                               // State 5: Completed Booking Confirmed and Payment Requested
                               return (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                  <div style={{
+                                    marginBottom: '12px',
+                                    padding: '8px',
+                                    backgroundColor: '#cce5ff',
+                                    borderRadius: '6px',
+                                    border: '1px solid #80bfff',
+                                    fontSize: '12px',
+                                    color: '#0066cc',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                  }}>
+                                    <span>📧</span>
+                                    <div>
+                                      <strong>Payment requests sent!</strong> All group members have been notified with the final drop-off date.
+                                    </div>
+                                  </div>
+
                                   <button
                                     className="button"
                                     onClick={() => {
