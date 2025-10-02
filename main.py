@@ -507,18 +507,26 @@ def calculate_haversine_distance(lat1: float, lon1: float, lat2: float, lon2: fl
     
     return c * r
 
-async def filter_companies_by_actual_distance(companies: list, user_lat: float, user_lon: float, max_distance: float = 50.0) -> list:
+async def filter_companies_by_actual_distance(companies: list, user_lat: float, user_lon: float, max_distance: float = 50.0, user_zip: str = None) -> list:
     """Filter companies within max_distance miles of user coordinates using actual geographic distance"""
     if not user_lat or not user_lon:
         return companies
-    
+
     nearby_companies = []
     for company in companies:
+        added = False
         if hasattr(company, 'latitude') and hasattr(company, 'longitude') and company.latitude and company.longitude:
             distance = calculate_haversine_distance(user_lat, user_lon, company.latitude, company.longitude)
             if distance <= max_distance:
                 nearby_companies.append(company)
-    
+                added = True
+
+        # Also try zip code fallback if geographic distance failed and user has zip
+        if not added and user_zip and hasattr(company, 'zip_code') and company.zip_code:
+            distance = calculate_zip_distance_approximation(user_zip, company.zip_code)
+            if distance <= max_distance:
+                nearby_companies.append(company)
+
     return nearby_companies
 
 class UserCreate(BaseModel):
@@ -631,11 +639,11 @@ class GroupResponse(BaseModel):
 
 class DumpsterSize(BaseModel):
     cubic_yards: str
-    dimensions: str
-    starting_price: str
-    starting_tonnage: str
-    per_ton_overage_price: str
-    additional_day_price: str
+    dimensions: Optional[str] = None
+    starting_price: Optional[str] = None
+    starting_tonnage: Optional[str] = None
+    per_ton_overage_price: Optional[str] = None
+    additional_day_price: Optional[str] = None
 
 class CompanyCreate(BaseModel):
     name: str
@@ -1476,7 +1484,7 @@ async def create_company(company: CompanyCreate, current_user: User = Depends(ge
         "zip_code": db_company.zip_code,
         "website": db_company.website,
         "service_areas": db_company.service_areas,
-        "dumpster_sizes": [DumpsterSize(**size) for size in json.loads(db_company.dumpster_sizes)],
+        "dumpster_sizes": [DumpsterSize(**size) for size in json.loads(db_company.dumpster_sizes)] if db_company.dumpster_sizes else [],
         "rating": db_company.rating
     }
     return CompanyResponse(**response_data)
@@ -1493,8 +1501,8 @@ async def get_companies(current_user: User = Depends(get_current_user), skip: in
         # Filter by proximity for rental users using geographic distance if coordinates available
         if proximity_filter:
             if current_user.latitude and current_user.longitude:
-                # Use accurate geographic distance
-                companies = await filter_companies_by_actual_distance(companies, current_user.latitude, current_user.longitude)
+                # Use accurate geographic distance with zip code fallback
+                companies = await filter_companies_by_actual_distance(companies, current_user.latitude, current_user.longitude, user_zip=current_user.zip_code)
             elif current_user.zip_code:
                 # Fallback to zip code approximation
                 companies = filter_companies_by_proximity(companies, current_user.zip_code)
@@ -1511,7 +1519,7 @@ async def get_companies(current_user: User = Depends(get_current_user), skip: in
             "zip_code": company.zip_code,
             "website": company.website,
             "service_areas": company.service_areas,
-            "dumpster_sizes": [DumpsterSize(**size) for size in json.loads(company.dumpster_sizes)],
+            "dumpster_sizes": [DumpsterSize(**size) for size in json.loads(company.dumpster_sizes)] if company.dumpster_sizes else [],
             "rating": company.rating
         }
         result.append(CompanyResponse(**company_data))
@@ -1534,7 +1542,7 @@ async def get_company(company_id: int, db: Session = Depends(get_db)):
         "zip_code": company.zip_code,
         "website": company.website,
         "service_areas": company.service_areas,
-        "dumpster_sizes": [DumpsterSize(**size) for size in json.loads(company.dumpster_sizes)],
+        "dumpster_sizes": [DumpsterSize(**size) for size in json.loads(company.dumpster_sizes)] if company.dumpster_sizes else [],
         "rating": company.rating
     }
     return CompanyResponse(**company_data)
@@ -1578,7 +1586,7 @@ async def update_company(company_id: int, company: CompanyCreate, current_user: 
         "zip_code": db_company.zip_code,
         "website": db_company.website,
         "service_areas": db_company.service_areas,
-        "dumpster_sizes": [DumpsterSize(**size) for size in json.loads(db_company.dumpster_sizes)],
+        "dumpster_sizes": [DumpsterSize(**size) for size in json.loads(db_company.dumpster_sizes)] if db_company.dumpster_sizes else [],
         "rating": db_company.rating
     }
     return CompanyResponse(**response_data)

@@ -5,11 +5,11 @@ import { AuthContext } from '../App.tsx';
 
 interface DumpsterSize {
   cubic_yards: string;
-  dimensions: string;
-  starting_price: string;
-  starting_tonnage: string;
-  per_ton_overage_price: string;
-  additional_day_price: string;
+  dimensions?: string;
+  starting_price?: string;
+  starting_tonnage?: string;
+  per_ton_overage_price?: string;
+  additional_day_price?: string;
 }
 
 interface Company {
@@ -495,7 +495,6 @@ const Companies: React.FC = () => {
               placeholder="Email"
               value={formData.email}
               onChange={handleChange}
-              required
             />
             <input
               type="tel"
@@ -503,7 +502,6 @@ const Companies: React.FC = () => {
               placeholder="Phone"
               value={formData.phone}
               onChange={handleChange}
-              required
             />
             <input
               type="text"
@@ -550,7 +548,6 @@ const Companies: React.FC = () => {
               value={formData.service_areas}
               onChange={handleChange}
               rows={3}
-              required
             />
             
             <div style={{ marginBottom: '20px' }}>
@@ -601,35 +598,30 @@ const Companies: React.FC = () => {
                       placeholder="Dimensions (e.g., 12' X 8' X 4')"
                       value={dumpsterSize.dimensions}
                       onChange={(e) => handleDumpsterSizeChange(index, 'dimensions', e.target.value)}
-                      required
                     />
                     <input
                       type="text"
                       placeholder="Starting Price ($)"
                       value={dumpsterSize.starting_price}
                       onChange={(e) => handleDumpsterSizeChange(index, 'starting_price', e.target.value)}
-                      required
                     />
                     <input
                       type="text"
                       placeholder="Starting Tonnage"
                       value={dumpsterSize.starting_tonnage}
                       onChange={(e) => handleDumpsterSizeChange(index, 'starting_tonnage', e.target.value)}
-                      required
                     />
                     <input
                       type="text"
                       placeholder="Per Ton Overage Price ($)"
                       value={dumpsterSize.per_ton_overage_price}
                       onChange={(e) => handleDumpsterSizeChange(index, 'per_ton_overage_price', e.target.value)}
-                      required
                     />
                     <input
                       type="text"
                       placeholder="Additional Day Price ($)"
                       value={dumpsterSize.additional_day_price}
                       onChange={(e) => handleDumpsterSizeChange(index, 'additional_day_price', e.target.value)}
-                      required
                     />
                   </div>
                 </div>

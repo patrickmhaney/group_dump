@@ -7,7 +7,6 @@ import Groups from './components/Groups.tsx';
 import Companies from './components/Companies.tsx';
 import Join from './components/Join.tsx';
 import UserProfile from './components/UserProfile.tsx';
-import StripeProvider from './components/StripeProvider.tsx';
 
 interface User {
   id: number;
@@ -77,11 +76,7 @@ function App() {
               <Route path="/login" element={!user ? <Login /> : <Navigate to={user.user_type === 'renter' ? "/groups" : "/companies"} />} />
               <Route path="/register" element={!user ? <Register /> : <Navigate to={user.user_type === 'renter' ? "/groups" : "/companies"} />} />
               <Route path="/groups" element={user ? (user.user_type === 'renter' ? <Groups /> : <Navigate to="/companies" />) : <Navigate to="/login" />} />
-              <Route path="/companies" element={user ? (user.user_type === 'company' ? (
-                <StripeProvider>
-                  <Companies />
-                </StripeProvider>
-              ) : <Navigate to="/groups" />) : <Navigate to="/login" />} />
+              <Route path="/companies" element={user ? (user.user_type === 'company' ? <Companies /> : <Navigate to="/groups" />) : <Navigate to="/login" />} />
               <Route path="/profile" element={user ? <UserProfile /> : <Navigate to="/login" />} />
               <Route path="/join/:token" element={<Join />} />
               <Route path="/" element={<Navigate to={user ? (user.user_type === 'renter' ? "/groups" : "/companies") : "/login"} />} />
