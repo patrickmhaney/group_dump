@@ -100,18 +100,18 @@ const Register: React.FC = () => {
       <h2>Register for Group Dump</h2>
       <form onSubmit={handleSubmit} className="form">
         <input
-          type="email"
-          name="email"
-          placeholder="Email"
-          value={formData.email}
-          onChange={handleChange}
-          required
-        />
-        <input
           type="text"
           name="name"
           placeholder="Full Name"
           value={formData.name}
+          onChange={handleChange}
+          required
+        />
+        <input
+          type="email"
+          name="email"
+          placeholder="Email"
+          value={formData.email}
           onChange={handleChange}
           required
         />

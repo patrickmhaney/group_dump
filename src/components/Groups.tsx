@@ -869,6 +869,19 @@ const Groups: React.FC = () => {
   };
 
   const handleNextStep = () => {
+    // Check if user selected a service without transparent pricing
+    if (formData.selected_dumpster_size) {
+      try {
+        const selectedSize = JSON.parse(formData.selected_dumpster_size);
+        if (!selectedSize.starting_price) {
+          setMessage('Please choose a company with transparent pricing to continue. The selected service requires a custom quote.');
+          return;
+        }
+      } catch (e) {
+        // If parsing fails, continue with normal validation
+      }
+    }
+
     if (validateStep(currentStep)) {
       setCurrentStep(prev => Math.min(prev + 1, totalSteps));
     } else {
@@ -1357,21 +1370,27 @@ const Groups: React.FC = () => {
                         
                         {matchingSize ? (
                           <div>
-                            <div style={{
-                              fontSize: '20px',
-                              fontWeight: 'bold',
-                              color: '#28a745',
-                              marginBottom: '6px'
-                            }}>
-                              {matchingSize.starting_price ? (matchingSize.starting_price.startsWith('$') ? matchingSize.starting_price : `$${matchingSize.starting_price}`) : <span style={{ fontSize: '11px', fontStyle: 'italic', color: '#666', fontWeight: 'bold', letterSpacing: '0', lineHeight: '1.2' }}>price inquiry to provider required</span>}
-                            </div>
+                            {matchingSize.starting_price ? (
+                              <div style={{
+                                fontSize: '20px',
+                                fontWeight: 'bold',
+                                color: '#28a745',
+                                marginBottom: '6px'
+                              }}>
+                                {matchingSize.starting_price.startsWith('$') ? matchingSize.starting_price : `$${matchingSize.starting_price}`}
+                              </div>
+                            ) : (
+                              <p style={{ margin: '0 0 6px 0', fontSize: '11px', fontStyle: 'italic', color: '#666', fontWeight: 'bold' }}>
+                                Price not available. Provider may require quote.
+                              </p>
+                            )}
                             <div style={{ fontSize: '11px', color: '#666', marginBottom: '6px' }}>
-                              {comparisonSize} yards • {matchingSize.starting_tonnage || '??'} tons
+                              {comparisonSize} yards • {matchingSize.starting_tonnage || 'NA'} tons
                             </div>
                             <div style={{ fontSize: '10px', color: '#666' }}>
-                              {matchingSize.per_ton_overage_price ? `+${matchingSize.per_ton_overage_price.startsWith('$') ? matchingSize.per_ton_overage_price : `$${matchingSize.per_ton_overage_price}`}/extra ton` : '+??/extra ton'}
+                              {matchingSize.per_ton_overage_price ? `+${matchingSize.per_ton_overage_price.startsWith('$') ? matchingSize.per_ton_overage_price : `$${matchingSize.per_ton_overage_price}`}/extra ton` : '+NA/extra ton'}
                               {' • '}
-                              {matchingSize.additional_day_price ? `+${matchingSize.additional_day_price.startsWith('$') ? matchingSize.additional_day_price : `$${matchingSize.additional_day_price}`}/extra day` : '+??/extra day'}
+                              {matchingSize.additional_day_price ? `+${matchingSize.additional_day_price.startsWith('$') ? matchingSize.additional_day_price : `$${matchingSize.additional_day_price}`}/extra day` : '+NA/extra day'}
                             </div>
                           </div>
                         ) : (
@@ -1482,12 +1501,20 @@ const Groups: React.FC = () => {
                                     )}
                                   </div>
                                   <div style={{ textAlign: 'right' }}>
-                                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#28a745' }}>
-                                      {size.starting_price ? `$${size.starting_price}` : <span style={{ fontSize: '12px', fontStyle: 'italic', color: '#666', fontWeight: 'bold', letterSpacing: '0', lineHeight: '1.2' }}>price inquiry to provider required</span>}
-                                    </div>
-                                    <div style={{ fontSize: '12px', color: '#666' }}>
-                                      starting price
-                                    </div>
+                                    {size.starting_price ? (
+                                      <>
+                                        <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#28a745' }}>
+                                          ${size.starting_price}
+                                        </div>
+                                        <div style={{ fontSize: '12px', color: '#666' }}>
+                                          starting price
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <p style={{ margin: '0', fontSize: '12px', fontStyle: 'italic', color: '#666', fontWeight: 'bold' }}>
+                                        Price not available. Provider may require quote.
+                                      </p>
+                                    )}
                                   </div>
                                 </div>
                                 
@@ -1501,19 +1528,19 @@ const Groups: React.FC = () => {
                                 }}>
                                   <div style={{ textAlign: 'center', padding: '8px', backgroundColor: '#f8f9fa', borderRadius: '6px' }}>
                                     <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#495057' }}>
-                                      {size.starting_tonnage || '??'} tons
+                                      {size.starting_tonnage || 'NA'} tons
                                     </div>
                                     <div style={{ fontSize: '11px', color: '#6c757d' }}>included</div>
                                   </div>
                                   <div style={{ textAlign: 'center', padding: '8px', backgroundColor: '#f8f9fa', borderRadius: '6px' }}>
                                     <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#495057' }}>
-                                      {size.per_ton_overage_price ? `$${size.per_ton_overage_price}` : '??'}
+                                      {size.per_ton_overage_price ? `$${size.per_ton_overage_price}` : 'NA'}
                                     </div>
                                     <div style={{ fontSize: '11px', color: '#6c757d' }}>per extra ton</div>
                                   </div>
                                   <div style={{ textAlign: 'center', padding: '8px', backgroundColor: '#f8f9fa', borderRadius: '6px' }}>
                                     <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#495057' }}>
-                                      {size.additional_day_price ? `$${size.additional_day_price}` : '??'}
+                                      {size.additional_day_price ? `$${size.additional_day_price}` : 'NA'}
                                     </div>
                                     <div style={{ fontSize: '11px', color: '#6c757d' }}>per extra day</div>
                                   </div>
@@ -1540,7 +1567,7 @@ const Groups: React.FC = () => {
               </div>
             )}
 
-            {/* Hint box for ?? fields - at bottom of Service section */}
+            {/* Hint box for NA fields - at bottom of Service section */}
             {currentStep === 2 && (
               <div style={{
                 padding: '12px 15px',
@@ -1552,7 +1579,7 @@ const Groups: React.FC = () => {
                 marginTop: '20px',
                 marginBottom: '15px'
               }}>
-                💡 <strong>??</strong> = Information not given by provider or available on their company website. For overage charges, this sometimes indicates a flat rate. Check provider website directly if curious to learn more.
+                💡 <strong>NA</strong> = Information not given by provider or available on their company website. For overage charges, this sometimes indicates a flat rate. Check provider website directly if curious to learn more.
               </div>
             )}
 
@@ -1569,7 +1596,7 @@ const Groups: React.FC = () => {
                   Invite People to Group
                 </label>
                 <p style={{ color: '#666', fontSize: '14px', marginBottom: '15px' }}>
-                  Add neighbors to automatically send them email invitations when the group is created
+                  Add neighbors to automatically send them email invitations when the group is created. The email will contain detailed instructions about the process.
                 </p>
               </div>
 
