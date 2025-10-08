@@ -706,7 +706,49 @@ class VendorSubscriptionResponse(BaseModel):
     monthly_fee: float
     status: str
     billing_date: datetime
-    
+
+    class Config:
+        from_attributes = True
+
+class PlatformOverviewResponse(BaseModel):
+    total_users: int
+    renter_users: int
+    company_users: int
+    total_groups: int
+    forming_groups: int
+    active_groups: int
+    completed_groups: int
+    total_revenue: float
+    active_subscriptions: int
+
+    class Config:
+        from_attributes = True
+
+class UserListItem(BaseModel):
+    id: int
+    email: str
+    name: str
+    phone: str
+    city: Optional[str]
+    state: Optional[str]
+    zip_code: Optional[str]
+    user_type: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class CompanyListItem(BaseModel):
+    id: int
+    name: str
+    email: Optional[str]
+    phone: Optional[str]
+    city: str
+    state: str
+    zip_code: str
+    website: str
+    created_at: datetime
+
     class Config:
         from_attributes = True
 
@@ -727,6 +769,15 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     if user is None:
         raise credentials_exception
     return user
+
+async def get_admin_user(current_user: User = Depends(get_current_user)):
+    """Verify user is the admin account"""
+    if current_user.email != "service.account.dc@groupdump.com":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. Admin privileges required."
+        )
+    return current_user
 
 @app.post("/register", response_model=UserResponse)
 async def register(user: UserCreate, db: Session = Depends(get_db)):
@@ -2493,6 +2544,77 @@ async def get_all_subscriptions(
     
     subscriptions = db.query(VendorSubscription).all()
     return subscriptions
+
+@app.get("/admin/platform-overview", response_model=PlatformOverviewResponse)
+async def get_platform_overview(
+    current_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Get platform overview metrics - admin only"""
+
+    # Total users by type
+    total_users = db.query(User).count()
+    renter_users = db.query(User).filter(User.user_type == "renter").count()
+    company_users = db.query(User).filter(User.user_type == "company").count()
+
+    # Groups by status
+    total_groups = db.query(Group).count()
+    forming_groups = db.query(Group).filter(Group.status == "forming").count()
+    active_groups = db.query(Group).filter(Group.status == "active").count()
+    completed_groups = db.query(Group).filter(Group.status == "completed").count()
+
+    # Active subscriptions
+    active_subscriptions = db.query(VendorSubscription).filter(
+        VendorSubscription.status == "active"
+    ).count()
+
+    # Total revenue calculation
+    # Revenue from vendor subscriptions (monthly recurring)
+    subscription_revenue = db.query(VendorSubscription).filter(
+        VendorSubscription.status == "active"
+    ).with_entities(VendorSubscription.monthly_fee).all()
+    total_subscription_revenue = sum([s[0] for s in subscription_revenue]) if subscription_revenue else 0.0
+
+    # Revenue from commissions on completed rentals
+    completed_rentals = db.query(Rental).filter(Rental.status == "completed").all()
+    commission_revenue = 0.0
+    for rental in completed_rentals:
+        # Get the company's commission rate
+        company = db.query(Company).filter(Company.id == rental.company_id).first()
+        if company:
+            commission_revenue += rental.total_cost * company.commission_rate
+
+    total_revenue = total_subscription_revenue + commission_revenue
+
+    return PlatformOverviewResponse(
+        total_users=total_users,
+        renter_users=renter_users,
+        company_users=company_users,
+        total_groups=total_groups,
+        forming_groups=forming_groups,
+        active_groups=active_groups,
+        completed_groups=completed_groups,
+        total_revenue=total_revenue,
+        active_subscriptions=active_subscriptions
+    )
+
+@app.get("/admin/users", response_model=list[UserListItem])
+async def get_users_list(
+    current_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Get all users ordered by state and city - admin only"""
+    users = db.query(User).order_by(User.state, User.city, User.name).all()
+    return users
+
+@app.get("/admin/companies", response_model=list[CompanyListItem])
+async def get_companies_list(
+    current_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Get all companies ordered by state and city - admin only"""
+    companies = db.query(Company).order_by(Company.state, Company.city, Company.name).all()
+    return companies
 
 @app.get("/")
 async def root():

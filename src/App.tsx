@@ -7,6 +7,7 @@ import Groups from './components/Groups.tsx';
 import Companies from './components/Companies.tsx';
 import Join from './components/Join.tsx';
 import UserProfile from './components/UserProfile.tsx';
+import Admin from './components/Admin.tsx';
 
 interface User {
   id: number;
@@ -73,13 +74,14 @@ function App() {
           
           <div className="container">
             <Routes>
-              <Route path="/login" element={!user ? <Login /> : <Navigate to={user.user_type === 'renter' ? "/groups" : "/companies"} />} />
-              <Route path="/register" element={!user ? <Register /> : <Navigate to={user.user_type === 'renter' ? "/groups" : "/companies"} />} />
+              <Route path="/login" element={!user ? <Login /> : <Navigate to={user.email === 'service.account.dc@groupdump.com' ? "/admin" : (user.user_type === 'renter' ? "/groups" : "/companies")} />} />
+              <Route path="/register" element={!user ? <Register /> : <Navigate to={user.email === 'service.account.dc@groupdump.com' ? "/admin" : (user.user_type === 'renter' ? "/groups" : "/companies")} />} />
               <Route path="/groups" element={user ? (user.user_type === 'renter' ? <Groups /> : <Navigate to="/companies" />) : <Navigate to="/login" />} />
-              <Route path="/companies" element={user ? (user.user_type === 'company' ? <Companies /> : <Navigate to="/groups" />) : <Navigate to="/login" />} />
+              <Route path="/companies" element={user ? (user.email === 'service.account.dc@groupdump.com' || user.user_type === 'company' ? <Companies /> : <Navigate to="/groups" />) : <Navigate to="/login" />} />
               <Route path="/profile" element={user ? <UserProfile /> : <Navigate to="/login" />} />
+              <Route path="/admin" element={user && user.email === 'service.account.dc@groupdump.com' ? <Admin /> : <Navigate to="/" />} />
               <Route path="/join/:token" element={<Join />} />
-              <Route path="/" element={<Navigate to={user ? (user.user_type === 'renter' ? "/groups" : "/companies") : "/login"} />} />
+              <Route path="/" element={<Navigate to={user ? (user.email === 'service.account.dc@groupdump.com' ? "/admin" : (user.user_type === 'renter' ? "/groups" : "/companies")) : "/login"} />} />
             </Routes>
           </div>
         </div>

@@ -387,6 +387,27 @@ const Companies: React.FC = () => {
               minWidth: '140px',
               zIndex: 1001
             }}>
+              {user?.email === 'service.account.dc@groupdump.com' && (
+                <Link
+                  to="/admin"
+                  style={{
+                    display: 'block',
+                    padding: '12px 16px',
+                    color: '#333',
+                    textDecoration: 'none',
+                    borderBottom: '1px solid #eee'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#f8f9fa';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }}
+                  onClick={() => setShowUserDropdown(false)}
+                >
+                  Admin Dashboard
+                </Link>
+              )}
               <Link
                 to="/profile"
                 style={{

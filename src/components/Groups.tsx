@@ -874,7 +874,7 @@ const Groups: React.FC = () => {
       try {
         const selectedSize = JSON.parse(formData.selected_dumpster_size);
         if (!selectedSize.starting_price) {
-          setMessage('Please choose a company with transparent pricing to continue. The selected service requires a custom quote.');
+          setMessage('Please choose a company with a starting price listed to continue. The selected service requires a custom quote.');
           return;
         }
       } catch (e) {
