@@ -1592,10 +1592,7 @@ const Groups: React.FC = () => {
               {formData.max_participants !== 1 ? (
               <>
               <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', fontSize: '16px', marginBottom: '10px', fontWeight: 'bold', color: '#333' }}>
-                  Invite People to Group
-                </label>
-                <p style={{ color: '#666', fontSize: '14px', marginBottom: '15px' }}>
+                <p style={{ color: '#666', fontSize: '16px', marginBottom: '15px' }}>
                   Add neighbors to automatically send them email invitations when the group is created. The email will contain detailed instructions about the process.
                 </p>
               </div>
@@ -1766,24 +1763,18 @@ const Groups: React.FC = () => {
             {/* Step 4: Drop-off Dates */}
             {currentStep === 4 && (
             <div className="time-slots-section" style={{ marginBottom: '20px' }}>
-              <h3 style={{ marginTop: 0, marginBottom: '20px', color: '#333' }}>Select Drop-off Dates</h3>
               <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', fontSize: '16px', marginBottom: '10px', fontWeight: 'bold', color: '#333' }}>
                   Add Potential Drop Off Dates
                 </label>
                 <p style={{ color: '#666', fontSize: '14px', marginBottom: '15px' }}>
-                  Choose up to 5 different dates when your group could have the dumpster dropped off. 
+                  Choose up to 5 different dates when your group could have the dumpster dropped off.
                   This helps coordinate everyone's schedule.
                 </p>
               </div>
               
               {dropoffDates.length === 0 ? (
-                <div style={{ 
-                  textAlign: 'center', 
-                  padding: '40px 20px', 
-                  border: '1px solid #dee2e6', 
-                  borderRadius: '8px'
-                }}>
+                <div style={{ textAlign: 'center' }}>
                   <button
                     type="button"
                     className="button"
@@ -1797,22 +1788,15 @@ const Groups: React.FC = () => {
                 <>
                   <div className="dropoff-dates-list" style={{ marginBottom: '20px' }}>
                     {dropoffDates.map((date, index) => (
-                      <div 
-                        key={index} 
-                        style={{ 
-                          marginBottom: '16px', 
-                          padding: '20px', 
-                          border: '1px solid #e1e5e9', 
-                          borderRadius: '8px',
+                      <div
+                        key={index}
+                        style={{
+                          marginBottom: '15px',
+                          padding: '20px',
+                          border: '2px solid #e9ecef',
+                          borderRadius: '12px',
                           backgroundColor: '#ffffff',
-                          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                          transition: 'box-shadow 0.2s ease'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
                         }}
                       >
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '12px', alignItems: 'end' }}>
@@ -1909,35 +1893,37 @@ const Groups: React.FC = () => {
                   </div>
                 </>
               )}
+
+              <div style={{
+                marginTop: '15px',
+                padding: '10px',
+                backgroundColor: '#d1ecf1',
+                border: '1px solid #bee5eb',
+                borderRadius: '4px',
+                fontSize: '14px',
+                color: '#0c5460'
+              }}>
+                <strong>💡 How it works:</strong> When you finish creating the group and the invite to join is sent, your invitees will choose dates from this list that also work for them before joining the group.
+              </div>
             </div>
             )}
 
             {/* Step 5: Payment Method */}
             {currentStep === 5 && (
-            <div className="payment-section" style={{
-              marginTop: '30px',
-              padding: '20px',
-              border: '2px solid #007bff',
-              borderRadius: '8px',
-              backgroundColor: '#f8f9fa'
-            }}>
-              <h3 style={{ marginTop: '0', color: '#007bff' }}>💰 Payment Method Setup</h3>
+            <div className="payment-section" style={{ marginBottom: '20px' }}>
+              <h3 style={{ marginTop: 0, marginBottom: '20px', color: '#333' }}>Select Reimbursement Method</h3>
               <p style={{ color: '#666', marginBottom: '15px' }}>
                 Choose how you'd like to receive payments from group members.
               </p>
               
-              <div style={{ 
-                padding: '15px', 
-                border: '1px solid #ccc', 
-                borderRadius: '4px', 
+              <div style={{
+                padding: '15px',
+                border: '1px solid #ccc',
+                borderRadius: '4px',
                 backgroundColor: 'white',
                 marginBottom: '15px'
               }}>
                 <div style={{ marginBottom: '15px' }}>
-                  <label style={{ display: 'block', marginBottom: '10px', fontWeight: 'bold' }}>
-                    Preferred Payment Method:
-                  </label>
-                  
                   <div style={{ marginBottom: '15px' }}>
                     <label style={{ display: 'flex', alignItems: 'center', marginBottom: '10px', cursor: 'pointer' }}>
                       <input
@@ -1985,7 +1971,7 @@ const Groups: React.FC = () => {
                 fontSize: '14px',
                 color: '#0c5460'
               }}>
-                <strong>💡 How it works:</strong> Members will receive your payment details and send payments directly to you.
+                <strong>💡 How it works:</strong> Members will receive your payment details and send payments directly to you after completing booking on the provider's website.
               </div>
             </div>
             )}
@@ -2081,6 +2067,37 @@ const Groups: React.FC = () => {
                     <strong style={{ color: '#333' }}>{paymentMethodType.charAt(0).toUpperCase() + paymentMethodType.slice(1)}</strong>
                   </div>
                 </div>
+
+                {/* Email Preview */}
+                {invitees.length > 0 && (
+                  <div style={{
+                    padding: '20px',
+                    border: '1px solid #dee2e6',
+                    borderRadius: '8px',
+                    marginBottom: '15px',
+                    backgroundColor: '#ffffff'
+                  }}>
+                    <h4 style={{ marginTop: 0, color: '#333', fontSize: '16px', marginBottom: '12px' }}>Email Preview</h4>
+                    <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
+                      Your invitees will receive an email containing:
+                    </p>
+                    <div style={{
+                      padding: '15px',
+                      backgroundColor: '#f8f9fa',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      color: '#495057'
+                    }}>
+                      <ul style={{ margin: '0', paddingLeft: '20px' }}>
+                        <li style={{ marginBottom: '8px' }}>Group name and address</li>
+                        <li style={{ marginBottom: '8px' }}>Dumpster service details (provider, size, and starting price)</li>
+                        <li style={{ marginBottom: '8px' }}>List of proposed drop-off dates to choose from</li>
+                        <li style={{ marginBottom: '8px' }}>Instructions on how to join the group</li>
+                        <li style={{ marginBottom: '8px' }}>A link to view and accept the invitation</li>
+                      </ul>
+                    </div>
+                  </div>
+                )}
 
                 <div style={{
                   padding: '15px',
