@@ -25,6 +25,9 @@ interface Company {
   service_areas: string;
   dumpster_sizes: DumpsterSize[];
   rating: number;
+  google_place_id?: string;
+  google_rating?: number;
+  google_user_ratings_total?: number;
 }
 
 const Companies: React.FC = () => {
@@ -44,6 +47,7 @@ const Companies: React.FC = () => {
     zip_code: '',
     website: '',
     service_areas: '',
+    google_place_id: '',
     dumpster_sizes: [{
       cubic_yards: '',
       dimensions: '',
@@ -110,6 +114,7 @@ const Companies: React.FC = () => {
         zip_code: '',
         website: '',
         service_areas: '',
+        google_place_id: '',
         dumpster_sizes: [{
           cubic_yards: '',
           dimensions: '',
@@ -168,6 +173,7 @@ const Companies: React.FC = () => {
         zip_code: '',
         website: '',
         service_areas: '',
+        google_place_id: '',
         dumpster_sizes: [{
           cubic_yards: '',
           dimensions: '',
@@ -214,6 +220,7 @@ const Companies: React.FC = () => {
       zip_code: company.zip_code,
       website: company.website || '',
       service_areas: company.service_areas,
+      google_place_id: company.google_place_id || '',
       dumpster_sizes: company.dumpster_sizes
     });
     setShowCreateForm(false);
@@ -679,8 +686,15 @@ const Companies: React.FC = () => {
                   <p><strong>Website:</strong> <a href={company.website} target="_blank" rel="noopener noreferrer">{company.website}</a></p>
                 )}
                 <p><strong>Service Areas:</strong> {company.service_areas}</p>
-                {company.rating > 0 && (
-                  <p><strong>Rating:</strong> {company.rating.toFixed(1)}/5.0</p>
+                {company.google_rating && company.google_rating > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '10px 0' }}>
+                    <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#f4b400' }}>
+                      ⭐ {company.google_rating.toFixed(1)}
+                    </span>
+                    <span style={{ color: '#666', fontSize: '14px' }}>
+                      ({company.google_user_ratings_total} {company.google_user_ratings_total === 1 ? 'review' : 'reviews'} on Google)
+                    </span>
+                  </div>
                 )}
                 <div style={{ display: 'flex', gap: '8px', marginTop: '15px', flexWrap: 'wrap' }}>
                   <button className="button">Contact Company</button>

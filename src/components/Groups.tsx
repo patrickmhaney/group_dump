@@ -59,6 +59,9 @@ interface Company {
   service_areas: string;
   dumpster_sizes: DumpsterSize[];
   rating: number;
+  google_place_id?: string;
+  google_rating?: number;
+  google_user_ratings_total?: number;
 }
 
 interface DumpsterSize {
@@ -1366,8 +1369,18 @@ const Groups: React.FC = () => {
                           <p style={{ margin: '0', fontSize: '11px', color: '#666' }}>
                             {company.address}
                           </p>
+                          {company.google_rating && company.google_rating > 0 && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                              <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#f4b400' }}>
+                                ⭐ {company.google_rating.toFixed(1)}
+                              </span>
+                              <span style={{ color: '#666', fontSize: '10px' }}>
+                                ({company.google_user_ratings_total} reviews)
+                              </span>
+                            </div>
+                          )}
                         </div>
-                        
+
                         {matchingSize ? (
                           <div>
                             {matchingSize.starting_price ? (
@@ -1417,9 +1430,21 @@ const Groups: React.FC = () => {
                 {(() => {
                   const selectedCompany = companies.find(c => c.id === parseInt(formData.vendor_id));
                   return (
-                    <h3 style={{ marginTop: '0', color: '#28a745' }}>
-                      Select Your Service Level via {selectedCompany?.name || 'Provider'}
-                    </h3>
+                    <div>
+                      <h3 style={{ marginTop: '0', color: '#28a745' }}>
+                        Select Your Service Level via {selectedCompany?.name || 'Provider'}
+                      </h3>
+                      {selectedCompany?.google_rating && selectedCompany.google_rating > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+                          <span style={{ fontSize: '16px', fontWeight: 'bold', color: '#f4b400' }}>
+                            ⭐ {selectedCompany.google_rating.toFixed(1)}
+                          </span>
+                          <span style={{ color: '#666', fontSize: '13px' }}>
+                            ({selectedCompany.google_user_ratings_total} reviews on Google)
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   );
                 })()}
 

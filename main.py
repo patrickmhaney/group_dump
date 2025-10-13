@@ -21,6 +21,7 @@ import math
 import requests
 import aiohttp
 import asyncio
+import googlemaps
 
 load_dotenv()
 
@@ -43,6 +44,10 @@ stripe.api_key = STRIPE_SECRET_KEY
 
 # App configuration
 BASE_URL = os.getenv("BASE_URL", "https://groupdump.com")
+
+# Google Places API configuration
+GOOGLE_PLACES_API_KEY = os.getenv("GOOGLE_PLACES_API_KEY", "")
+gmaps_client = googlemaps.Client(key=GOOGLE_PLACES_API_KEY) if GOOGLE_PLACES_API_KEY else None
 
 engine = create_engine(DATABASE_URL)
 
@@ -196,6 +201,10 @@ class Company(Base):
     dumpster_sizes = Column(Text)  # JSON string of dumpster sizes
     commission_rate = Column(Float, default=0.08)
     rating = Column(Float, default=0.0)
+    google_place_id = Column(String, nullable=True)  # Google Places ID
+    google_rating = Column(Float, nullable=True)  # Rating from Google
+    google_user_ratings_total = Column(Integer, nullable=True)  # Total number of reviews on Google
+    google_rating_updated_at = Column(DateTime, nullable=True)  # Last time rating was fetched
     created_by = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
     
@@ -529,6 +538,58 @@ async def filter_companies_by_actual_distance(companies: list, user_lat: float, 
 
     return nearby_companies
 
+async def fetch_google_place_rating(place_id: str) -> Optional[dict]:
+    """
+    Fetch rating information from Google Places API (New) for a given place ID.
+    Returns a dict with rating, user_ratings_total, or None if API key not configured or request fails.
+    """
+    if not GOOGLE_PLACES_API_KEY:
+        print("Google Places API key not configured")
+        return None
+
+    try:
+        # Use Places API (New) - Place Details
+        url = f"https://places.googleapis.com/v1/places/{place_id}"
+        headers = {
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": GOOGLE_PLACES_API_KEY,
+            "X-Goog-FieldMask": "rating,userRatingCount"
+        }
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    return {
+                        'rating': result.get('rating'),
+                        'user_ratings_total': result.get('userRatingCount')
+                    }
+        return None
+    except Exception as e:
+        print(f"Error fetching Google Place rating: {e}")
+        return None
+
+async def search_google_place_id(business_name: str, address: str, city: str, state: str) -> Optional[str]:
+    """
+    Search for a business on Google Places and return its place_id.
+    Returns the place_id of the best match, or None if not found.
+    """
+    if not gmaps_client or not GOOGLE_PLACES_API_KEY:
+        print("Google Places API key not configured")
+        return None
+
+    try:
+        query = f"{business_name}, {address}, {city}, {state}"
+        places_result = gmaps_client.places(query=query)
+
+        if places_result and 'results' in places_result and len(places_result['results']) > 0:
+            # Return the first (best) match
+            return places_result['results'][0].get('place_id')
+        return None
+    except Exception as e:
+        print(f"Error searching for Google Place: {e}")
+        return None
+
 class UserCreate(BaseModel):
     email: EmailStr
     name: str
@@ -656,6 +717,7 @@ class CompanyCreate(BaseModel):
     website: str
     service_areas: Optional[str] = None
     dumpster_sizes: List[DumpsterSize]
+    google_place_id: Optional[str] = None
 
 class CompanyResponse(BaseModel):
     id: int
@@ -670,7 +732,10 @@ class CompanyResponse(BaseModel):
     service_areas: Optional[str] = None
     dumpster_sizes: List[DumpsterSize]
     rating: float
-    
+    google_place_id: Optional[str] = None
+    google_rating: Optional[float] = None
+    google_user_ratings_total: Optional[int] = None
+
     class Config:
         from_attributes = True
 
@@ -1590,12 +1655,23 @@ async def create_company(company: CompanyCreate, current_user: User = Depends(ge
         website=company.website,
         service_areas=company.service_areas,
         dumpster_sizes=dumpster_sizes_json,
+        google_place_id=company.google_place_id,
         created_by=current_user.id
     )
     db.add(db_company)
     db.commit()
     db.refresh(db_company)
-    
+
+    # If google_place_id is provided, fetch the rating
+    if db_company.google_place_id:
+        rating_data = await fetch_google_place_rating(db_company.google_place_id)
+        if rating_data:
+            db_company.google_rating = rating_data.get('rating')
+            db_company.google_user_ratings_total = rating_data.get('user_ratings_total')
+            db_company.google_rating_updated_at = datetime.utcnow()
+            db.commit()
+            db.refresh(db_company)
+
     # Convert back to response format
     response_data = {
         "id": db_company.id,
@@ -1609,7 +1685,10 @@ async def create_company(company: CompanyCreate, current_user: User = Depends(ge
         "website": db_company.website,
         "service_areas": db_company.service_areas,
         "dumpster_sizes": [DumpsterSize(**size) for size in json.loads(db_company.dumpster_sizes)] if db_company.dumpster_sizes else [],
-        "rating": db_company.rating
+        "rating": db_company.rating,
+        "google_place_id": db_company.google_place_id,
+        "google_rating": db_company.google_rating,
+        "google_user_ratings_total": db_company.google_user_ratings_total
     }
     return CompanyResponse(**response_data)
 
@@ -1644,7 +1723,10 @@ async def get_companies(current_user: User = Depends(get_current_user), skip: in
             "website": company.website,
             "service_areas": company.service_areas,
             "dumpster_sizes": [DumpsterSize(**size) for size in json.loads(company.dumpster_sizes)] if company.dumpster_sizes else [],
-            "rating": company.rating
+            "rating": company.rating,
+            "google_place_id": company.google_place_id,
+            "google_rating": company.google_rating,
+            "google_user_ratings_total": company.google_user_ratings_total
         }
         result.append(CompanyResponse(**company_data))
     return result
@@ -1667,9 +1749,86 @@ async def get_company(company_id: int, db: Session = Depends(get_db)):
         "website": company.website,
         "service_areas": company.service_areas,
         "dumpster_sizes": [DumpsterSize(**size) for size in json.loads(company.dumpster_sizes)] if company.dumpster_sizes else [],
-        "rating": company.rating
+        "rating": company.rating,
+        "google_place_id": company.google_place_id,
+        "google_rating": company.google_rating,
+        "google_user_ratings_total": company.google_user_ratings_total
     }
     return CompanyResponse(**company_data)
+
+@app.post("/companies/{company_id}/refresh-google-rating")
+async def refresh_google_rating(company_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Endpoint to manually refresh Google rating for a single company"""
+    company = db.query(Company).filter(Company.id == company_id).first()
+    if company is None:
+        raise HTTPException(status_code=404, detail="Company not found")
+
+    # Check if user has permission to update this company
+    if current_user.user_type == "company" and company.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only refresh ratings for companies you created")
+
+    if not company.google_place_id:
+        raise HTTPException(status_code=400, detail="Company does not have a Google Place ID")
+
+    # Fetch fresh rating from Google
+    rating_data = await fetch_google_place_rating(company.google_place_id)
+    if not rating_data:
+        raise HTTPException(status_code=500, detail="Failed to fetch Google rating")
+
+    # Update the company record
+    company.google_rating = rating_data.get('rating')
+    company.google_user_ratings_total = rating_data.get('user_ratings_total')
+    company.google_rating_updated_at = datetime.utcnow()
+    db.commit()
+
+    return {
+        "message": "Google rating updated successfully",
+        "google_rating": company.google_rating,
+        "google_user_ratings_total": company.google_user_ratings_total,
+        "updated_at": company.google_rating_updated_at
+    }
+
+@app.post("/companies/refresh-all-google-ratings")
+async def refresh_all_google_ratings(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    Bulk endpoint to refresh Google ratings for ALL companies that have a google_place_id.
+    This should be called manually to populate the database with ratings.
+    """
+    # Only allow admin users to run bulk operations
+    if current_user.email != "service.account.dc@groupdump.com":
+        raise HTTPException(status_code=403, detail="Only admins can refresh all ratings")
+
+    # Get all companies with a google_place_id
+    companies = db.query(Company).filter(Company.google_place_id.isnot(None)).all()
+
+    if not companies:
+        return {"message": "No companies with Google Place IDs found", "updated": 0, "failed": 0}
+
+    results = {
+        "total": len(companies),
+        "updated": 0,
+        "failed": 0,
+        "errors": []
+    }
+
+    for company in companies:
+        try:
+            rating_data = await fetch_google_place_rating(company.google_place_id)
+            if rating_data:
+                company.google_rating = rating_data.get('rating')
+                company.google_user_ratings_total = rating_data.get('user_ratings_total')
+                company.google_rating_updated_at = datetime.utcnow()
+                results["updated"] += 1
+            else:
+                results["failed"] += 1
+                results["errors"].append(f"Company {company.id} ({company.name}): Failed to fetch rating")
+        except Exception as e:
+            results["failed"] += 1
+            results["errors"].append(f"Company {company.id} ({company.name}): {str(e)}")
+
+    db.commit()
+
+    return results
 
 @app.put("/companies/{company_id}", response_model=CompanyResponse)
 async def update_company(company_id: int, company: CompanyCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -1694,10 +1853,20 @@ async def update_company(company_id: int, company: CompanyCreate, current_user: 
     db_company.website = company.website
     db_company.service_areas = company.service_areas
     db_company.dumpster_sizes = dumpster_sizes_json
-    
+
+    # Update google_place_id if provided and changed
+    if company.google_place_id and company.google_place_id != db_company.google_place_id:
+        db_company.google_place_id = company.google_place_id
+        # Fetch new rating for the new place ID
+        rating_data = await fetch_google_place_rating(company.google_place_id)
+        if rating_data:
+            db_company.google_rating = rating_data.get('rating')
+            db_company.google_user_ratings_total = rating_data.get('user_ratings_total')
+            db_company.google_rating_updated_at = datetime.utcnow()
+
     db.commit()
     db.refresh(db_company)
-    
+
     # Convert back to response format
     response_data = {
         "id": db_company.id,
@@ -1711,7 +1880,10 @@ async def update_company(company_id: int, company: CompanyCreate, current_user: 
         "website": db_company.website,
         "service_areas": db_company.service_areas,
         "dumpster_sizes": [DumpsterSize(**size) for size in json.loads(db_company.dumpster_sizes)] if db_company.dumpster_sizes else [],
-        "rating": db_company.rating
+        "rating": db_company.rating,
+        "google_place_id": db_company.google_place_id,
+        "google_rating": db_company.google_rating,
+        "google_user_ratings_total": db_company.google_user_ratings_total
     }
     return CompanyResponse(**response_data)
 
