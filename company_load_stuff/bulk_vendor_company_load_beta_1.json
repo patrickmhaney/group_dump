@@ -1,0 +1,688 @@
+[
+{
+"company": {
+"name": "KC Dumpster Company",
+"city": "Lees Summit",
+"state": "MO",
+"zip_code": "64081",
+"website": "https://www.kcdumpster.com/",
+"dumpster_sizes": [
+{
+"cubic_yards": "20",
+"dimensions": "20' X 8' X 3.5'",
+"starting_price": "425",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": null
+},
+{
+"cubic_yards": "30",
+"dimensions": "20' X 8' X 5.25'",
+"starting_price": "475",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": null
+},
+{
+"cubic_yards": "40",
+"dimensions": "20' X 8' X 7'",
+"starting_price": "525",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": null
+}
+]
+}
+},
+{
+"company": {
+"name": "U-LOAD-IT Dumpsters Inc.",
+"city": "Greenwood",
+"state": "MO",
+"zip_code": "64034",
+"website": "https://uloaditkc.com/",
+"dumpster_sizes": [
+{
+"cubic_yards": "8",
+"dimensions": "12' X 7' X 3.5'",
+"starting_price": "275",
+"starting_tonnage": "1",
+"per_ton_overage_price": "50",
+"additional_day_price": null
+},
+{
+"cubic_yards": "12",
+"dimensions": "12' X 7' X 5'",
+"starting_price": "335",
+"starting_tonnage": "2",
+"per_ton_overage_price": "50",
+"additional_day_price": null
+},
+{
+"cubic_yards": "20",
+"dimensions": "15' X 8' X 5.75'",
+"starting_price": "395",
+"starting_tonnage": "3",
+"per_ton_overage_price": "50",
+"additional_day_price": null
+},
+{
+"cubic_yards": "30",
+"dimensions": "22' X 8' X 6'",
+"starting_price": "465",
+"starting_tonnage": "4",
+"per_ton_overage_price": "50",
+"additional_day_price": null
+},
+{
+"cubic_yards": "40",
+"dimensions": "22' X 8' X 8'",
+"starting_price": "525",
+"starting_tonnage": "5",
+"per_ton_overage_price": "50",
+"additional_day_price": null
+}
+]
+}
+},
+{
+"company": {
+"name": "The Trash Box",
+"city": "Grandview",
+"state": "MO",
+"zip_code": "64030",
+"website": "https://thetrashboxkc.com/",
+"dumpster_sizes": [
+{
+"cubic_yards": "12",
+"dimensions": null,
+"starting_price": "295",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": null
+},
+{
+"cubic_yards": "15",
+"dimensions": null,
+"starting_price": "335",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": null
+},
+{
+"cubic_yards": "20",
+"dimensions": null,
+"starting_price": "375",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": null
+},
+{
+"cubic_yards": "30",
+"dimensions": null,
+"starting_price": "450",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": null
+},
+{
+"cubic_yards": "40",
+"dimensions": null,
+"starting_price": "525",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": null
+}
+]
+}
+},
+{
+"company": {
+"name": "All City Dumpsters",
+"city": "Independence",
+"state": "MO",
+"zip_code": "64053",
+"website": "https://www.allcitydumpsters.com/",
+"dumpster_sizes": [
+{
+"cubic_yards": "10",
+"dimensions": "10' X 7' X 4'",
+"starting_price": "325",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": null
+},
+{
+"cubic_yards": "15",
+"dimensions": "11' X 8' X 4.5'",
+"starting_price": "350",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": null
+},
+{
+"cubic_yards": "20",
+"dimensions": "11' X 8' X 6'",
+"starting_price": "395",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": null
+}
+]
+}
+},
+{
+"company": {
+"name": "Peak Disposal LLC",
+"city": "Apex",
+"state": "NC",
+"zip_code": "27502",
+"website": "https://peakdisposalnc.com/",
+"dumpster_sizes": [
+{
+"cubic_yards": "10",
+"dimensions": "12' X 8' X 3'",
+"starting_price": "330",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": "15"
+},
+{
+"cubic_yards": "15",
+"dimensions": "12' X 8' X 5'",
+"starting_price": "350",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": "15"
+},
+{
+"cubic_yards": "30",
+"dimensions": "22' X 7.5' X 6'",
+"starting_price": "525",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": "15"
+}
+]
+}
+},
+{
+"company": {
+"name": "Triple R Dumpsters",
+"city": "Clayton",
+"state": "NC",
+"zip_code": "27520",
+"website": "https://triplerdumpsters.com/",
+"dumpster_sizes": [
+{
+"cubic_yards": "15",
+"dimensions": null,
+"starting_price": "365",
+"starting_tonnage": "2.5",
+"per_ton_overage_price": null,
+"additional_day_price": "10"
+},
+{
+"cubic_yards": "20",
+"dimensions": null,
+"starting_price": "395",
+"starting_tonnage": "3",
+"per_ton_overage_price": null,
+"additional_day_price": "10"
+}
+]
+}
+},
+{
+"company": {
+"name": "APEX Dumpsters Inc.",
+"city": "Apex",
+"state": "NC",
+"zip_code": "27502",
+"website": "https://apexdumpstersinc.com/",
+"dumpster_sizes": [
+{
+"cubic_yards": "15",
+"dimensions": "16' X 7' X 4'",
+"starting_price": "300",
+"starting_tonnage": "2",
+"per_ton_overage_price": null,
+"additional_day_price": "10"
+},
+{
+"cubic_yards": "20",
+"dimensions": "20' X 8' X 6'",
+"starting_price": "350",
+"starting_tonnage": "3",
+"per_ton_overage_price": null,
+"additional_day_price": "10"
+}
+]
+}
+},
+{
+"company": {
+"name": "Bin There Dump That",
+"city": "Columbus",
+"state": "OH",
+"zip_code": "43223",
+"website": "https://www.bintheredumpthat.com/columbus-dumpster-rentals/",
+"dumpster_sizes": [
+{
+"cubic_yards": "6",
+"dimensions": "10' X 5.5' X 3'",
+"starting_price": "329",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": null
+},
+{
+"cubic_yards": "10",
+"dimensions": "10' X 7' X 4'",
+"starting_price": "359",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": null
+},
+{
+"cubic_yards": "15",
+"dimensions": "11' X 8' X 4.5'",
+"starting_price": "389",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": null
+},
+{
+"cubic_yards": "20",
+"dimensions": "11' X 8' X 6'",
+"starting_price": "419",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": null
+}
+]
+}
+},
+{
+"company": {
+"name": "Ohio Dumpsters Experts",
+"city": "Columbus",
+"state": "OH",
+"zip_code": null,
+"website": "https://dumpsterrentalcolumbusohio.net/",
+"dumpster_sizes": [
+{
+"cubic_yards": "14",
+"dimensions": "15' X 7' X 4'",
+"starting_price": "320",
+"starting_tonnage": "2",
+"per_ton_overage_price": null,
+"additional_day_price": "25"
+},
+{
+"cubic_yards": "20",
+"dimensions": "15' X 7' X 6'",
+"starting_price": "360",
+"starting_tonnage": "2.5",
+"per_ton_overage_price": null,
+"additional_day_price": "25"
+}
+]
+}
+},
+{
+"company": {
+"name": "Big Walnut Dumpster Rentals",
+"city": "Westerville",
+"state": "OH",
+"zip_code": "43082",
+"website": "https://bigwalnutdumpsterrentals.com/",
+"dumpster_sizes": [
+{
+"cubic_yards": "14",
+"dimensions": "14' X 7' X 4'",
+"starting_price": "250",
+"starting_tonnage": "2",
+"per_ton_overage_price": "100",
+"additional_day_price": null
+}
+]
+}
+},
+{
+"company": {
+"name": "Frog Hauling Dumpster Rentals",
+"city": "Columbus",
+"state": "OH",
+"zip_code": "43223",
+"website": "https://froghauling.com/columbus-dumpster-rental-booking/",
+"dumpster_sizes": [
+{
+"cubic_yards": "6",
+"dimensions": "10' X 4' X 4'",
+"starting_price": "295",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": "5"
+},
+{
+"cubic_yards": "10",
+"dimensions": "10' X 8' X 3.5'",
+"starting_price": "330",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": "5"
+},
+{
+"cubic_yards": "13",
+"dimensions": "11' X 8' X 4'",
+"starting_price": "350",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": "5"
+},
+{
+"cubic_yards": "16",
+"dimensions": "12' X 8' X 4.5'",
+"starting_price": "385",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": "5"
+},
+{
+"cubic_yards": "20",
+"dimensions": "12' X 8' X 5.5'",
+"starting_price": "410",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": "5"
+},
+{
+"cubic_yards": "30",
+"dimensions": "22' X 8' X 5'",
+"starting_price": "550",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": "5"
+}
+]
+}
+},
+{
+"company": {
+"name": "Bin There Dump That",
+"city": "Omaha",
+"state": "NE",
+"zip_code": null,
+"website": "https://www.bintheredumpthat.com/omaha-dumpster-rentals/",
+"dumpster_sizes": [
+{
+"cubic_yards": "6",
+"dimensions": "10' X 5.5' X 3'",
+"starting_price": "289",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": null
+},
+{
+"cubic_yards": "10",
+"dimensions": "10' X 7' X 4'",
+"starting_price": "289",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": null
+},
+{
+"cubic_yards": "15",
+"dimensions": "11' X 8' X 4.5'",
+"starting_price": "309",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": null
+},
+{
+"cubic_yards": "20",
+"dimensions": "11' X 8' X 6'",
+"starting_price": "339",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": null
+}
+]
+}
+},
+{
+"company": {
+"name": "Can It Dumpster Rentals",
+"city": "Omaha",
+"state": "NE",
+"zip_code": null,
+"website": "https://www.canitdump.com/",
+"dumpster_sizes": [
+{
+"cubic_yards": "10",
+"dimensions": null,
+"starting_price": "219",
+"starting_tonnage": null,
+"per_ton_overage_price": "50",
+"additional_day_price": "10"
+},
+{
+"cubic_yards": "12",
+"dimensions": null,
+"starting_price": "249",
+"starting_tonnage": null,
+"per_ton_overage_price": "50",
+"additional_day_price": "10"
+},
+{
+"cubic_yards": "20",
+"dimensions": null,
+"starting_price": "299",
+"starting_tonnage": null,
+"per_ton_overage_price": "50",
+"additional_day_price": "10"
+}
+]
+}
+},
+{
+"company": {
+"name": "It’s Got To Go",
+"city": "Omaha",
+"state": "NE",
+"zip_code": "68107",
+"website": "https://itsgottogo.com/",
+"dumpster_sizes": [
+{
+"cubic_yards": "8",
+"dimensions": "10' X 4' X 4'",
+"starting_price": "195",
+"starting_tonnage": "1",
+"per_ton_overage_price": "50",
+"additional_day_price": null
+},
+{
+"cubic_yards": "10",
+"dimensions": "10' X 6' X 4'",
+"starting_price": "215",
+"starting_tonnage": "1",
+"per_ton_overage_price": "50",
+"additional_day_price": null
+},
+{
+"cubic_yards": "12",
+"dimensions": "12' X 8' X 4'",
+"starting_price": "235",
+"starting_tonnage": "1",
+"per_ton_overage_price": "50",
+"additional_day_price": null
+},
+{
+"cubic_yards": "15",
+"dimensions": "14' X 7' X 5'",
+"starting_price": "285",
+"starting_tonnage": "2",
+"per_ton_overage_price": "50",
+"additional_day_price": null
+},
+{
+"cubic_yards": "20",
+"dimensions": "15' X 7' X 5'",
+"starting_price": "305",
+"starting_tonnage": "2",
+"per_ton_overage_price": "50",
+"additional_day_price": null
+},
+{
+"cubic_yards": "30",
+"dimensions": "20' X 8' X 5'",
+"starting_price": "405",
+"starting_tonnage": "4.5",
+"per_ton_overage_price": "50",
+"additional_day_price": null
+},
+{
+"cubic_yards": "35",
+"dimensions": "20' X 8' X 6'",
+"starting_price": "455",
+"starting_tonnage": "4.5",
+"per_ton_overage_price": "50",
+"additional_day_price": null
+},
+{
+"cubic_yards": "40",
+"dimensions": "22' X 8' X 6'",
+"starting_price": "505",
+"starting_tonnage": "4.5",
+"per_ton_overage_price": "50",
+"additional_day_price": null
+}
+]
+}
+},
+{
+"company": {
+"name": "Containers To Go",
+"city": "Omaha",
+"state": "NE",
+"zip_code": null,
+"website": "http://containerstogoomaha.com/",
+"dumpster_sizes": [
+{
+"cubic_yards": "8",
+"dimensions": null,
+"starting_price": "175",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": null
+},
+{
+"cubic_yards": "12",
+"dimensions": null,
+"starting_price": "200",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": null
+}
+]
+}
+},
+{
+"company": {
+"name": "Gretna Containers",
+"city": "Gretna",
+"state": "NE",
+"zip_code": null,
+"website": "https://gretnacontainers.com/",
+"dumpster_sizes": [
+{
+"cubic_yards": "15",
+"dimensions": null,
+"starting_price": "249",
+"starting_tonnage": null,
+"per_ton_overage_price": "53",
+"additional_day_price": "20"
+},
+{
+"cubic_yards": "20",
+"dimensions": null,
+"starting_price": "349",
+"starting_tonnage": null,
+"per_ton_overage_price": "53",
+"additional_day_price": "20"
+}
+]
+}
+},
+{
+"company": {
+"name": "Bin There Dump That",
+"city": "Grand Rapids",
+"state": "MI",
+"zip_code": null,
+"website": "https://www.bintheredumpthat.com/grand-rapids-dumpster-rentals/",
+"dumpster_sizes": [
+{
+"cubic_yards": "4",
+"dimensions": "10' X 5.5' X 2'",
+"starting_price": "290",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": null
+},
+{
+"cubic_yards": "10",
+"dimensions": "10' X 7' X 4'",
+"starting_price": "340",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": null
+},
+{
+"cubic_yards": "14",
+"dimensions": "11' X 8' X 4.5'",
+"starting_price": "380",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": null
+},
+{
+"cubic_yards": "20",
+"dimensions": "11' X 8' X 6'",
+"starting_price": "425",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": null
+}
+]
+}
+},
+{
+"company": {
+"name": "Red Dog Dumpsters",
+"city": "Nashville",
+"state": "TN",
+"zip_code": "37115",
+"website": "https://reddogdumpsters.com/",
+"dumpster_sizes": [
+{
+"cubic_yards": "10",
+"dimensions": "12' X 8' X 3.5'",
+"starting_price": "365",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": null
+},
+{
+"cubic_yards": "15",
+"dimensions": "12' X 8' X 6'",
+"starting_price": "445",
+"starting_tonnage": null,
+"per_ton_overage_price": null,
+"additional_day_price": null
+}
+]
+}
+}
+]

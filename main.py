@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, ForeignKey, Text, Float, UniqueConstraint
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, ForeignKey, Text, Float, UniqueConstraint, func
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session, relationship
 from pydantic import BaseModel, EmailStr
@@ -765,14 +765,14 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    user = db.query(User).filter(User.email == email).first()
+    user = db.query(User).filter(func.lower(User.email) == func.lower(email)).first()
     if user is None:
         raise credentials_exception
     return user
 
 async def get_admin_user(current_user: User = Depends(get_current_user)):
     """Verify user is the admin account"""
-    if current_user.email != "service.account.dc@groupdump.com":
+    if current_user.email.lower() != "service.account.dc@groupdump.com".lower():
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied. Admin privileges required."
@@ -781,7 +781,7 @@ async def get_admin_user(current_user: User = Depends(get_current_user)):
 
 @app.post("/register", response_model=UserResponse)
 async def register(user: UserCreate, db: Session = Depends(get_db)):
-    db_user = db.query(User).filter(User.email == user.email).first()
+    db_user = db.query(User).filter(func.lower(User.email) == func.lower(user.email)).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     
@@ -810,7 +810,7 @@ async def register(user: UserCreate, db: Session = Depends(get_db)):
 
 @app.post("/token", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == form_data.username).first()
+    user = db.query(User).filter(func.lower(User.email) == func.lower(form_data.username)).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -1046,7 +1046,7 @@ async def get_groups(skip: int = 0, limit: int = 100, db: Session = Depends(get_
 @app.get("/groups/invited", response_model=list[GroupResponse])
 async def get_invited_groups(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     # Get groups where the current user's email matches an invitee email
-    invitees = db.query(Invitee).filter(Invitee.email == current_user.email).all()
+    invitees = db.query(Invitee).filter(func.lower(Invitee.email) == func.lower(current_user.email)).all()
     invited_group_ids = [invitee.group_id for invitee in invitees]
     
     # Get groups where the current user is a member
@@ -1273,12 +1273,12 @@ async def join_group_by_token(
 
     user_to_use = None
 
-    if current_user and current_user.email == invitee.email:
+    if current_user and current_user.email.lower() == invitee.email.lower():
         # User is authenticated and email matches
         user_to_use = current_user
     else:
         # Create a temporary user account or find existing one
-        existing_user = db.query(User).filter(User.email == invitee.email).first()
+        existing_user = db.query(User).filter(func.lower(User.email) == func.lower(invitee.email)).first()
         if existing_user:
             user_to_use = existing_user
         else:
@@ -1546,7 +1546,7 @@ async def add_invitees_to_group(group_id: int, invitees_data: List[InviteeCreate
             # Check if email is already invited to this group
             existing_invitee = db.query(Invitee).filter(
                 Invitee.group_id == group_id,
-                Invitee.email == invitee_data.email
+                func.lower(Invitee.email) == func.lower(invitee_data.email)
             ).first()
 
             if not existing_invitee:
