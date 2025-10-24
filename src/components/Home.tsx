@@ -46,6 +46,7 @@ const Home: React.FC = () => {
   const [loadingCompanies, setLoadingCompanies] = useState(false);
   const [companiesError, setCompaniesError] = useState('');
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,6 +64,7 @@ const Home: React.FC = () => {
       });
 
       login(tokenResponse.data.access_token, userResponse.data);
+      setShowLoginModal(false); // Close modal on successful login
 
       // Check for redirect parameter
       const redirectPath = searchParams.get('redirect');
@@ -132,18 +134,11 @@ const Home: React.FC = () => {
 
       {/* Browse Dumpster Companies Section */}
       <div style={{
-        padding: '30px',
-        marginBottom: '30px',
+        padding: '30px 0',
+        marginBottom: '10px',
         width: '100%',
-        maxWidth: '900px',
-        background: 'white',
-        borderRadius: '8px',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-        border: '2px solid #dee2e6'
+        maxWidth: '900px'
       }}>
-        <h2 style={{ color: '#2c3e50', marginBottom: '12px', textAlign: 'center', fontSize: '1.5em', fontWeight: '600' }}>
-          Get Started
-        </h2>
         <p style={{
           color: '#6c757d',
           margin: '0 0 25px 0',
@@ -151,7 +146,7 @@ const Home: React.FC = () => {
           lineHeight: '1.5',
           textAlign: 'center'
         }}>
-          Enter your ZIP code to see available dumpster rental companies and compare prices
+          Enter your ZIP code to start browsing dumpster rental companies and compare services.
         </p>
 
         {/* ZIP Code Search Form */}
@@ -198,6 +193,27 @@ const Home: React.FC = () => {
             </button>
           </div>
         </form>
+
+        <p style={{
+          color: '#6c757d',
+          margin: '0 0 25px 0',
+          fontSize: '0.95rem',
+          lineHeight: '1.5',
+          textAlign: 'center'
+        }}>
+          <span
+            onClick={() => setShowLoginModal(true)}
+            style={{
+              color: '#007bff',
+              cursor: 'pointer',
+              textDecoration: 'underline',
+              fontWeight: '600'
+            }}
+          >
+            Login
+          </span>
+          {' '}to create and manage your group.
+        </p>
 
         {companiesError && (
           <div style={{
@@ -517,174 +533,215 @@ const Home: React.FC = () => {
         )}
       </div>
 
-      {/* Login Form */}
-      <div style={{
-        background: 'white',
-        borderRadius: '8px',
-        padding: '25px',
-        marginBottom: '20px',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-        border: '2px solid #dee2e6',
-        width: '100%',
-        maxWidth: '500px'
-      }}>
-        <div style={{
-          textAlign: 'center',
-          marginBottom: '20px'
-        }}>
-          <p style={{
-            color: '#6c757d',
-            margin: '0',
-            fontSize: '1rem'
-          }}>
-            Sign in to lighten your load
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit} style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '15px',
-          width: '100%'
-        }}>
-          <div>
-            <input
-              type="email"
-              placeholder="Email address"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              style={{
-                width: '100%',
-                padding: '16px 20px',
-                border: '2px solid #e9ecef',
-                borderRadius: '12px',
-                fontSize: '16px',
-                transition: 'all 0.2s ease',
-                outline: 'none',
-                backgroundColor: '#fff',
-                boxSizing: 'border-box'
-              }}
-              onFocus={(e) => {
-                e.target.style.borderColor = '#007bff';
-                e.target.style.boxShadow = '0 0 0 3px rgba(0, 123, 255, 0.1)';
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = '#e9ecef';
-                e.target.style.boxShadow = 'none';
-              }}
-            />
-          </div>
-          <div>
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              style={{
-                width: '100%',
-                padding: '16px 20px',
-                border: '2px solid #e9ecef',
-                borderRadius: '12px',
-                fontSize: '16px',
-                transition: 'all 0.2s ease',
-                outline: 'none',
-                backgroundColor: '#fff',
-                boxSizing: 'border-box'
-              }}
-              onFocus={(e) => {
-                e.target.style.borderColor = '#007bff';
-                e.target.style.boxShadow = '0 0 0 3px rgba(0, 123, 255, 0.1)';
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = '#e9ecef';
-                e.target.style.boxShadow = 'none';
-              }}
-            />
-          </div>
-
-          {error && (
-            <div style={{
-              color: '#dc3545',
-              backgroundColor: '#f8d7da',
-              padding: '12px 16px',
-              borderRadius: '8px',
-              border: '1px solid #f5c6cb',
-              fontSize: '14px'
-            }}>
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
+      {/* Login Modal */}
+      {showLoginModal && (
+        <div
+          onClick={() => setShowLoginModal(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
             style={{
-              background: loading
-                ? '#6c757d'
-                : 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)',
-              color: 'white',
-              border: 'none',
-              padding: '16px 24px',
-              borderRadius: '12px',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              fontSize: '16px',
-              fontWeight: '600',
-              transition: 'all 0.2s ease',
-              boxShadow: loading
-                ? 'none'
-                : '0 4px 12px rgba(0, 123, 255, 0.3)',
-              opacity: loading ? '0.7' : '1'
-            }}
-            onMouseEnter={(e) => {
-              if (!loading) {
-                e.target.style.transform = 'translateY(-1px)';
-                e.target.style.boxShadow = '0 6px 16px rgba(0, 123, 255, 0.4)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!loading) {
-                e.target.style.transform = 'translateY(0)';
-                e.target.style.boxShadow = '0 4px 12px rgba(0, 123, 255, 0.3)';
-              }
+              background: 'white',
+              borderRadius: '8px',
+              padding: '25px',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+              border: '2px solid #dee2e6',
+              width: '100%',
+              maxWidth: '500px',
+              margin: '20px',
+              maxHeight: '90vh',
+              overflowY: 'auto'
             }}
           >
-            {loading ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ margin: 0, color: '#2c3e50', fontSize: '1.5em' }}>Sign In</h2>
+              <button
+                onClick={() => setShowLoginModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#6c757d',
+                  padding: '0',
+                  lineHeight: '1'
+                }}
+              >
+                ×
+              </button>
+            </div>
 
-        <div style={{
-          textAlign: 'center',
-          marginTop: '20px',
-          paddingTop: '20px',
-          borderTop: '1px solid #e9ecef'
-        }}>
-          <p style={{
-            color: '#6c757d',
-            margin: '0',
-            fontSize: '15px'
-          }}>
-            Don't have an account?{' '}
-            <Link
-              to={`/register${searchParams.get('redirect') ? `?redirect=${searchParams.get('redirect')}` : ''}`}
-              style={{
-                color: '#007bff',
-                textDecoration: 'none',
-                fontWeight: '600'
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.textDecoration = 'underline';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.textDecoration = 'none';
-              }}
-            >
-              Create one here
-            </Link>
-          </p>
+            <div style={{
+              textAlign: 'center',
+              marginBottom: '20px'
+            }}>
+              <p style={{
+                color: '#6c757d',
+                margin: '0',
+                fontSize: '1rem'
+              }}>
+                Sign in to lighten your load
+              </p>
+            </div>
+
+            <form onSubmit={handleSubmit} style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '15px',
+              width: '100%'
+            }}>
+              <div>
+                <input
+                  type="email"
+                  placeholder="Email address"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '16px 20px',
+                    border: '2px solid #e9ecef',
+                    borderRadius: '12px',
+                    fontSize: '16px',
+                    transition: 'all 0.2s ease',
+                    outline: 'none',
+                    backgroundColor: '#fff',
+                    boxSizing: 'border-box'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#007bff';
+                    e.target.style.boxShadow = '0 0 0 3px rgba(0, 123, 255, 0.1)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#e9ecef';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                />
+              </div>
+              <div>
+                <input
+                  type="password"
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '16px 20px',
+                    border: '2px solid #e9ecef',
+                    borderRadius: '12px',
+                    fontSize: '16px',
+                    transition: 'all 0.2s ease',
+                    outline: 'none',
+                    backgroundColor: '#fff',
+                    boxSizing: 'border-box'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#007bff';
+                    e.target.style.boxShadow = '0 0 0 3px rgba(0, 123, 255, 0.1)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#e9ecef';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                />
+              </div>
+
+              {error && (
+                <div style={{
+                  color: '#dc3545',
+                  backgroundColor: '#f8d7da',
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  border: '1px solid #f5c6cb',
+                  fontSize: '14px'
+                }}>
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                style={{
+                  background: loading
+                    ? '#6c757d'
+                    : 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)',
+                  color: 'white',
+                  border: 'none',
+                  padding: '16px 24px',
+                  borderRadius: '12px',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  transition: 'all 0.2s ease',
+                  boxShadow: loading
+                    ? 'none'
+                    : '0 4px 12px rgba(0, 123, 255, 0.3)',
+                  opacity: loading ? '0.7' : '1'
+                }}
+                onMouseEnter={(e) => {
+                  if (!loading) {
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 6px 16px rgba(0, 123, 255, 0.4)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!loading) {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 123, 255, 0.3)';
+                  }
+                }}
+              >
+                {loading ? 'Signing in...' : 'Sign In'}
+              </button>
+            </form>
+
+            <div style={{
+              textAlign: 'center',
+              marginTop: '20px',
+              paddingTop: '20px',
+              borderTop: '1px solid #e9ecef'
+            }}>
+              <p style={{
+                color: '#6c757d',
+                margin: '0',
+                fontSize: '15px'
+              }}>
+                Don't have an account?{' '}
+                <Link
+                  to={`/register${searchParams.get('redirect') ? `?redirect=${searchParams.get('redirect')}` : ''}`}
+                  style={{
+                    color: '#007bff',
+                    textDecoration: 'none',
+                    fontWeight: '600'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.textDecoration = 'underline';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.textDecoration = 'none';
+                  }}
+                >
+                  Create one here
+                </Link>
+              </p>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       <div style={{
         padding: '10px 30px 30px 30px',
