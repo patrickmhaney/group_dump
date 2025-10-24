@@ -5,6 +5,8 @@ import { AuthContext } from '../App.tsx';
 import ServiceConfirmation from './ServiceConfirmation.tsx';
 import ServiceOrderSummary from './ServiceOrderSummary.tsx';
 import { formatDateDisplay } from '../utils/dateUtils.ts';
+import { getPreselection, clearPreselection } from '../utils/preselection.ts';
+import CompanyList from './CompanyList.tsx';
 
 // Group state constants
 const GROUP_STATES = {
@@ -313,6 +315,9 @@ const Groups: React.FC = () => {
   const totalSteps = 6;
   const [allowSubmit, setAllowSubmit] = useState(false);
 
+  // Preselection state
+  const [preselectedCompanyId, setPreselectedCompanyId] = useState<number | null>(null);
+
   useEffect(() => {
     fetchGroups();
     fetchCompanies();
@@ -376,6 +381,31 @@ const Groups: React.FC = () => {
       }
     });
   }, [groups]);
+
+  // Handle preselection when entering Step 2
+  useEffect(() => {
+    if (currentStep === 2 && companies.length > 0) {
+      const preselection = getPreselection();
+      if (preselection?.preselectedCompanyId) {
+        // Store preselected company ID for highlighting
+        setPreselectedCompanyId(preselection.preselectedCompanyId);
+
+        // Pre-select the company in form data
+        setFormData(prev => ({
+          ...prev,
+          vendor_id: preselection.preselectedCompanyId.toString()
+        }));
+
+        // Auto-scroll to preselected company after a small delay to ensure DOM is ready
+        setTimeout(() => {
+          const companyElement = document.getElementById(`company-${preselection.preselectedCompanyId}`);
+          if (companyElement) {
+            companyElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 100);
+      }
+    }
+  }, [currentStep, companies]);
 
   const getPaymentDetails = () => {
     if (paymentMethodType === 'zelle') {
@@ -886,6 +916,10 @@ const Groups: React.FC = () => {
     }
 
     if (validateStep(currentStep)) {
+      // Clear preselection when moving from Step 2 to Step 3
+      if (currentStep === 2) {
+        clearPreselection();
+      }
       setCurrentStep(prev => Math.min(prev + 1, totalSteps));
     } else {
       setMessage('Please fill in all required fields before continuing.');
@@ -1328,93 +1362,18 @@ const Groups: React.FC = () => {
                 </div>
                 
                 <p style={{ color: '#666', fontSize: '14px', marginBottom: '15px' }}>
-                  Select a provider and finalize dumpser size. 
+                  Select a provider and finalize dumpster size.
                 </p>
-                
-                {/* Services Comparison Grid */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(2, 1fr)',
-                  gap: '12px',
-                  marginBottom: '20px'
-                }}>
-                  {companies.map(company => {
-                    const matchingSize = company.dumpster_sizes?.find(size => size.cubic_yards === comparisonSize);
-                    return (
-                      <div
-                        key={company.id}
-                        style={{
-                          border: '2px solid #e9ecef',
-                          borderRadius: '8px',
-                          padding: '12px',
-                          backgroundColor: '#ffffff',
-                          boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-                          cursor: 'pointer',
-                          transition: 'all 0.3s ease'
-                        }}
-                        onClick={() => setFormData({...formData, vendor_id: company.id.toString()})}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.borderColor = '#007bff';
-                          e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,123,255,0.15)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.borderColor = '#e9ecef';
-                          e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.05)';
-                        }}
-                      >
-                        <div style={{ marginBottom: '8px' }}>
-                          <h4 style={{ margin: '0 0 3px 0', color: '#333', fontSize: '14px', fontWeight: 'bold' }}>
-                            {company.name}
-                          </h4>
-                          <p style={{ margin: '0', fontSize: '11px', color: '#666' }}>
-                            {company.address}
-                          </p>
-                          {company.google_rating && company.google_rating > 0 && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
-                              <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#f4b400' }}>
-                                ⭐ {company.google_rating.toFixed(1)}
-                              </span>
-                              <span style={{ color: '#666', fontSize: '10px' }}>
-                                ({company.google_user_ratings_total} reviews)
-                              </span>
-                            </div>
-                          )}
-                        </div>
 
-                        {matchingSize ? (
-                          <div>
-                            {matchingSize.starting_price ? (
-                              <div style={{
-                                fontSize: '20px',
-                                fontWeight: 'bold',
-                                color: '#28a745',
-                                marginBottom: '6px'
-                              }}>
-                                {matchingSize.starting_price.startsWith('$') ? matchingSize.starting_price : `$${matchingSize.starting_price}`}
-                              </div>
-                            ) : (
-                              <p style={{ margin: '0 0 6px 0', fontSize: '11px', fontStyle: 'italic', color: '#666', fontWeight: 'bold' }}>
-                                Price not available. Provider may require quote.
-                              </p>
-                            )}
-                            <div style={{ fontSize: '11px', color: '#666', marginBottom: '6px' }}>
-                              {comparisonSize} yards • {matchingSize.starting_tonnage || 'NA'} tons
-                            </div>
-                            <div style={{ fontSize: '10px', color: '#666' }}>
-                              {matchingSize.per_ton_overage_price ? `+${matchingSize.per_ton_overage_price.startsWith('$') ? matchingSize.per_ton_overage_price : `$${matchingSize.per_ton_overage_price}`}/extra ton` : '+NA/extra ton'}
-                              {' • '}
-                              {matchingSize.additional_day_price ? `+${matchingSize.additional_day_price.startsWith('$') ? matchingSize.additional_day_price : `$${matchingSize.additional_day_price}`}/extra day` : '+NA/extra day'}
-                            </div>
-                          </div>
-                        ) : (
-                          <div style={{ color: '#666', fontStyle: 'italic', fontSize: '12px' }}>
-                            {comparisonSize} yards not available
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                {/* Services Comparison Grid - Using CompanyList Component */}
+                <CompanyList
+                  companies={companies}
+                  comparisonSize={comparisonSize}
+                  selectedCompanyId={formData.vendor_id}
+                  preselectedCompanyId={preselectedCompanyId}
+                  onCompanySelect={(companyId) => setFormData({...formData, vendor_id: companyId.toString()})}
+                  showPreselectionBadge={true}
+                />
               </div>
             )}
 

@@ -11,3 +11,4 @@ python-dotenv==1.0.0
 redis==5.0.1
 fastapi-mail==1.4.1
 googlemaps==4.10.0
+slowapi==0.1.9

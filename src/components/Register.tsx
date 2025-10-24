@@ -1,7 +1,8 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../App.tsx';
+import { getPreselection } from '../utils/preselection.ts';
 
 const Register: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -21,6 +22,17 @@ const Register: React.FC = () => {
   const { login } = useContext(AuthContext);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+
+  // Pre-fill zipcode from preselection on component mount
+  useEffect(() => {
+    const preselection = getPreselection();
+    if (preselection?.zipCode) {
+      setFormData(prev => ({
+        ...prev,
+        zip_code: preselection.zipCode
+      }));
+    }
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({
@@ -65,7 +77,14 @@ const Register: React.FC = () => {
       });
 
       login(tokenResponse.data.access_token, userResponse.data);
-      
+
+      // Check for preselection - redirect to groups if user selected a company
+      const preselection = getPreselection();
+      if (preselection) {
+        navigate('/groups');
+        return;
+      }
+
       // Check for redirect parameter
       const redirectPath = searchParams.get('redirect');
       if (redirectPath) {

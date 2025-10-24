@@ -11,6 +11,7 @@ from jose import JWTError, jwt
 from datetime import datetime, timedelta
 import os
 import secrets
+from functools import lru_cache
 from dotenv import load_dotenv
 import smtplib
 from email.mime.text import MIMEText
@@ -22,6 +23,9 @@ import requests
 import aiohttp
 import asyncio
 import googlemaps
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 load_dotenv()
 
@@ -69,7 +73,14 @@ Base = declarative_base()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
+# Initialize rate limiter
+limiter = Limiter(key_func=get_remote_address)
+
 app = FastAPI(title="Dumpster Sharing API", version="1.0.0")
+
+# Add rate limiter to app state
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -495,6 +506,54 @@ async def geocode_address(address: str, city: str, state: str, zip_code: str) ->
         
     except Exception as e:
         print(f"Geocoding error for '{full_address}': {str(e)}")
+        return None
+
+@lru_cache(maxsize=1000)
+def geocode_zipcode(zip_code: str) -> Optional[dict]:
+    """
+    Geocode a US zip code to get coordinates and location info.
+    Results are cached for better performance (maxsize=1000 most recent zipcodes).
+    Returns dict with latitude, longitude, city, state, or None if geocoding fails.
+    """
+    if not zip_code or len(zip_code) != 5:
+        return None
+
+    try:
+        # OpenStreetMap Nominatim API (free, no API key required)
+        url = "https://nominatim.openstreetmap.org/search"
+        params = {
+            'postalcode': zip_code,
+            'country': 'US',
+            'format': 'json',
+            'limit': 1
+        }
+        headers = {
+            'User-Agent': 'GroupDump/1.0'  # Required by Nominatim
+        }
+
+        response = requests.get(url, params=params, headers=headers, timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            if data:
+                result = {
+                    'latitude': float(data[0]['lat']),
+                    'longitude': float(data[0]['lon']),
+                    'display_name': data[0].get('display_name', '')
+                }
+
+                # Try to extract city and state from display_name
+                # Format is typically: "City, County, State ZIP, Country"
+                parts = result['display_name'].split(',')
+                if len(parts) >= 3:
+                    result['city'] = parts[0].strip()
+                    result['state'] = parts[-2].strip().split()[0]  # Get state abbrev before ZIP
+
+                return result
+
+        return None
+
+    except Exception as e:
+        print(f"Zipcode geocoding error for '{zip_code}': {str(e)}")
         return None
 
 def calculate_haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -1691,6 +1750,64 @@ async def create_company(company: CompanyCreate, current_user: User = Depends(ge
         "google_user_ratings_total": db_company.google_user_ratings_total
     }
     return CompanyResponse(**response_data)
+
+@app.get("/companies/public", response_model=list[CompanyResponse])
+@limiter.limit("100/hour")
+async def get_companies_public(request: Request, zip_code: str, db: Session = Depends(get_db)):
+    """
+    Public endpoint for browsing companies without authentication.
+    Requires a 5-digit US zip code for proximity filtering.
+    Returns the exact same company information as the authenticated endpoint,
+    allowing users to compare prices and services before registering.
+    """
+    # Validate zip code format
+    if not zip_code or len(zip_code) != 5 or not zip_code.isdigit():
+        raise HTTPException(status_code=400, detail="Invalid zip code. Please provide a valid 5-digit US ZIP code.")
+
+    # Geocode the zip code to get coordinates
+    location = geocode_zipcode(zip_code)
+
+    if not location:
+        raise HTTPException(status_code=400, detail="Unable to find location for provided ZIP code.")
+
+    # Get all companies
+    companies = db.query(Company).all()
+
+    # Filter by proximity using the geocoded coordinates
+    if location.get('latitude') and location.get('longitude'):
+        companies = await filter_companies_by_actual_distance(
+            companies,
+            location['latitude'],
+            location['longitude'],
+            user_zip=zip_code
+        )
+    else:
+        # Fallback to zip code approximation if geocoding didn't return coordinates
+        companies = filter_companies_by_proximity(companies, zip_code)
+
+    # Build response with EXACT same data as authenticated endpoint
+    result = []
+    for company in companies:
+        company_data = {
+            "id": company.id,
+            "name": company.name,
+            "email": company.email,
+            "phone": company.phone,
+            "address": company.address,
+            "city": company.city,
+            "state": company.state,
+            "zip_code": company.zip_code,
+            "website": company.website,
+            "service_areas": company.service_areas,
+            "dumpster_sizes": [DumpsterSize(**size) for size in json.loads(company.dumpster_sizes)] if company.dumpster_sizes else [],
+            "rating": company.rating,
+            "google_place_id": company.google_place_id,
+            "google_rating": company.google_rating,
+            "google_user_ratings_total": company.google_user_ratings_total
+        }
+        result.append(CompanyResponse(**company_data))
+
+    return result
 
 @app.get("/companies", response_model=list[CompanyResponse])
 async def get_companies(current_user: User = Depends(get_current_user), skip: int = 0, limit: int = 100, proximity_filter: bool = True, db: Session = Depends(get_db)):

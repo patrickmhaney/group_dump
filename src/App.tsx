@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import axios from 'axios';
+import LandingPage from './components/LandingPage.tsx';
 import Login from './components/Login.tsx';
 import Register from './components/Register.tsx';
 import Groups from './components/Groups.tsx';
@@ -81,7 +82,7 @@ function App() {
               <Route path="/profile" element={user ? <UserProfile /> : <Navigate to="/login" />} />
               <Route path="/admin" element={user && user.email === 'service.account.dc@groupdump.com' ? <Admin /> : <Navigate to="/" />} />
               <Route path="/join/:token" element={<Join />} />
-              <Route path="/" element={<Navigate to={user ? (user.email === 'service.account.dc@groupdump.com' ? "/admin" : (user.user_type === 'renter' ? "/groups" : "/companies")) : "/login"} />} />
+              <Route path="/" element={!user ? <LandingPage /> : <Navigate to={user.email === 'service.account.dc@groupdump.com' ? "/admin" : (user.user_type === 'renter' ? "/groups" : "/companies")} />} />
             </Routes>
           </div>
         </div>
