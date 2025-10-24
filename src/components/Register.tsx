@@ -200,7 +200,7 @@ const Register: React.FC = () => {
         </button>
       </form>
       <p>
-        Already have an account? <Link to={`/login${searchParams.get('redirect') ? `?redirect=${searchParams.get('redirect')}` : ''}`}>Login here</Link>
+        Already have an account? <Link to={`/home${searchParams.get('redirect') ? `?redirect=${searchParams.get('redirect')}` : ''}`}>Login here</Link>
       </p>
     </div>
   );

@@ -1731,6 +1731,40 @@ async def get_companies(current_user: User = Depends(get_current_user), skip: in
         result.append(CompanyResponse(**company_data))
     return result
 
+@app.get("/companies/public/by-zip", response_model=list[CompanyResponse])
+async def get_companies_by_zip(zip_code: str, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    """
+    Public endpoint to browse companies by zip code without authentication.
+    Returns companies within 50 miles of the provided zip code.
+    """
+    companies = db.query(Company).offset(skip).limit(limit).all()
+
+    # Filter by proximity using zip code
+    if zip_code:
+        companies = filter_companies_by_proximity(companies, zip_code)
+
+    result = []
+    for company in companies:
+        company_data = {
+            "id": company.id,
+            "name": company.name,
+            "email": company.email,
+            "phone": company.phone,
+            "address": company.address,
+            "city": company.city,
+            "state": company.state,
+            "zip_code": company.zip_code,
+            "website": company.website,
+            "service_areas": company.service_areas,
+            "dumpster_sizes": [DumpsterSize(**size) for size in json.loads(company.dumpster_sizes)] if company.dumpster_sizes else [],
+            "rating": company.rating,
+            "google_place_id": company.google_place_id,
+            "google_rating": company.google_rating,
+            "google_user_ratings_total": company.google_user_ratings_total
+        }
+        result.append(CompanyResponse(**company_data))
+    return result
+
 @app.get("/companies/{company_id}", response_model=CompanyResponse)
 async def get_company(company_id: int, db: Session = Depends(get_db)):
     company = db.query(Company).filter(Company.id == company_id).first()

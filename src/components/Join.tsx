@@ -135,7 +135,7 @@ const Join: React.FC = () => {
         <div className="card">
           <h2>Invitation Error</h2>
           <p className="error">{error}</p>
-          <Link to="/login" className="button">Go to Login</Link>
+          <Link to="/home" className="button">Go to Home</Link>
         </div>
       </div>
     );
@@ -349,7 +349,7 @@ const Join: React.FC = () => {
                     Already have an account?
                   </p>
                   <Link
-                    to={`/login?redirect=/join/${token}`}
+                    to={`/home?redirect=/join/${token}`}
                     className="button button-secondary"
                     style={{ marginRight: '10px', fontSize: '14px', padding: '8px 16px' }}
                   >
@@ -379,7 +379,7 @@ const Join: React.FC = () => {
           <h2>Invitation Mismatch</h2>
           <p>This invitation is for {joinInfo?.invitee.email}, but you are logged in as {user.email}.</p>
           <p>Please log in with the correct account or contact the group creator.</p>
-          <Link to={`/login?redirect=/join/${token}`} className="button">Switch Account</Link>
+          <Link to={`/home?redirect=/join/${token}`} className="button">Switch Account</Link>
         </div>
       </div>
     );

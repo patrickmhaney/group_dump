@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import axios from 'axios';
-import Login from './components/Login.tsx';
+import Home from './components/Home.tsx';
 import Register from './components/Register.tsx';
 import Groups from './components/Groups.tsx';
 import Companies from './components/Companies.tsx';
@@ -74,14 +74,14 @@ function App() {
           
           <div className="container">
             <Routes>
-              <Route path="/login" element={!user ? <Login /> : <Navigate to={user.email === 'service.account.dc@groupdump.com' ? "/admin" : (user.user_type === 'renter' ? "/groups" : "/companies")} />} />
+              <Route path="/home" element={!user ? <Home /> : <Navigate to={user.email === 'service.account.dc@groupdump.com' ? "/admin" : (user.user_type === 'renter' ? "/groups" : "/companies")} />} />
               <Route path="/register" element={!user ? <Register /> : <Navigate to={user.email === 'service.account.dc@groupdump.com' ? "/admin" : (user.user_type === 'renter' ? "/groups" : "/companies")} />} />
-              <Route path="/groups" element={user ? (user.user_type === 'renter' ? <Groups /> : <Navigate to="/companies" />) : <Navigate to="/login" />} />
-              <Route path="/companies" element={user ? (user.email === 'service.account.dc@groupdump.com' || user.user_type === 'company' ? <Companies /> : <Navigate to="/groups" />) : <Navigate to="/login" />} />
-              <Route path="/profile" element={user ? <UserProfile /> : <Navigate to="/login" />} />
+              <Route path="/groups" element={user ? (user.user_type === 'renter' ? <Groups /> : <Navigate to="/companies" />) : <Navigate to="/home" />} />
+              <Route path="/companies" element={user ? (user.email === 'service.account.dc@groupdump.com' || user.user_type === 'company' ? <Companies /> : <Navigate to="/groups" />) : <Navigate to="/home" />} />
+              <Route path="/profile" element={user ? <UserProfile /> : <Navigate to="/home" />} />
               <Route path="/admin" element={user && user.email === 'service.account.dc@groupdump.com' ? <Admin /> : <Navigate to="/" />} />
               <Route path="/join/:token" element={<Join />} />
-              <Route path="/" element={<Navigate to={user ? (user.email === 'service.account.dc@groupdump.com' ? "/admin" : (user.user_type === 'renter' ? "/groups" : "/companies")) : "/login"} />} />
+              <Route path="/" element={<Navigate to={user ? (user.email === 'service.account.dc@groupdump.com' ? "/admin" : (user.user_type === 'renter' ? "/groups" : "/companies")) : "/home"} />} />
             </Routes>
           </div>
         </div>
