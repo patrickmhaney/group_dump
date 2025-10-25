@@ -47,6 +47,8 @@ const Home: React.FC = () => {
   const [companiesError, setCompaniesError] = useState('');
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showServiceActionModal, setShowServiceActionModal] = useState(false);
+  const [selectedService, setSelectedService] = useState<{ company: Company; size: DumpsterSize } | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,10 +68,16 @@ const Home: React.FC = () => {
       login(tokenResponse.data.access_token, userResponse.data);
       setShowLoginModal(false); // Close modal on successful login
 
-      // Check for redirect parameter
-      const redirectPath = searchParams.get('redirect');
-      if (redirectPath) {
-        navigate(redirectPath);
+      // Check for preselected service and navigate to groups
+      const hasPreselectedService = sessionStorage.getItem('preselectedService');
+      if (hasPreselectedService) {
+        navigate('/groups');
+      } else {
+        // Check for redirect parameter
+        const redirectPath = searchParams.get('redirect');
+        if (redirectPath) {
+          navigate(redirectPath);
+        }
       }
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Login failed');
@@ -424,12 +432,26 @@ const Home: React.FC = () => {
                         {selectedCompany.dumpster_sizes.map((size, index) => (
                           <div
                             key={index}
+                            onClick={() => {
+                              setSelectedService({ company: selectedCompany, size });
+                              setShowServiceActionModal(true);
+                            }}
                             style={{
                               border: '3px solid #dee2e6',
                               borderRadius: '12px',
                               padding: '20px',
                               backgroundColor: '#ffffff',
-                              boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
+                              boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+                              cursor: 'pointer',
+                              transition: 'all 0.3s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.borderColor = '#007bff';
+                              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,123,255,0.3)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.borderColor = '#dee2e6';
+                              e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.1)';
                             }}
                           >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
@@ -532,6 +554,125 @@ const Home: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Service Level Action Modal */}
+      {showServiceActionModal && (
+        <div
+          onClick={() => setShowServiceActionModal(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'white',
+              borderRadius: '12px',
+              padding: '35px',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+              border: '2px solid #dee2e6',
+              width: '100%',
+              maxWidth: '450px',
+              margin: '20px',
+              textAlign: 'center'
+            }}
+          >
+            <h3 style={{
+              margin: '0 0 15px 0',
+              color: '#2c3e50',
+              fontSize: '1.5em',
+              fontWeight: '600'
+            }}>
+              Ready to create a group?
+            </h3>
+            <p style={{
+              color: '#6c757d',
+              margin: '0 0 30px 0',
+              fontSize: '1rem',
+              lineHeight: '1.5'
+            }}>
+              Log in to start a group rental and split costs with your neighbors!
+            </p>
+
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px'
+            }}>
+              <button
+                onClick={() => {
+                  // Save selected service to sessionStorage for pre-filling group creation
+                  if (selectedService) {
+                    sessionStorage.setItem('preselectedService', JSON.stringify({
+                      vendorId: selectedService.company.id,
+                      vendorName: selectedService.company.name,
+                      dumpsterSize: selectedService.size
+                    }));
+                  }
+                  setShowServiceActionModal(false);
+                  setShowLoginModal(true);
+                }}
+                style={{
+                  background: 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)',
+                  color: 'white',
+                  border: 'none',
+                  padding: '16px 24px',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 4px 12px rgba(0, 123, 255, 0.3)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 6px 16px rgba(0, 123, 255, 0.4)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 123, 255, 0.3)';
+                }}
+              >
+                Log in to create group
+              </button>
+
+              <button
+                onClick={() => setShowServiceActionModal(false)}
+                style={{
+                  background: '#ffffff',
+                  color: '#6c757d',
+                  border: '2px solid #dee2e6',
+                  padding: '16px 24px',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = '#6c757d';
+                  e.currentTarget.style.backgroundColor = '#f8f9fa';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = '#dee2e6';
+                  e.currentTarget.style.backgroundColor = '#ffffff';
+                }}
+              >
+                Keep browsing
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Login Modal */}
       {showLoginModal && (

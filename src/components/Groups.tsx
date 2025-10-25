@@ -366,6 +366,25 @@ const Groups: React.FC = () => {
     }
   }, [user]);
 
+  // Load pre-selected service from sessionStorage (from home page browsing)
+  useEffect(() => {
+    const preselectedServiceData = sessionStorage.getItem('preselectedService');
+    if (preselectedServiceData) {
+      try {
+        const { vendorId, dumpsterSize } = JSON.parse(preselectedServiceData);
+        setFormData(prev => ({
+          ...prev,
+          vendor_id: String(vendorId),
+          selected_dumpster_size: JSON.stringify(dumpsterSize)
+        }));
+        // Clear sessionStorage after using it
+        sessionStorage.removeItem('preselectedService');
+      } catch (e) {
+        console.error('Error loading preselected service:', e);
+      }
+    }
+  }, []);
+
   // Auto-load drop off date data for all groups with drop off dates
   useEffect(() => {
     groups.forEach(group => {
