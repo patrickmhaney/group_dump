@@ -264,8 +264,8 @@ const Home: React.FC = () => {
             {/* Companies Grid */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-              gap: '15px'
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: '12px'
             }}>
               {companies.map(company => {
                 const matchingSize = company.dumpster_sizes?.find(size => size.cubic_yards === comparisonSize);
@@ -277,7 +277,7 @@ const Home: React.FC = () => {
                     style={{
                       border: `2px solid ${isSelected ? '#007bff' : '#e9ecef'}`,
                       borderRadius: '8px',
-                      padding: '15px',
+                      padding: '12px',
                       backgroundColor: isSelected ? '#f8f9ff' : '#ffffff',
                       boxShadow: isSelected ? '0 4px 8px rgba(0,123,255,0.25)' : '0 2px 4px rgba(0,0,0,0.05)',
                       transition: 'all 0.3s ease',
@@ -296,19 +296,19 @@ const Home: React.FC = () => {
                       }
                     }}
                   >
-                    <div style={{ marginBottom: '10px' }}>
-                      <h4 style={{ margin: '0 0 5px 0', color: '#333', fontSize: '16px', fontWeight: 'bold' }}>
+                    <div style={{ marginBottom: '8px' }}>
+                      <h4 style={{ margin: '0 0 3px 0', color: '#333', fontSize: '14px', fontWeight: 'bold' }}>
                         {company.name}
                       </h4>
-                      <p style={{ margin: '0 0 5px 0', fontSize: '13px', color: '#666' }}>
+                      <p style={{ margin: '0', fontSize: '11px', color: '#666' }}>
                         {company.city}, {company.state}
                       </p>
                       {company.google_rating && company.google_rating > 0 && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '5px' }}>
-                          <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#f4b400' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                          <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#f4b400' }}>
                             ⭐ {company.google_rating.toFixed(1)}
                           </span>
-                          <span style={{ color: '#666', fontSize: '12px' }}>
+                          <span style={{ color: '#666', fontSize: '10px' }}>
                             ({company.google_user_ratings_total} reviews)
                           </span>
                         </div>
@@ -320,10 +320,10 @@ const Home: React.FC = () => {
                           rel="noopener noreferrer"
                           style={{
                             color: '#007bff',
-                            fontSize: '12px',
+                            fontSize: '11px',
                             textDecoration: 'none',
                             display: 'inline-block',
-                            marginTop: '5px'
+                            marginTop: '4px'
                           }}
                         >
                           Visit Website →
@@ -335,30 +335,30 @@ const Home: React.FC = () => {
                       <div>
                         {matchingSize.starting_price ? (
                           <div style={{
-                            fontSize: '24px',
+                            fontSize: '20px',
                             fontWeight: 'bold',
                             color: '#28a745',
-                            marginBottom: '8px'
+                            marginBottom: '6px'
                           }}>
                             {matchingSize.starting_price.startsWith('$') ? matchingSize.starting_price : `$${matchingSize.starting_price}`}
                           </div>
                         ) : (
-                          <p style={{ margin: '0 0 8px 0', fontSize: '13px', fontStyle: 'italic', color: '#666', fontWeight: 'bold' }}>
-                            Price not available - contact for quote
+                          <p style={{ margin: '0 0 6px 0', fontSize: '11px', fontStyle: 'italic', color: '#666', fontWeight: 'bold' }}>
+                            Price not available. Provider may require quote.
                           </p>
                         )}
-                        <div style={{ fontSize: '13px', color: '#666', marginBottom: '8px' }}>
-                          {comparisonSize} yards • {matchingSize.starting_tonnage || 'NA'} tons included
+                        <div style={{ fontSize: '11px', color: '#666', marginBottom: '6px' }}>
+                          {comparisonSize} yards • {matchingSize.starting_tonnage || 'NA'} tons
                         </div>
-                        <div style={{ fontSize: '11px', color: '#666' }}>
+                        <div style={{ fontSize: '10px', color: '#666' }}>
                           {matchingSize.per_ton_overage_price ? `+${matchingSize.per_ton_overage_price.startsWith('$') ? matchingSize.per_ton_overage_price : `$${matchingSize.per_ton_overage_price}`}/extra ton` : '+NA/extra ton'}
                           {' • '}
                           {matchingSize.additional_day_price ? `+${matchingSize.additional_day_price.startsWith('$') ? matchingSize.additional_day_price : `$${matchingSize.additional_day_price}`}/extra day` : '+NA/extra day'}
                         </div>
                       </div>
                     ) : (
-                      <div style={{ color: '#666', fontStyle: 'italic', fontSize: '14px', padding: '20px 0' }}>
-                        {comparisonSize} yard size not available from this provider
+                      <div style={{ color: '#666', fontStyle: 'italic', fontSize: '12px' }}>
+                        {comparisonSize} yards not available
                       </div>
                     )}
                   </div>
