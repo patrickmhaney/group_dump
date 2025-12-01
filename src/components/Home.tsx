@@ -125,14 +125,26 @@ const Home: React.FC = () => {
     }}>
       {/* Group Dump Header */}
       <div style={{
-        textAlign: 'center',
+        display: 'flex',
+        alignItems: 'flex-end',
+        justifyContent: 'center',
+        gap: '4px',
         marginBottom: '20px',
         width: '100%',
         maxWidth: '500px'
       }}>
+        <img
+          src="/group_dump_logo.png"
+          alt="Group Dump Logo"
+          style={{
+            height: '4.75em',
+            width: 'auto'
+          }}
+        />
         <h2 style={{
-          fontSize: '1.75em',
+          fontSize: '2.75em',
           margin: '0',
+          marginBottom: '0.05em',
           color: '#2c3e50',
           fontWeight: '600'
         }}>

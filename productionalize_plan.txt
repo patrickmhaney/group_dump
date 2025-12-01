@@ -1,0 +1,373 @@
+================================================================================
+GROUPDUMP SOFT RELEASE - 3-DAY PRODUCTIONALIZATION PLAN
+================================================================================
+Target: Soft web release on groupdump.com
+Timeline: 3 days
+Infrastructure: Google Cloud (VM + Cloud SQL + Cloud Storage + Load Balancer)
+
+================================================================================
+CURRENT STATE ASSESSMENT
+================================================================================
+
+Application:
+- FastAPI backend (2,827 lines in main.py - needs refactoring)
+- React/TypeScript frontend (16 files)
+- SQLite database (dumpster_sharing.db)
+- Stripe payment integration
+- Google Maps API integration
+- JWT authentication
+
+Current Deployment:
+- Google Cloud VM
+- No production environment setup
+- No .env file configured
+
+CRITICAL SECURITY ISSUES IDENTIFIED:
+✗ SECRET_KEY defaults to "your-secret-key-here" (CRITICAL - must fix)
+✗ CORS allows all origins (allow_origins=["*"]) - needs restriction
+✗ No rate limiting on authentication endpoints
+✗ No production environment configuration
+
+================================================================================
+DAY 1: CODE CLEANUP & SECURITY (12 TASKS)
+================================================================================
+
+CODE CLEANUP (5 tasks - estimated 4-6 hours):
+□ Break main.py into modules (models, routes, auth, database)
+□ Extract database models to separate models.py file
+□ Create routes/ directory and split endpoints by domain:
+  - auth.py (registration, login, token management)
+  - groups.py (group CRUD, member management)
+  - companies.py (company directory)
+  - rentals.py (rental bookings)
+□ Create config.py for environment variables and configuration
+□ Remove unused migration scripts and organize directories
+
+SECURITY FIXES (7 tasks - estimated 4-6 hours):
+□ Generate and set proper SECRET_KEY (CRITICAL)
+  - Use: python -c "import secrets; print(secrets.token_urlsafe(32))"
+  - Never commit to git
+
+□ Restrict CORS to groupdump.com domain only
+  - Change from: allow_origins=["*"]
+  - Change to: allow_origins=["https://groupdump.com", "https://www.groupdump.com"]
+
+□ Add rate limiting to authentication endpoints
+  - Install slowapi library
+  - Limit login attempts: 5 per minute
+  - Limit registration: 3 per hour
+
+□ Audit for SQL injection vulnerabilities
+  - Check all database queries
+  - Ensure using SQLAlchemy ORM properly (no raw SQL)
+
+□ Review Stripe webhook signature verification
+  - Ensure webhook signatures are verified
+  - Use stripe.Webhook.construct_event()
+
+□ Add input validation and sanitization
+  - Email validation
+  - Password strength requirements
+  - Sanitize user inputs (names, addresses)
+
+□ Ensure sensitive data not logged
+  - No passwords in logs
+  - No API keys in logs
+  - Redact sensitive fields
+
+================================================================================
+DAY 2: DATABASE MIGRATION TO POSTGRESQL (9 TASKS)
+================================================================================
+
+DATABASE SETUP (7 tasks - estimated 6-8 hours):
+□ Set up Google Cloud SQL PostgreSQL instance
+  - Version: PostgreSQL 15
+  - Machine type: db-f1-micro (can scale later)
+  - Enable automatic backups
+  - Set maintenance window
+
+□ Configure Cloud SQL connection
+  - Option 1: Cloud SQL Proxy (recommended for security)
+  - Option 2: Public IP with SSL
+  - Create database user and password
+  - Whitelist VM IP address
+
+□ Test SQLAlchemy models compatibility with PostgreSQL
+  - Check data types (especially DateTime)
+  - Test all relationships
+
+□ Remove SQLite-specific code
+  - Remove PRAGMA foreign_keys listener (lines 59-64 in main.py)
+  - Remove sqlite3 import
+
+□ Create Alembic migration for initial schema
+  - alembic init alembic
+  - Generate initial migration
+  - Review migration script
+
+□ Export data from SQLite to PostgreSQL
+  - Create export script
+  - Export users, groups, companies, rentals
+  - Verify data integrity
+
+□ Verify all data migrated correctly
+  - Count records in both databases
+  - Spot-check critical data
+  - Test application with new database
+
+FRONTEND BUILD (2 tasks - estimated 2 hours):
+□ Build optimized production frontend
+  - npm run build
+  - Verify build output in build/ directory
+  - Test build locally: npx serve -s build
+
+□ Set up Cloud Storage bucket for frontend static files
+  - Create public bucket
+  - Upload build/ contents
+  - Configure bucket for website hosting
+  - Set CORS policy if needed
+
+INFRASTRUCTURE PREP (1 task - estimated 2 hours):
+□ Configure Cloud Load Balancer with SSL
+  - Create HTTPS load balancer
+  - Add backend bucket (frontend)
+  - Add backend service (API on VM)
+  - Create managed SSL certificate for groupdump.com
+  - Configure URL routing (/ → frontend, /api → backend, /docs → backend)
+
+================================================================================
+DAY 3: INFRASTRUCTURE & TESTING (14 TASKS)
+================================================================================
+
+VM CONFIGURATION (4 tasks - estimated 4-5 hours):
+□ Create requirements.txt for production (pin versions)
+  - Pin all package versions
+  - Add gunicorn or uvicorn[standard]
+  - Test installation in clean environment
+
+□ Update VM with production environment variables
+  - Create /etc/groupdump/.env file
+  - Set proper file permissions (600)
+  - Include all required variables:
+    - DATABASE_URL (PostgreSQL connection string)
+    - SECRET_KEY (newly generated)
+    - STRIPE_SECRET_KEY
+    - STRIPE_PUBLISHABLE_KEY
+    - GOOGLE_PLACES_API_KEY
+    - SMTP credentials
+    - BASE_URL=https://groupdump.com
+
+□ Set up systemd service for FastAPI (auto-restart)
+  - Create /etc/systemd/system/groupdump.service
+  - Configure auto-restart on failure
+  - Enable on boot: systemctl enable groupdump
+  - Start service: systemctl start groupdump
+
+□ Configure nginx reverse proxy on VM
+  - Install nginx
+  - Configure proxy to uvicorn (localhost:8000)
+  - Set up proper headers (X-Forwarded-For, etc.)
+  - Configure request size limits
+  - Enable gzip compression
+
+DNS & MONITORING (2 tasks - estimated 1-2 hours):
+□ Point groupdump.com DNS to Load Balancer IP
+  - Get Load Balancer external IP
+  - Update DNS A record
+  - Update www CNAME record
+  - Wait for propagation (5-30 minutes)
+
+□ Enable Google Cloud Monitoring and Logging
+  - Enable Cloud Monitoring API
+  - Set up log filtering for errors
+  - Create uptime check for groupdump.com
+  - Set up email alerts for downtime
+
+TESTING (5 tasks - estimated 3-4 hours):
+□ Test user registration and authentication flow
+  - Register new user
+  - Login with credentials
+  - Test JWT token refresh
+  - Test password reset (if implemented)
+
+□ Test group creation and joining
+  - Create new group
+  - Join existing group
+  - View group members
+  - Leave group
+
+□ Test company directory and rental booking
+  - Browse companies
+  - View company details
+  - Create rental booking
+  - View user's rentals
+
+□ Test Stripe payment integration end-to-end
+  - Test subscription flow
+  - Test webhook delivery
+  - Verify payment captured
+  - Check database updates
+
+□ Verify SSL certificate working on groupdump.com
+  - Test https://groupdump.com
+  - Check certificate validity
+  - Test mixed content warnings
+  - Verify HSTS headers
+
+FINAL TASKS (3 tasks - estimated 1-2 hours):
+□ Create .env.example file documenting all variables
+  - List all required environment variables
+  - Add descriptions
+  - Provide example values (not real secrets)
+  - Commit to git
+
+□ Document deployment process
+  - Document VM setup steps
+  - Document Cloud SQL connection
+  - Document DNS configuration
+  - Document monitoring setup
+  - Create runbook for common issues
+
+□ Set up automated backups for Cloud SQL
+  - Enable automated backups (daily)
+  - Set backup retention (7 days minimum)
+  - Test backup restoration process
+  - Document backup recovery procedure
+
+================================================================================
+INFRASTRUCTURE ARCHITECTURE
+================================================================================
+
+                                    ┌─────────────────┐
+                                    │   groupdump.com │
+                                    │   (DNS Record)  │
+                                    └────────┬────────┘
+                                             │
+                                    ┌────────▼────────┐
+                                    │  Load Balancer  │
+                                    │   (SSL/HTTPS)   │
+                                    └────────┬────────┘
+                                             │
+                          ┌──────────────────┴──────────────────┐
+                          │                                     │
+                   ┌──────▼──────┐                    ┌────────▼────────┐
+                   │   Storage   │                    │   Compute VM    │
+                   │   Bucket    │                    │   (Backend)     │
+                   │  (Frontend) │                    │                 │
+                   │             │                    │  nginx → FastAPI│
+                   └─────────────┘                    └────────┬────────┘
+                                                               │
+                                                      ┌────────▼────────┐
+                                                      │   Cloud SQL     │
+                                                      │  (PostgreSQL)   │
+                                                      └─────────────────┘
+
+================================================================================
+REQUIRED ENVIRONMENT VARIABLES
+================================================================================
+
+DATABASE_URL=postgresql://username:password@/cloudsql/project:region:instance
+SECRET_KEY=[generate using secrets.token_urlsafe(32)]
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=[your-email]
+SMTP_PASSWORD=[app-password]
+FROM_EMAIL=[your-email]
+
+STRIPE_SECRET_KEY=sk_live_[your-key]
+STRIPE_PUBLISHABLE_KEY=pk_live_[your-key]
+
+BASE_URL=https://groupdump.com
+
+GOOGLE_PLACES_API_KEY=[your-key]
+
+================================================================================
+ESTIMATED TIMELINE
+================================================================================
+
+DAY 1 (8-12 hours):
+  Morning:   Security fixes (4-6 hours)
+  Afternoon: Code refactoring (4-6 hours)
+
+DAY 2 (8-12 hours):
+  Morning:   Database migration (6-8 hours)
+  Afternoon: Frontend build & infrastructure prep (4 hours)
+
+DAY 3 (8-12 hours):
+  Morning:   VM configuration & deployment (5-7 hours)
+  Afternoon: Testing & final tasks (3-5 hours)
+
+Total: 24-36 hours of work
+
+================================================================================
+CRITICAL SUCCESS FACTORS
+================================================================================
+
+1. SECRET_KEY must be changed before any deployment
+2. CORS must be restricted to groupdump.com
+3. Database backup strategy must be in place
+4. SSL certificate must be valid and working
+5. All Stripe webhooks must verify signatures
+6. Environment variables must never be committed to git
+7. Rate limiting must be enabled before public launch
+8. Monitoring and alerting must be functional
+
+================================================================================
+ROLLBACK PLAN
+================================================================================
+
+If issues arise during deployment:
+1. Keep SQLite database backup (dumpster_sharing.db.backup)
+2. Keep current VM as backup (create snapshot before changes)
+3. DNS can be reverted to old IP within minutes
+4. Load Balancer can be disabled to take site offline quickly
+5. Cloud SQL has automatic backups for data recovery
+
+================================================================================
+POST-LAUNCH MONITORING
+================================================================================
+
+Week 1 after launch:
+- Monitor error rates daily
+- Check database performance
+- Review user feedback
+- Monitor costs (Cloud SQL, Load Balancer, Storage)
+- Test backup restoration
+
+Week 2-4:
+- Optimize database queries if slow
+- Add caching if needed (Redis)
+- Scale VM if CPU/memory high
+- Consider CDN for static assets
+- Plan Azure migration if desired
+
+================================================================================
+COST ESTIMATES (Google Cloud)
+================================================================================
+
+Cloud SQL (db-f1-micro):        ~$10-15/month
+Compute VM (e2-micro):          ~$7-10/month (free tier eligible)
+Cloud Storage:                  ~$0.50-2/month
+Load Balancer:                  ~$18-25/month
+Total estimated:                ~$35-52/month
+
+(Costs may vary based on usage)
+
+================================================================================
+NEXT STEPS
+================================================================================
+
+Ready to begin? Start with:
+1. Security fixes (generate SECRET_KEY, fix CORS)
+2. Code refactoring (split main.py into modules)
+3. Database migration setup
+
+Commands to get started:
+$ python -c "import secrets; print(secrets.token_urlsafe(32))"  # Generate SECRET_KEY
+$ pip install slowapi  # For rate limiting
+$ alembic init alembic  # Initialize database migrations
+
+================================================================================
