@@ -1,21 +1,18 @@
 """Database configuration and session management"""
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.engine import Engine
-import sqlite3
 
 from app.config import DATABASE_URL
 
-engine = create_engine(DATABASE_URL)
-
-# Enable foreign key constraints for SQLite
-@event.listens_for(Engine, "connect")
-def set_sqlite_pragma(dbapi_connection, connection_record):
-    if isinstance(dbapi_connection, sqlite3.Connection):
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.close()
+# Create engine with PostgreSQL optimizations
+# For PostgreSQL, we can add connection pool settings
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,  # Verify connections before using them
+    pool_size=10,         # Connection pool size
+    max_overflow=20       # Max overflow connections
+)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()

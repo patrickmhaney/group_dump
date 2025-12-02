@@ -60,7 +60,7 @@ npm install
 npm start
 ```
 
-The frontend will be available at http://localhost:3000
+The frontend will be available at http://localhost:2052
 
 ## API Endpoints
 

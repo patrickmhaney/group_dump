@@ -57,7 +57,7 @@ const Join: React.FC = () => {
           }
         });
 
-        const response = await unauthenticatedAxios.get(`/join/${token}/info`);
+        const response = await unauthenticatedAxios.get(`/groups/join/${token}/info`);
         setJoinInfo(response.data);
       } catch (error: any) {
         setError(error.response?.data?.detail || 'Invalid or expired invitation link');
@@ -108,7 +108,7 @@ const Join: React.FC = () => {
         }
       });
 
-      await unauthenticatedAxios.post(`/join/${token}`, {
+      await unauthenticatedAxios.post(`/groups/join/${token}`, {
         dropoff_date_ids: selectedDropoffDates
       });
       setJoined(true);

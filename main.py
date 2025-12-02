@@ -12,6 +12,7 @@ from slowapi.errors import RateLimitExceeded
 from app.database import Base, engine
 from app.routes import auth, groups, companies, rentals, payments, admin
 from app.config import CORS_ORIGINS
+import app.models  # Explicitly import all models to ensure they're registered with Base
 
 # Initialize rate limiter
 limiter = Limiter(key_func=get_remote_address)

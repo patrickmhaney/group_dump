@@ -40,7 +40,7 @@ BASE_URL = os.getenv("BASE_URL", "https://groupdump.com")
 # For development, allow localhost. For production, only allow your domain
 CORS_ORIGINS = os.getenv(
     "CORS_ORIGINS",
-    "http://localhost:3000,http://localhost:2052,https://groupdump.com,https://www.groupdump.com"
+    "http://localhost:2052,https://groupdump.com,https://www.groupdump.com"
 ).split(",")
 
 # Google Places API configuration

@@ -17,11 +17,17 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 def verify_password(plain_password, hashed_password):
     """Verify a plain password against a hashed password"""
+    # Truncate to 72 bytes due to bcrypt limitation
+    if isinstance(plain_password, str):
+        plain_password = plain_password.encode('utf-8')[:72]
     return pwd_context.verify(plain_password, hashed_password)
 
 
 def get_password_hash(password):
     """Hash a password for storage"""
+    # Truncate to 72 bytes due to bcrypt limitation
+    if isinstance(password, str):
+        password = password.encode('utf-8')[:72]
     return pwd_context.hash(password)
 
 

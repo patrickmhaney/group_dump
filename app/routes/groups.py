@@ -430,9 +430,9 @@ async def join_group_by_token(
         if authorization:
             token_str = authorization.split(" ")[1] if " " in authorization else authorization
             payload = jwt.decode(token_str, SECRET_KEY, algorithms=[ALGORITHM])
-            username: str = payload.get("sub")
-            if username:
-                current_user = db.query(User).filter(User.username == username).first()
+            email: str = payload.get("sub")
+            if email:
+                current_user = db.query(User).filter(User.email == email).first()
     except:
         # User is not authenticated, continue without user
         pass
@@ -450,11 +450,10 @@ async def join_group_by_token(
         else:
             # Create new user with minimal info
             user_to_use = User(
-                username=invitee.email,  # Use email as username
                 email=invitee.email,
                 name=invitee.name,
                 hashed_password=secrets.token_hex(32),  # Random password they can reset later
-                is_verified=False  # Mark as unverified since they didn't complete registration
+                user_type="renter"  # Default to renter type
             )
             db.add(user_to_use)
             db.commit()

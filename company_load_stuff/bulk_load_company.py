@@ -26,7 +26,7 @@ Usage Instructions
 
   python bulk_load_company.py --api-url http://localhost:8000
   
-  Note: This script uses the existing service account service.account.dc@groupdump.com
+  Note: This script uses the existing service account service.account@groupdump.com
 """
 
 import json
@@ -43,7 +43,7 @@ class CompanyLoader:
         self.access_token: Optional[str] = None
         
         # Service account credentials
-        self.service_email = "service.account.dc@groupdump.com"
+        self.service_email = "service.account@groupdump.com"
         self.service_password = "Connect2"
         
     def load_data(self, file_path: str) -> Dict[str, Any]:

@@ -16,7 +16,7 @@ from app.utils import send_email
 router = APIRouter()
 
 
-@router.post("/groups/{group_id}/setup-payment-method")
+@router.post("/{group_id}/setup-payment-method")
 async def setup_payment_method(
     group_id: int,
     request: PaymentMethodSetupRequest,
@@ -36,7 +36,7 @@ async def setup_payment_method(
     return {"message": "Payment method setup completed", "details": request.payment_details}
 
 
-@router.post("/groups/{group_id}/generate-payment-requests")
+@router.post("/{group_id}/generate-payment-requests")
 async def generate_payment_requests(
     group_id: int,
     request: PaymentRequestCreate,
@@ -51,11 +51,6 @@ async def generate_payment_requests(
 
     if group.created_by != current_user.id:
         raise HTTPException(status_code=403, detail="Only group creator can generate payment requests")
-
-    # Get rental to calculate cost per member
-    rental = db.query(Rental).filter(Rental.group_id == group_id).first()
-    if not rental:
-        raise HTTPException(status_code=404, detail="No rental found for this group")
 
     # Get final dropoff date if set
     final_dropoff_date = None
@@ -156,7 +151,7 @@ async def generate_payment_requests(
     }
 
 
-@router.get("/groups/{group_id}/payment-requests", response_model=list[PaymentRequestResponse])
+@router.get("/{group_id}/payment-requests", response_model=list[PaymentRequestResponse])
 async def get_payment_requests(
     group_id: int,
     current_user: User = Depends(get_current_user),
@@ -195,7 +190,7 @@ async def get_payment_requests(
     return result
 
 
-@router.post("/groups/{group_id}/payment-requests/{request_id}/mark-paid")
+@router.post("/{group_id}/payment-requests/{request_id}/mark-paid")
 async def mark_payment_received(
     group_id: int,
     request_id: int,
@@ -229,7 +224,7 @@ async def mark_payment_received(
     return {"message": "Payment marked as received"}
 
 
-@router.post("/groups/{group_id}/payment-requests/bulk-mark-paid")
+@router.post("/{group_id}/payment-requests/bulk-mark-paid")
 async def bulk_mark_payments_received(
     group_id: int,
     request_ids: List[int],

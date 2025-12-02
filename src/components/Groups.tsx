@@ -3534,7 +3534,8 @@ const Groups: React.FC = () => {
                     fontSize: '18px',
                     border: '2px solid #dee2e6',
                     borderRadius: '8px',
-                    outline: 'none'
+                    outline: 'none',
+                    boxSizing: 'border-box'
                   }}
                   onFocus={(e) => {
                     e.target.style.borderColor = '#007bff';
@@ -3647,7 +3648,8 @@ const Groups: React.FC = () => {
                       fontSize: '14px',
                       border: '1px solid #ddd',
                       borderRadius: '4px',
-                      marginBottom: '8px'
+                      marginBottom: '8px',
+                      boxSizing: 'border-box'
                     }}
                   />
                   <input
@@ -3660,7 +3662,8 @@ const Groups: React.FC = () => {
                       padding: '8px',
                       fontSize: '14px',
                       border: '1px solid #ddd',
-                      borderRadius: '4px'
+                      borderRadius: '4px',
+                      boxSizing: 'border-box'
                     }}
                   />
                 </div>
@@ -3679,7 +3682,8 @@ const Groups: React.FC = () => {
                       padding: '8px',
                       fontSize: '14px',
                       border: '1px solid #ddd',
-                      borderRadius: '4px'
+                      borderRadius: '4px',
+                      boxSizing: 'border-box'
                     }}
                   />
                 </div>
