@@ -1,0 +1,226 @@
+[
+  {
+    "company": {
+      "name": "Dumpster Daddy Cincinnati",
+      "city": "Lockland",
+      "state": "OH",
+      "zip_code": "45215",
+      "website": "https://dumpsterdaddycincy.com/",
+      "dumpster_sizes": [
+        {
+          "cubic_yards": "10",
+          "dimensions": "12' x 7'6\" x 3'",
+          "starting_price": "350",
+          "starting_tonnage": "2",
+          "per_ton_overage_price": null,
+          "additional_day_price": null
+        },
+        {
+          "cubic_yards": "15",
+          "dimensions": "14' x 7' x 4'",
+          "starting_price": "375",
+          "starting_tonnage": "2",
+          "per_ton_overage_price": null,
+          "additional_day_price": null
+        },
+        {
+          "cubic_yards": "18",
+          "dimensions": "14' x 7' x 5'",
+          "starting_price": "450",
+          "starting_tonnage": "2",
+          "per_ton_overage_price": null,
+          "additional_day_price": null
+        },
+        {
+          "cubic_yards": "20",
+          "dimensions": "22' x 7' x 3'6\"",
+          "starting_price": "500",
+          "starting_tonnage": "3",
+          "per_ton_overage_price": null,
+          "additional_day_price": null
+        },
+        {
+          "cubic_yards": "30",
+          "dimensions": "22' x 7' x 5'2\"",
+          "starting_price": "600",
+          "starting_tonnage": "3",
+          "per_ton_overage_price": null,
+          "additional_day_price": null
+        },
+        {
+          "cubic_yards": "40",
+          "dimensions": "22' x 7' x 7'",
+          "starting_price": "700",
+          "starting_tonnage": "3",
+          "per_ton_overage_price": null,
+          "additional_day_price": null
+        }
+      ]
+    }
+  },
+  {
+    "company": {
+      "name": "Speedy Dumpster Rental",
+      "city": "Cincinnati",
+      "state": "OH",
+      "zip_code": "45215",
+      "website": "https://speedy-dumpster.com/",
+      "dumpster_sizes": [
+        {
+          "cubic_yards": "12",
+          "dimensions": "12' x 8' x 4'",
+          "starting_price": "369",
+          "starting_tonnage": "1",
+          "per_ton_overage_price": "0.05",
+          "additional_day_price": ""
+        },
+        {
+          "cubic_yards": "18",
+          "dimensions": "12' x 8' x 6'",
+          "starting_price": "389",
+          "starting_tonnage": "2",
+          "per_ton_overage_price": "0.05",
+          "additional_day_price": ""
+        }
+      ]
+    }
+  },
+  {
+    "company": {
+      "name": "Silverback Haulers",
+      "city": "Cincinnati",
+      "state": "OH",
+      "zip_code": "45241",
+      "website": "https://www.silverback-haulers.com/",
+      "dumpster_sizes": [
+        {
+          "cubic_yards": "20",
+          "dimensions": "22' x 7'6\" x 4'6\"",
+          "starting_price": "475",
+          "starting_tonnage": "3",
+          "per_ton_overage_price": "75",
+          "additional_day_price": "10"
+        },
+        {
+          "cubic_yards": "30",
+          "dimensions": "22' x 7'6\" x 6'6\"",
+          "starting_price": "575",
+          "starting_tonnage": "4",
+          "per_ton_overage_price": "75",
+          "additional_day_price": "10"
+        },
+        {
+          "cubic_yards": "40",
+          "dimensions": "22' x 7'6\" x 8'6\"",
+          "starting_price": "675",
+          "starting_tonnage": "5",
+          "per_ton_overage_price": "75",
+          "additional_day_price": "10"
+        }
+      ]
+    }
+  },
+  {
+    "company": {
+      "name": "Driveway Dumpsters",
+      "city": "Loveland",
+      "state": "OH",
+      "zip_code": "45140",
+      "website": "http://ddumpsters.com/",
+      "dumpster_sizes": [
+        {
+          "cubic_yards": "10",
+          "dimensions": "12' x 8' x 6'",
+          "starting_price": "299",
+          "starting_tonnage": "1",
+          "per_ton_overage_price": "65",
+          "additional_day_price": "10"
+        },
+        {
+          "cubic_yards": "15",
+          "dimensions": "16' x 8' x 6'",
+          "starting_price": "380",
+          "starting_tonnage": "2",
+          "per_ton_overage_price": "65",
+          "additional_day_price": "10"
+        },
+        {
+          "cubic_yards": "20",
+          "dimensions": "22' x 8' x 4'",
+          "starting_price": "430",
+          "starting_tonnage": "3",
+          "per_ton_overage_price": "65",
+          "additional_day_price": "15"
+        },
+        {
+          "cubic_yards": "25",
+          "dimensions": "22' x 8' x 6'",
+          "starting_price": "465",
+          "starting_tonnage": "1",
+          "per_ton_overage_price": "65",
+          "additional_day_price": "15"
+        },
+        {
+          "cubic_yards": "30",
+          "dimensions": "22' x 8' x 6'",
+          "starting_price": "595",
+          "starting_tonnage": "5",
+          "per_ton_overage_price": "65",
+          "additional_day_price": "20"
+        },
+        {
+          "cubic_yards": "40",
+          "dimensions": "22' x 8' x 8'",
+          "starting_price": "655",
+          "starting_tonnage": "5",
+          "per_ton_overage_price": "65",
+          "additional_day_price": "20"
+        }
+      ]
+    }
+  },
+  {
+    "company": {
+      "name": "Sparks Enterprises",
+      "city": "Jamestown",
+      "state": "OH",
+      "zip_code": "45335",
+      "website": "https://www.sparksdumpster.com/",
+      "dumpster_sizes": [
+        {
+          "cubic_yards": "10",
+          "dimensions": "18' x 8' x 2'",
+          "starting_price": "335",
+          "starting_tonnage": null,
+          "per_ton_overage_price": null,
+          "additional_day_price": null
+        },
+        {
+          "cubic_yards": "20",
+          "dimensions": "18' x 8' x 4'",
+          "starting_price": "395",
+          "starting_tonnage": null,
+          "per_ton_overage_price": null,
+          "additional_day_price": null
+        },
+        {
+          "cubic_yards": "30",
+          "dimensions": "22' x 8' x 6'",
+          "starting_price": "495",
+          "starting_tonnage": null,
+          "per_ton_overage_price": null,
+          "additional_day_price": null
+        },
+        {
+          "cubic_yards": "40",
+          "dimensions": "22' x 8' x 8'",
+          "starting_price": "595",
+          "starting_tonnage": null,
+          "per_ton_overage_price": null,
+          "additional_day_price": null
+        }
+      ]
+    }
+  }
+]
+
